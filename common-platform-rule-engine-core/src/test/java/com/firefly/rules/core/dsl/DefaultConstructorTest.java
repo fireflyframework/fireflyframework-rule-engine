@@ -1,0 +1,142 @@
+/*
+ * Copyright 2025 Firefly Software Solutions Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.firefly.rules.core.dsl;
+
+import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.ast.parser.DSLParser;
+import com.firefly.rules.core.services.ConstantService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Test to verify that the default constructor works correctly
+ */
+@DisplayName("Default Constructor Tests")
+class DefaultConstructorTest {
+
+    private ASTRulesEvaluationEngine evaluationEngine;
+
+    @BeforeEach
+    void setUp() {
+        // Create dependencies
+        DSLParser dslParser = new DSLParser();
+        ASTRulesDSLParser parser = new ASTRulesDSLParser(dslParser);
+        ConstantService constantService = Mockito.mock(ConstantService.class);
+
+        // Mock constant service to return empty flux (no constants from database)
+        Mockito.when(constantService.getConstantsByCodes(Mockito.anyList()))
+               .thenReturn(Flux.empty());
+
+        // Use the constructor with default REST and JSON services
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
+    }
+
+    @Test
+    @DisplayName("Test that default constructor creates working REST and JSON services")
+    void testDefaultConstructorWithRestAndJson() {
+        String yaml = """
+                when:
+                  - "true"
+                then:
+                  - calculate testData as json_get({"name": "test", "value": 42}, "name")
+                  - calculate testValue as json_get({"name": "test", "value": 42}, "value")
+                """;
+
+        Map<String, Object> inputData = new HashMap<>();
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        
+        // Verify JSON functions work with default constructor
+        assertEquals("test", result.getOutputData().get("testData"));
+        assertEquals(42, result.getOutputData().get("testValue"));
+        
+        System.out.println("✅ Default constructor works with JSON functions");
+        System.out.println("✅ testData: " + result.getOutputData().get("testData"));
+        System.out.println("✅ testValue: " + result.getOutputData().get("testValue"));
+    }
+
+    @Test
+    @DisplayName("Test that REST functions are available with default constructor")
+    void testDefaultConstructorWithRestCall() {
+        String yaml = """
+                when:
+                  - "true"
+                then:
+                  - calculate restResponse as rest_get("https://httpbin.org/json")
+                """;
+
+        Map<String, Object> inputData = new HashMap<>();
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        
+        // Verify REST function was executed (should return either success or error response)
+        assertNotNull(result.getOutputData().get("restResponse"));
+        
+        System.out.println("✅ Default constructor works with REST functions");
+        System.out.println("✅ restResponse: " + result.getOutputData().get("restResponse"));
+    }
+
+    @Test
+    @DisplayName("Test complex scenario with default constructor")
+    void testComplexScenarioWithDefaultConstructor() {
+        String yaml = """
+                when:
+                  - "true"
+                then:
+                  - calculate userData as {"user": {"name": "John", "age": 30, "address": {"city": "New York"}}}
+                  - calculate userName as json_get(userData, "user.name")
+                  - calculate userAge as json_get(userData, "user.age")
+                  - calculate userCity as json_get(userData, "user.address.city")
+                  - calculate hasAddress as json_exists(userData, "user.address")
+                  - calculate isAdult as userAge >= 18
+                """;
+
+        Map<String, Object> inputData = new HashMap<>();
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+        assertNotNull(result);
+        assertTrue(result.isSuccess());
+        
+        // Verify all JSON operations work
+        assertEquals("John", result.getOutputData().get("userName"));
+        assertEquals(30, result.getOutputData().get("userAge"));
+        assertEquals("New York", result.getOutputData().get("userCity"));
+        assertEquals(true, result.getOutputData().get("hasAddress"));
+        assertEquals(true, result.getOutputData().get("isAdult"));
+        
+        System.out.println("✅ Complex scenario works with default constructor");
+        System.out.println("✅ userName: " + result.getOutputData().get("userName"));
+        System.out.println("✅ userAge: " + result.getOutputData().get("userAge"));
+        System.out.println("✅ userCity: " + result.getOutputData().get("userCity"));
+        System.out.println("✅ hasAddress: " + result.getOutputData().get("hasAddress"));
+        System.out.println("✅ isAdult: " + result.getOutputData().get("isAdult"));
+    }
+}
