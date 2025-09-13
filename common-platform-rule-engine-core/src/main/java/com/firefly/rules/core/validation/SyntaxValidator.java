@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -47,8 +46,16 @@ public class SyntaxValidator {
     // Valid operators for conditions
     private static final Set<String> VALID_OPERATORS = Set.of(
         "equals", "not_equals", "greater_than", "less_than", "at_least", "at_most",
-        "between", "not_between", "contains", "not_contains", "starts_with", 
-        "ends_with", "matches", "not_matches", "in_list", "not_in_list", "exists"
+        "between", "not_between", "contains", "not_contains", "starts_with",
+        "ends_with", "matches", "not_matches", "in_list", "not_in_list", "exists",
+        // Basic validation operators
+        "is_empty", "is_not_empty", "is_numeric", "is_not_numeric", "is_email",
+        "is_phone", "is_date",
+        // Financial validation operators
+        "is_positive", "is_negative", "is_zero", "is_percentage", "is_currency",
+        "is_credit_score", "is_ssn", "is_account_number", "is_routing_number",
+        // Date/time validation operators
+        "is_business_day", "is_weekend", "age_at_least", "age_less_than"
     );
 
     // Valid action keywords

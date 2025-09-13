@@ -17,12 +17,15 @@
 package com.firefly.rules.core.services.impl;
 
 import com.firefly.common.core.filters.FilterRequest;
+import com.firefly.common.core.filters.FilterUtils;
 import com.firefly.common.core.queries.PaginationResponse;
-import com.firefly.rules.core.dsl.evaluation.RulesEvaluationEngine;
-import com.firefly.rules.core.dsl.evaluation.RulesEvaluationResult;
+import com.firefly.rules.core.audit.AuditHelper;
+import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
 import com.firefly.rules.core.mappers.RuleDefinitionMapper;
 import com.firefly.rules.core.services.RuleDefinitionService;
 import com.firefly.rules.core.validation.YamlDslValidator;
+import com.firefly.rules.interfaces.dtos.audit.AuditEventType;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import com.firefly.rules.models.entities.RuleDefinition;
@@ -30,6 +33,7 @@ import com.firefly.rules.models.repositories.RuleDefinitionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.time.OffsetDateTime;
@@ -46,25 +50,21 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
 
     private final RuleDefinitionRepository ruleDefinitionRepository;
     private final RuleDefinitionMapper ruleDefinitionMapper;
+    private final ASTRulesEvaluationEngine rulesEvaluationEngine;
     private final YamlDslValidator yamlDslValidator;
-    private final RulesEvaluationEngine rulesEvaluationEngine;
+    private final AuditHelper auditHelper;
 
     @Override
     public Mono<PaginationResponse<RuleDefinitionDTO>> filterRuleDefinitions(
             FilterRequest<RuleDefinitionDTO> filterRequest) {
         log.info("Filtering rule definitions with criteria: {}", filterRequest);
-        
-        // For now, return all rule definitions
-        // TODO: Implement proper filtering based on filterRequest criteria
-        return ruleDefinitionRepository.findAll()
-                .map(ruleDefinitionMapper::toDTO)
-                .collectList()
-                .map(list -> PaginationResponse.<RuleDefinitionDTO>builder()
-                        .content(list)
-                        .totalElements((long) list.size())
-                        .totalPages(1)
-                        .currentPage(0)
-                        .build());
+
+        return FilterUtils
+                .createFilter(
+                        RuleDefinition.class,
+                        ruleDefinitionMapper::toDTO
+                )
+                .filter(filterRequest);
     }
 
     @Override
@@ -153,23 +153,26 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
 
     @Override
     public Mono<ValidationResult> validateRuleDefinition(String yamlContent) {
-        log.info("Validating YAML DSL rule definition");
+        log.info("Validating YAML DSL rule definition using comprehensive validator");
 
-        try {
-            ValidationResult result = yamlDslValidator.validate(yamlContent);
-            log.info("Validation completed. Valid: {}, Errors: {}",
-                    result.isValid(), result.getErrors().size());
-            return Mono.just(result);
-        } catch (Exception e) {
-            log.error("Error during rule definition validation", e);
-            return Mono.error(new IllegalArgumentException("Validation failed: " + e.getMessage()));
-        }
+        return Mono.fromCallable(() -> yamlDslValidator.validate(yamlContent))
+                .doOnSuccess(result -> log.info("Validation completed: valid={}, issues={}",
+                        result.isValid(), result.getSummary() != null ? result.getSummary().getTotalIssues() : 0))
+                .doOnError(error -> log.error("Error during rule definition validation", error))
+                .onErrorReturn(ValidationResult.builder()
+                        .status(ValidationResult.ValidationStatus.CRITICAL_ERROR)
+                        .summary(ValidationResult.ValidationSummary.builder()
+                                .totalIssues(1)
+                                .criticalErrors(1)
+                                .qualityScore(0.0)
+                                .build())
+                        .build());
     }
 
 
 
     @Override
-    public Mono<RulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData) {
+    public Mono<ASTRulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData) {
         log.info("Evaluating rule definition by code: {} with input data: {}", code, inputData);
 
         return getRuleDefinitionByCode(code)
@@ -183,6 +186,288 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
 
                     return rulesEvaluationEngine.evaluateRulesReactive(
                             ruleDefinition.getYamlContent(), inputData);
+                });
+    }
+
+    // Audit-aware methods implementation
+
+    @Override
+    public Mono<PaginationResponse<RuleDefinitionDTO>> filterRuleDefinitionsWithAudit(
+            FilterRequest<RuleDefinitionDTO> filterRequest, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return filterRuleDefinitions(filterRequest)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_FILTER,
+                            null, // entityId
+                            null, // ruleCode
+                            filterRequest,
+                            result,
+                            200,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_FILTER,
+                            null, // entityId
+                            null, // ruleCode
+                            filterRequest,
+                            error.getMessage(),
+                            500,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<RuleDefinitionDTO> createRuleDefinitionWithAudit(RuleDefinitionDTO ruleDefinitionDTO, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return createRuleDefinition(ruleDefinitionDTO)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_CREATE,
+                            result.getId(),
+                            result.getCode(),
+                            ruleDefinitionDTO,
+                            result,
+                            201,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_CREATE,
+                            null, // entityId
+                            ruleDefinitionDTO.getCode(),
+                            ruleDefinitionDTO,
+                            error.getMessage(),
+                            400,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<RuleDefinitionDTO> updateRuleDefinitionWithAudit(UUID ruleDefinitionId, RuleDefinitionDTO ruleDefinitionDTO, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return updateRuleDefinition(ruleDefinitionId, ruleDefinitionDTO)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_UPDATE,
+                            ruleDefinitionId,
+                            result.getCode(),
+                            ruleDefinitionDTO,
+                            result,
+                            200,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_UPDATE,
+                            ruleDefinitionId,
+                            ruleDefinitionDTO.getCode(),
+                            ruleDefinitionDTO,
+                            error.getMessage(),
+                            400,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<Void> deleteRuleDefinitionWithAudit(UUID ruleDefinitionId, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        // Get rule definition first for audit purposes
+        return getRuleDefinitionById(ruleDefinitionId)
+                .flatMap(ruleDefinition -> {
+                    return deleteRuleDefinition(ruleDefinitionId)
+                            .then(Mono.defer(() -> {
+                                long executionTime = System.currentTimeMillis() - startTime;
+
+                                // Record audit event and return empty
+                                return auditHelper.recordAuditEvent(
+                                        AuditEventType.RULE_DEFINITION_DELETE,
+                                        ruleDefinitionId,
+                                        ruleDefinition.getCode(),
+                                        null, // requestData
+                                        null, // responseData
+                                        204,
+                                        true,
+                                        executionTime,
+                                        exchange
+                                ).then();
+                            }));
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_DELETE,
+                            ruleDefinitionId,
+                            null, // ruleCode
+                            null, // requestData
+                            error.getMessage(),
+                            400,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<RuleDefinitionDTO> getRuleDefinitionByIdWithAudit(UUID ruleDefinitionId, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return getRuleDefinitionById(ruleDefinitionId)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    String ruleCode = result != null ? result.getCode() : null;
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_GET,
+                            ruleDefinitionId,
+                            ruleCode,
+                            null, // requestData
+                            result,
+                            200,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_GET,
+                            ruleDefinitionId,
+                            null, // ruleCode
+                            null, // requestData
+                            error.getMessage(),
+                            500,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<RuleDefinitionDTO> getRuleDefinitionByCodeWithAudit(String code, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return getRuleDefinitionByCode(code)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    UUID entityId = result != null ? result.getId() : null;
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_GET,
+                            entityId,
+                            code,
+                            null, // requestData
+                            result,
+                            200,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_GET,
+                            null, // entityId
+                            code,
+                            null, // requestData
+                            error.getMessage(),
+                            500,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
+                });
+    }
+
+    @Override
+    public Mono<ValidationResult> validateRuleDefinitionWithAudit(String yamlContent, ServerWebExchange exchange) {
+
+        long startTime = System.currentTimeMillis();
+
+        return validateRuleDefinition(yamlContent)
+                .flatMap(result -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event and return the result
+                    return auditHelper.recordAuditEvent(
+                            AuditEventType.RULE_DEFINITION_VALIDATE,
+                            null, // entityId
+                            null, // ruleCode
+                            yamlContent,
+                            result,
+                            200,
+                            true,
+                            executionTime,
+                            exchange
+                    ).thenReturn(result);
+                })
+                .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
+
+                    // Record audit event for error and re-throw
+                    return auditHelper.recordAuditEventWithError(
+                            AuditEventType.RULE_DEFINITION_VALIDATE,
+                            null, // entityId
+                            null, // ruleCode
+                            yamlContent,
+                            error.getMessage(),
+                            400,
+                            executionTime,
+                            exchange
+                    ).then(Mono.error(error));
                 });
     }
 }

@@ -19,7 +19,10 @@ package com.firefly.rules.core.services;
 import com.firefly.common.core.filters.FilterRequest;
 import com.firefly.common.core.queries.PaginationResponse;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -79,4 +82,12 @@ public interface ConstantService {
      *         or an empty Mono if the constant does not exist
      */
     Mono<ConstantDTO> getConstantByCode(String code);
+
+    /**
+     * Retrieves multiple constants by their codes.
+     *
+     * @param codes the list of unique codes of the constants to retrieve
+     * @return a Flux emitting the {@link ConstantDTO} objects for constants that are found
+     */
+    Flux<ConstantDTO> getConstantsByCodes(List<String> codes);
 }

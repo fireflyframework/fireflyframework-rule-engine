@@ -19,6 +19,7 @@ package com.firefly.rules.core.services;
 import com.firefly.common.core.filters.FilterRequest;
 import com.firefly.common.core.queries.PaginationResponse;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
@@ -98,5 +99,72 @@ public interface RuleDefinitionService {
      * @param inputData The input data for evaluation
      * @return Mono containing the evaluation result
      */
-    Mono<com.firefly.rules.core.dsl.evaluation.RulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData);
+    Mono<com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData);
+
+    // Audit-aware methods for controllers
+
+    /**
+     * Filter rule definitions with audit trail recording.
+     *
+     * @param filterRequest The filter criteria and pagination parameters
+     * @param exchange The web exchange for audit context
+     * @return Mono containing paginated rule definitions
+     */
+    Mono<PaginationResponse<RuleDefinitionDTO>> filterRuleDefinitionsWithAudit(
+            FilterRequest<RuleDefinitionDTO> filterRequest, ServerWebExchange exchange);
+
+    /**
+     * Create a new rule definition with audit trail recording.
+     *
+     * @param ruleDefinitionDTO The rule definition to create
+     * @param exchange The web exchange for audit context
+     * @return Mono containing the created rule definition
+     */
+    Mono<RuleDefinitionDTO> createRuleDefinitionWithAudit(RuleDefinitionDTO ruleDefinitionDTO, ServerWebExchange exchange);
+
+    /**
+     * Update an existing rule definition with audit trail recording.
+     *
+     * @param ruleDefinitionId The ID of the rule definition to update
+     * @param ruleDefinitionDTO The updated rule definition data
+     * @param exchange The web exchange for audit context
+     * @return Mono containing the updated rule definition
+     */
+    Mono<RuleDefinitionDTO> updateRuleDefinitionWithAudit(UUID ruleDefinitionId, RuleDefinitionDTO ruleDefinitionDTO, ServerWebExchange exchange);
+
+    /**
+     * Delete a rule definition by ID with audit trail recording.
+     *
+     * @param ruleDefinitionId The ID of the rule definition to delete
+     * @param exchange The web exchange for audit context
+     * @return Mono<Void> indicating completion
+     */
+    Mono<Void> deleteRuleDefinitionWithAudit(UUID ruleDefinitionId, ServerWebExchange exchange);
+
+    /**
+     * Get a rule definition by ID with audit trail recording.
+     *
+     * @param ruleDefinitionId The ID of the rule definition
+     * @param exchange The web exchange for audit context
+     * @return Mono containing the rule definition if found
+     */
+    Mono<RuleDefinitionDTO> getRuleDefinitionByIdWithAudit(UUID ruleDefinitionId, ServerWebExchange exchange);
+
+    /**
+     * Get a rule definition by code with audit trail recording.
+     *
+     * @param code The unique code identifier
+     * @param exchange The web exchange for audit context
+     * @return Mono containing the rule definition if found
+     */
+    Mono<RuleDefinitionDTO> getRuleDefinitionByCodeWithAudit(String code, ServerWebExchange exchange);
+
+    /**
+     * Validate a YAML DSL rule definition with audit trail recording.
+     *
+     * @param yamlContent The YAML DSL content to validate
+     * @param exchange The web exchange for audit context
+     * @return Mono containing validation results
+     */
+    Mono<com.firefly.rules.interfaces.dtos.validation.ValidationResult> validateRuleDefinitionWithAudit(String yamlContent, ServerWebExchange exchange);
 }

@@ -27,7 +27,10 @@ import com.firefly.rules.models.repositories.ConstantRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -92,5 +95,21 @@ public class ConstantServiceImpl implements ConstantService {
         return repository.findByCode(code)
                 .switchIfEmpty(Mono.error(new RuntimeException("Constant not found with code: " + code)))
                 .map(mapper::toDTO);
+    }
+
+    @Override
+    public Flux<ConstantDTO> getConstantsByCodes(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return Flux.empty();
+        }
+
+        return Flux.fromIterable(codes)
+                .flatMap(code -> repository.findByCode(code)
+                        .map(mapper::toDTO)
+                        .onErrorResume(error -> {
+                            // Log the error but don't fail the entire operation
+                            // This allows partial loading of constants
+                            return Mono.empty();
+                        }));
     }
 }
