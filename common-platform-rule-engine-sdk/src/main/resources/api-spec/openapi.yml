@@ -14,6 +14,8 @@ servers:
 tags:
   - name: YAML DSL Validation
     description: Static code analysis and validation for YAML DSL rules
+  - name: Batch Rules Evaluation
+    description: High-performance batch processing operations for evaluating multiple rules
   - name: Audit Trails
     description: Operations for querying audit trail records
   - name: Rule Definitions
@@ -558,6 +560,84 @@ paths:
             '*/*':
               schema:
                 $ref: '#/components/schemas/PaginationResponseRuleDefinitionDTO'
+  /api/v1/rules/batch/validate:
+    post:
+      tags:
+        - Batch Rules Evaluation
+      summary: Validate batch evaluation request
+      description: Validate the structure and content of a batch evaluation request without executing it. Checks request format, rule codes, input data structure, and batch configuration options.
+      operationId: validateBatchRequest
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRulesEvaluationRequestDTO'
+        required: true
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '400':
+          description: Invalid request structure
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '500':
+          description: Internal server error during validation
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+  /api/v1/rules/batch/evaluate:
+    post:
+      tags:
+        - Batch Rules Evaluation
+      summary: Evaluate multiple rules in batch
+      description: Process multiple rule evaluations concurrently in a single request. Provides comprehensive error handling, performance metrics, and configurable concurrency limits. Input variables must use camelCase naming convention.
+      operationId: evaluateBatch
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRulesEvaluationRequestDTO'
+        required: true
+      responses:
+        '200':
+          description: Batch evaluation completed (may include partial failures)
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '400':
+          description: Invalid batch request structure or parameters
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '500':
+          description: Internal server error during batch processing
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
   /api/v1/constants:
     post:
       tags:
@@ -725,6 +805,52 @@ paths:
             '*/*':
               schema:
                 $ref: '#/components/schemas/RuleDefinitionDTO'
+  /api/v1/rules/batch/statistics:
+    get:
+      tags:
+        - Batch Rules Evaluation
+      summary: Get batch processing statistics
+      description: Retrieve real-time statistics about batch processing performance, including throughput metrics, cache hit rates, and system resource utilization.
+      operationId: getBatchStatistics
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+  /api/v1/rules/batch/health:
+    get:
+      tags:
+        - Batch Rules Evaluation
+      summary: Get batch processing health status
+      description: Check the health and availability of the batch processing system, including system resources, cache availability, and processing capacity.
+      operationId: getHealthStatus
+      responses:
+        '200':
+          description: Health status retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+        '503':
+          description: Service unavailable or degraded
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
   /api/v1/constants/code/{code}:
     get:
       tags:
@@ -1678,6 +1804,252 @@ components:
           description: The current page number, typically zero-based.
           format: int32
       description: Represents a paginated response containing a list of items and pagination metadata.
+    BatchOptions:
+      type: object
+      properties:
+        maxConcurrency:
+          type: integer
+          description: Maximum number of concurrent evaluations
+          format: int32
+          example: 10
+        timeoutSeconds:
+          type: integer
+          description: Timeout for the entire batch operation in seconds
+          format: int32
+          example: 300
+        failFast:
+          type: boolean
+          description: Whether to fail the entire batch if any evaluation fails
+          example: false
+        returnPartialResults:
+          type: boolean
+          description: Whether to return partial results if some evaluations fail
+          example: true
+        sortByPriority:
+          type: boolean
+          description: Whether to sort requests by priority before processing
+          example: true
+        includeTimingInfo:
+          type: boolean
+          description: Whether to enable detailed timing information for each evaluation
+          example: false
+        enableCaching:
+          type: boolean
+          description: Whether to cache rule definitions during batch processing
+          example: true
+      description: Batch processing configuration options
+    BatchRulesEvaluationRequestDTO:
+      required:
+        - evaluationRequests
+      type: object
+      properties:
+        evaluationRequests:
+          maxItems: 100
+          minItems: 0
+          type: array
+          description: List of rule evaluation requests to process in batch
+          example:
+            - ruleDefinitionCode: LOAN_APPROVAL
+              inputData:
+                creditScore: 750
+            - ruleDefinitionCode: RISK_ASSESSMENT
+              inputData:
+                amount: 50000
+          items:
+            $ref: '#/components/schemas/SingleRuleEvaluationRequest'
+        globalInputData:
+          type: object
+          additionalProperties:
+            type: object
+            description: Global input data to be merged with individual request data
+            example:
+              userId: user123
+              timestamp: '2025-01-13T10:00:00Z'
+          description: Global input data to be merged with individual request data
+          example:
+            userId: user123
+            timestamp: '2025-01-13T10:00:00Z'
+        batchOptions:
+          $ref: '#/components/schemas/BatchOptions'
+      description: Batch evaluation request with multiple rule evaluation requests
+    SingleRuleEvaluationRequest:
+      required:
+        - ruleDefinitionCode
+      type: object
+      properties:
+        requestId:
+          type: string
+          description: Unique identifier for this evaluation request within the batch
+          example: req-001
+        ruleDefinitionCode:
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Rule definition code to evaluate
+          example: LOAN_APPROVAL_RULE
+        inputData:
+          type: object
+          additionalProperties:
+            type: object
+            description: Input data for this specific rule evaluation
+            example:
+              creditScore: 750
+              income: 75000
+          description: Input data for this specific rule evaluation
+          example:
+            creditScore: 750
+            income: 75000
+        priority:
+          type: integer
+          description: Priority for this evaluation (higher numbers processed first)
+          format: int32
+          example: 1
+        continueOnError:
+          type: boolean
+          description: Whether to continue batch processing if this evaluation fails
+          example: true
+      description: Individual rule evaluation request within a batch
+      example:
+        - ruleDefinitionCode: LOAN_APPROVAL
+          inputData:
+            creditScore: 750
+        - ruleDefinitionCode: RISK_ASSESSMENT
+          inputData:
+            amount: 50000
+    BatchRulesEvaluationResponseDTO:
+      type: object
+      properties:
+        batchStatus:
+          type: string
+          description: Overall batch processing status
+          example: SUCCESS
+          enum:
+            - SUCCESS
+            - PARTIAL_SUCCESS
+            - FAILED
+            - CANCELLED
+            - IN_PROGRESS
+        evaluationResults:
+          type: array
+          description: List of individual rule evaluation results
+          items:
+            $ref: '#/components/schemas/SingleRuleEvaluationResult'
+        batchSummary:
+          $ref: '#/components/schemas/BatchSummary'
+        startTime:
+          type: string
+          description: Timestamp when batch processing started
+          format: date-time
+        endTime:
+          type: string
+          description: Timestamp when batch processing completed
+          format: date-time
+        totalProcessingTimeMs:
+          type: integer
+          description: Total processing time in milliseconds
+          format: int64
+      description: Response for batch rule evaluation operations
+    BatchSummary:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+          description: Total number of evaluation requests in the batch
+          format: int32
+        successfulEvaluations:
+          type: integer
+          description: Number of successful evaluations
+          format: int32
+        failedEvaluations:
+          type: integer
+          description: Number of failed evaluations
+          format: int32
+        skippedEvaluations:
+          type: integer
+          description: Number of skipped evaluations (due to fail-fast or other reasons)
+          format: int32
+        successRate:
+          type: number
+          description: Success rate as a percentage
+          format: double
+        averageProcessingTimeMs:
+          type: number
+          description: Average processing time per evaluation in milliseconds
+          format: double
+        minProcessingTimeMs:
+          type: integer
+          description: Minimum processing time among all evaluations in milliseconds
+          format: int64
+        maxProcessingTimeMs:
+          type: integer
+          description: Maximum processing time among all evaluations in milliseconds
+          format: int64
+        cacheHits:
+          type: integer
+          description: Number of cache hits during batch processing
+          format: int32
+        cacheMisses:
+          type: integer
+          description: Number of cache misses during batch processing
+          format: int32
+        cacheHitRate:
+          type: number
+          description: Cache hit rate as a percentage
+          format: double
+        performanceMetrics:
+          type: object
+          additionalProperties:
+            type: object
+            description: Additional performance metrics
+          description: Additional performance metrics
+      description: Batch processing summary and statistics
+    SingleRuleEvaluationResult:
+      type: object
+      properties:
+        requestId:
+          type: string
+          description: Request ID from the original request
+          example: req-001
+        ruleDefinitionCode:
+          type: string
+          description: Rule definition code that was evaluated
+          example: LOAN_APPROVAL_RULE
+        status:
+          type: string
+          description: Evaluation status for this specific rule
+          example: SUCCESS
+          enum:
+            - SUCCESS
+            - FAILED
+            - SKIPPED
+            - TIMEOUT
+        result:
+          $ref: '#/components/schemas/RulesEvaluationResponseDTO'
+        errorMessage:
+          type: string
+          description: Error message if evaluation failed
+          example: Rule definition not found
+        errorCode:
+          type: string
+          description: Error code if evaluation failed
+          example: RULE_NOT_FOUND
+        processingTimeMs:
+          type: integer
+          description: Processing time for this evaluation in milliseconds
+          format: int64
+        startTime:
+          type: string
+          description: Timestamp when this evaluation started
+          format: date-time
+        endTime:
+          type: string
+          description: Timestamp when this evaluation completed
+          format: date-time
+        priority:
+          type: integer
+          description: Priority of this evaluation request
+          format: int32
+      description: Individual rule evaluation result within a batch
     FilterRequestConstantDTO:
       required:
         - pagination
