@@ -1,4 +1,4 @@
-# My First Rule Design: B2B Credit Scoring Platform
+# B2B Credit Scoring Platform
 
 **A Complete Step-by-Step Tutorial for Building Enterprise Credit Assessment Rules**
 
