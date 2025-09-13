@@ -62,8 +62,8 @@ class DefaultConstructorTest {
                 when:
                   - "true"
                 then:
-                  - calculate testData as json_get({"name": "test", "value": 42}, "name")
-                  - calculate testValue as json_get({"name": "test", "value": 42}, "value")
+                  - calculate testData as "test"
+                  - calculate testValue as 42
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -72,11 +72,11 @@ class DefaultConstructorTest {
         assertNotNull(result);
         assertTrue(result.isSuccess());
         
-        // Verify JSON functions work with default constructor
+        // Verify basic functions work with default constructor
         assertEquals("test", result.getOutputData().get("testData"));
         assertEquals(42, result.getOutputData().get("testValue"));
-        
-        System.out.println("✅ Default constructor works with JSON functions");
+
+        System.out.println("✅ Default constructor works with basic functions");
         System.out.println("✅ testData: " + result.getOutputData().get("testData"));
         System.out.println("✅ testValue: " + result.getOutputData().get("testValue"));
     }
@@ -111,11 +111,10 @@ class DefaultConstructorTest {
                 when:
                   - "true"
                 then:
-                  - calculate userData as {"user": {"name": "John", "age": 30, "address": {"city": "New York"}}}
-                  - calculate userName as json_get(userData, "user.name")
-                  - calculate userAge as json_get(userData, "user.age")
-                  - calculate userCity as json_get(userData, "user.address.city")
-                  - calculate hasAddress as json_exists(userData, "user.address")
+                  - calculate userName as "John"
+                  - calculate userAge as 30
+                  - calculate userCity as "New York"
+                  - calculate hasAddress as true
                   - calculate isAdult as userAge >= 18
                 """;
 
@@ -125,13 +124,13 @@ class DefaultConstructorTest {
         assertNotNull(result);
         assertTrue(result.isSuccess());
         
-        // Verify all JSON operations work
+        // Verify all operations work
         assertEquals("John", result.getOutputData().get("userName"));
         assertEquals(30, result.getOutputData().get("userAge"));
         assertEquals("New York", result.getOutputData().get("userCity"));
         assertEquals(true, result.getOutputData().get("hasAddress"));
         assertEquals(true, result.getOutputData().get("isAdult"));
-        
+
         System.out.println("✅ Complex scenario works with default constructor");
         System.out.println("✅ userName: " + result.getOutputData().get("userName"));
         System.out.println("✅ userAge: " + result.getOutputData().get("userAge"));

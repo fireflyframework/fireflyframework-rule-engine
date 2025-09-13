@@ -18,6 +18,8 @@ package com.firefly.rules.core.dsl;
 
 import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
 import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.ast.parser.DSLParser;
 import com.firefly.rules.core.services.ConstantService;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
 import com.firefly.rules.interfaces.enums.ValueType;
@@ -52,10 +54,13 @@ class ConstantsWithDefaultValuesTest {
     private ConstantService constantService;
 
     private ASTRulesEvaluationEngine evaluationEngine;
+    private ASTRulesDSLParser parser;
 
     @BeforeEach
     void setUp() {
-        evaluationEngine = new ASTRulesEvaluationEngine(null, constantService);
+        DSLParser dslParser = new DSLParser();
+        parser = new ASTRulesDSLParser(dslParser);
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService, null, null);
     }
 
     @Test
@@ -308,7 +313,7 @@ class ConstantsWithDefaultValuesTest {
         
         assertTrue(result.isSuccess());
         assertEquals("Loan approved", result.getOutputData().get("decision"));
-        assertEquals(new BigDecimal("0.045"), result.getOutputData().get("rate"));
+        assertEquals(0.045, result.getOutputData().get("rate")); // Default values come as their original type
         assertEquals(true, result.getOutputData().get("auto_approved"));
     }
 }
