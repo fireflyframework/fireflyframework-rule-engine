@@ -38,6 +38,8 @@ public interface ASTVisitor<T> {
     T visitLiteralExpression(LiteralExpression node);
     T visitFunctionCallExpression(FunctionCallExpression node);
     T visitArithmeticExpression(ArithmeticExpression node);
+    T visitJsonPathExpression(JsonPathExpression node);
+    T visitRestCallExpression(RestCallExpression node);
     
     // Condition visitors
     T visitComparisonCondition(ComparisonCondition node);

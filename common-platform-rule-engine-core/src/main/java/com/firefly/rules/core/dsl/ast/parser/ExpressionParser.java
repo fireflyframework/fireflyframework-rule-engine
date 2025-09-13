@@ -54,7 +54,14 @@ public class ExpressionParser extends BaseParser {
      * primary        → NUMBER | STRING | BOOLEAN | NULL | IDENTIFIER | functionCall | "(" expression ")"
      */
     public Expression parseExpression() {
-        // Skip logical operators (AND/OR) - those are handled in ConditionParser
+        // Include logical operators (AND/OR) for complex boolean expressions
+        return logicalOr();
+    }
+
+    /**
+     * Parse expression without logical operators (for use in BETWEEN expressions)
+     */
+    public Expression parseExpressionWithoutLogical() {
         return equality();
     }
     
@@ -113,22 +120,55 @@ public class ExpressionParser extends BaseParser {
      */
     private Expression comparison() {
         Expression expr = term();
-        
+
         while (match(TokenType.GREATER_THAN, TokenType.LESS_THAN, TokenType.GREATER_EQUAL,
                      TokenType.LESS_EQUAL, TokenType.CONTAINS, TokenType.NOT_CONTAINS,
                      TokenType.STARTS_WITH, TokenType.ENDS_WITH, TokenType.MATCHES,
-                     TokenType.NOT_MATCHES, TokenType.IN_LIST, TokenType.NOT_IN_LIST)) {
+                     TokenType.NOT_MATCHES, TokenType.IN_LIST, TokenType.NOT_IN_LIST,
+                     // Add validation operators to support them in expressions
+                     TokenType.IS_POSITIVE, TokenType.IS_NEGATIVE, TokenType.IS_ZERO,
+                     TokenType.IS_EMPTY, TokenType.IS_NOT_EMPTY, TokenType.IS_NUMERIC,
+                     TokenType.IS_NOT_NUMERIC, TokenType.IS_EMAIL, TokenType.IS_PHONE,
+                     TokenType.IS_DATE, TokenType.IS_PERCENTAGE, TokenType.IS_CURRENCY,
+                     TokenType.IS_CREDIT_SCORE, TokenType.IS_SSN, TokenType.IS_ACCOUNT_NUMBER,
+                     TokenType.IS_ROUTING_NUMBER, TokenType.IS_BUSINESS_DAY, TokenType.IS_WEEKEND,
+                     TokenType.AGE_AT_LEAST, TokenType.AGE_LESS_THAN, TokenType.IS_NUMBER,
+                     TokenType.IS_STRING, TokenType.IS_BOOLEAN, TokenType.IS_LIST,
+                     TokenType.IS_NULL, TokenType.IS_NOT_NULL)) {
                      // BETWEEN and NOT_BETWEEN are handled in ConditionParser, not here
             Token operator = previous();
-            BinaryOperator op = mapTokenToBinaryOperator(operator);
-            Expression right = term();
 
-            expr = new BinaryExpression(expr.getLocation(), expr, op, right);
+            // Check if it's a validation operator first (unary)
+            if (isValidationOperator(operator.getType())) {
+                // For validation operators, create a unary expression
+                return new UnaryExpression(expr.getLocation(), UnaryOperator.fromToken(operator.getType()), expr);
+            } else {
+                // For binary operators, parse the right operand
+                BinaryOperator op = mapTokenToBinaryOperator(operator);
+                Expression right = term();
+                expr = new BinaryExpression(expr.getLocation(), expr, op, right);
+            }
         }
-        
+
         return expr;
     }
-    
+
+    /**
+     * Check if a token type represents a validation operator (unary)
+     */
+    private boolean isValidationOperator(TokenType tokenType) {
+        return switch (tokenType) {
+            case IS_POSITIVE, IS_NEGATIVE, IS_ZERO, IS_EMPTY, IS_NOT_EMPTY,
+                 IS_NUMERIC, IS_NOT_NUMERIC, IS_EMAIL, IS_PHONE, IS_DATE,
+                 IS_PERCENTAGE, IS_CURRENCY, IS_CREDIT_SCORE, IS_SSN,
+                 IS_ACCOUNT_NUMBER, IS_ROUTING_NUMBER, IS_BUSINESS_DAY,
+                 IS_WEEKEND, IS_NUMBER, IS_STRING, IS_BOOLEAN, IS_LIST,
+                 IS_NULL, IS_NOT_NULL -> true;
+            case AGE_AT_LEAST, AGE_LESS_THAN -> false; // These need a right operand
+            default -> false;
+        };
+    }
+
     /**
      * Parse term expressions (addition and subtraction)
      */
@@ -341,6 +381,8 @@ public class ExpressionParser extends BaseParser {
             case IN_LIST -> BinaryOperator.IN_LIST;
             case NOT_IN_LIST -> BinaryOperator.NOT_IN_LIST;
             // BETWEEN and NOT_BETWEEN are handled in ConditionParser, not here
+            case AGE_AT_LEAST -> BinaryOperator.AGE_AT_LEAST;
+            case AGE_LESS_THAN -> BinaryOperator.AGE_LESS_THAN;
             case AND -> BinaryOperator.AND;
             case OR -> BinaryOperator.OR;
             case PLUS -> BinaryOperator.ADD;

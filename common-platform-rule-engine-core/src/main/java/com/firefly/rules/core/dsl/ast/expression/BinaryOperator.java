@@ -56,6 +56,10 @@ public enum BinaryOperator {
     IN_LIST("in", ExpressionType.BOOLEAN, 4),        // Alias
     NOT_IN_LIST("not_in", ExpressionType.BOOLEAN, 4),
 
+    // Age validation operators
+    AGE_AT_LEAST("age_at_least", ExpressionType.BOOLEAN, 4),
+    AGE_LESS_THAN("age_less_than", ExpressionType.BOOLEAN, 4),
+
     // Power operator
     POWER("^", ExpressionType.NUMBER, 8);
 

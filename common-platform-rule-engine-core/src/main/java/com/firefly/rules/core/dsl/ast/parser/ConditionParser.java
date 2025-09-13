@@ -169,7 +169,7 @@ public class ConditionParser extends BaseParser {
             
             // Parse right operand
             this.expressionParser.setCurrentPosition(this.current);
-            Expression right = this.expressionParser.parseExpression();
+            Expression right = this.expressionParser.parseExpressionWithoutLogical();
             this.current = this.expressionParser.getCurrentPosition();
             
             // Handle BETWEEN operator (ternary)
@@ -183,7 +183,7 @@ public class ConditionParser extends BaseParser {
                 }
                 
                 this.expressionParser.setCurrentPosition(this.current);
-                Expression rangeEnd = this.expressionParser.parseExpression();
+                Expression rangeEnd = this.expressionParser.parseExpressionWithoutLogical();
                 this.current = this.expressionParser.getCurrentPosition();
                 
                 return new ComparisonCondition(left.getLocation(), left, op, right, rangeEnd);
