@@ -21,9 +21,12 @@ import com.firefly.common.core.filters.FilterUtils;
 import com.firefly.common.core.queries.PaginationResponse;
 import com.firefly.rules.core.mappers.ConstantMapper;
 import com.firefly.rules.core.services.ConstantService;
+import com.firefly.rules.core.utils.JsonLogger;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
 import com.firefly.rules.models.entities.Constant;
 import com.firefly.rules.models.repositories.ConstantRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +39,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class ConstantServiceImpl implements ConstantService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConstantServiceImpl.class);
 
     @Autowired
     private ConstantRepository repository;
@@ -106,9 +111,10 @@ public class ConstantServiceImpl implements ConstantService {
         return Flux.fromIterable(codes)
                 .flatMap(code -> repository.findByCode(code)
                         .map(mapper::toDTO)
+                        .switchIfEmpty(Mono.empty()) // Don't fail here, let the caller handle missing constants
                         .onErrorResume(error -> {
-                            // Log the error but don't fail the entire operation
-                            // This allows partial loading of constants
+                            // Log the error but don't fail - let the caller handle it
+                            JsonLogger.error(log, "Error loading constant '" + code + "'", error);
                             return Mono.empty();
                         }));
     }
