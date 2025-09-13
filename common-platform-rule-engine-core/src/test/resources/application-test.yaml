@@ -18,9 +18,45 @@ spring:
   # Disable web server for tests
   main:
     web-application-type: none
+    allow-bean-definition-overriding: true
+
+  # Redis configuration for testcontainers
+  data:
+    redis:
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 1000ms
+
+# Firefly cache configuration for tests
+firefly:
+  cache:
+    provider: CAFFEINE  # Default to Caffeine, can be overridden in specific tests
+    ast:
+      maximum-size: 100
+      expire-after-write: PT1M
+      expire-after-access: PT30S
+    constants:
+      maximum-size: 50
+      expire-after-write: PT30S
+      expire-after-access: PT15S
+    rule-definitions:
+      maximum-size: 20
+      expire-after-write: PT30S
+      expire-after-access: PT10S
+    validation:
+      maximum-size: 10
+      expire-after-write: PT15S
 
 logging:
   level:
     root: WARN
     com.firefly: DEBUG
+    com.firefly.rules.core.cache: DEBUG
+    com.firefly.rules.core.config: DEBUG
     org.springframework: WARN
+    org.testcontainers: INFO
+    org.springframework.data.redis: DEBUG
