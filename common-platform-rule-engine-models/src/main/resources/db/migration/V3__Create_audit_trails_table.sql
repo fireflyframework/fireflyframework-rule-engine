@@ -43,12 +43,12 @@ CREATE INDEX idx_audit_trails_rule_operation ON audit_trails(rule_code, operatio
 CREATE INDEX idx_audit_trails_success_created ON audit_trails(success, created_at DESC);
 
 -- Add constraints
-ALTER TABLE audit_trails ADD CONSTRAINT chk_audit_trails_operation_type 
+ALTER TABLE audit_trails ADD CONSTRAINT chk_audit_trails_operation_type
     CHECK (operation_type IN (
-        'RULE_DEFINITION_CREATE', 'RULE_DEFINITION_UPDATE', 'RULE_DEFINITION_DELETE', 
+        'RULE_DEFINITION_CREATE', 'RULE_DEFINITION_UPDATE', 'RULE_DEFINITION_DELETE',
         'RULE_DEFINITION_GET', 'RULE_DEFINITION_FILTER', 'RULE_DEFINITION_VALIDATE',
-        'RULE_EVALUATION_DIRECT', 'RULE_EVALUATION_PLAIN', 'RULE_EVALUATION_BY_CODE',
-        'CONSTANT_CREATE', 'CONSTANT_UPDATE', 'CONSTANT_DELETE', 
+        'RULE_EVALUATION_DIRECT', 'RULE_EVALUATION_PLAIN', 'RULE_EVALUATION_BY_CODE', 'RULE_EVALUATION_BATCH',
+        'CONSTANT_CREATE', 'CONSTANT_UPDATE', 'CONSTANT_DELETE',
         'CONSTANT_GET', 'CONSTANT_FILTER',
         'YAML_VALIDATION'
     ));

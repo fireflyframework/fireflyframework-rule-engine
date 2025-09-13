@@ -34,6 +34,7 @@ public enum AuditEventType {
     RULE_EVALUATION_DIRECT("RULE_EVALUATION", "Evaluate rules directly with base64 YAML"),
     RULE_EVALUATION_PLAIN("RULE_EVALUATION", "Evaluate rules directly with plain YAML"),
     RULE_EVALUATION_BY_CODE("RULE_EVALUATION", "Evaluate rules by stored rule code"),
+    RULE_EVALUATION_BATCH("RULE_EVALUATION", "Evaluate multiple rules in batch operation"),
     
     // Constant Operations
     CONSTANT_CREATE("CONSTANT", "Create constant"),
