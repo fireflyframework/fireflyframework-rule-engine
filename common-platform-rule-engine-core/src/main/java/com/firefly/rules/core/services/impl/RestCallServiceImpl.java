@@ -47,12 +47,26 @@ public class RestCallServiceImpl implements RestCallService {
     private static final long DEFAULT_TIMEOUT_MS = 5000L;
     private static final String USER_AGENT = "Firefly-Rule-Engine/1.0";
     
+    /**
+     * Constructor with injected dependencies (for Spring configuration)
+     */
     public RestCallServiceImpl(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
         this.webClient = webClientBuilder
                 .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Default constructor that creates default dependencies
+     */
+    public RestCallServiceImpl() {
+        this.objectMapper = new ObjectMapper();
+        this.webClient = WebClient.builder()
+                .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
     }
     
     @Override

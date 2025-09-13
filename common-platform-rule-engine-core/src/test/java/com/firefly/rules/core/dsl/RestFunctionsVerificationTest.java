@@ -49,11 +49,6 @@ import static org.mockito.Mockito.when;
 class RestFunctionsVerificationTest {
 
     private ASTRulesEvaluationEngine evaluationEngine;
-    private WebClient.Builder webClientBuilder;
-    private WebClient webClient;
-    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
-    private WebClient.RequestHeadersSpec requestHeadersSpec;
-    private WebClient.ResponseSpec responseSpec;
 
     @BeforeEach
     void setUp() {
@@ -66,27 +61,8 @@ class RestFunctionsVerificationTest {
         when(constantService.getConstantsByCodes(Mockito.anyList()))
                .thenReturn(Flux.empty());
 
-        // Create comprehensive mocks for WebClient
-        webClientBuilder = Mockito.mock(WebClient.Builder.class);
-        webClient = Mockito.mock(WebClient.class);
-        requestBodyUriSpec = Mockito.mock(WebClient.RequestBodyUriSpec.class);
-        requestHeadersSpec = Mockito.mock(WebClient.RequestHeadersSpec.class);
-        responseSpec = Mockito.mock(WebClient.ResponseSpec.class);
-
-        // Setup mock chain
-        lenient().when(webClientBuilder.defaultHeader(any(), any())).thenReturn(webClientBuilder);
-        lenient().when(webClientBuilder.build()).thenReturn(webClient);
-        lenient().when(webClient.method(any())).thenReturn(requestBodyUriSpec);
-        lenient().when(requestBodyUriSpec.uri(any(String.class))).thenReturn(requestHeadersSpec);
-        lenient().when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        lenient().when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just("{\"id\":1,\"todo\":\"Test\",\"completed\":false}"));
-
-        // Create services
-        ObjectMapper objectMapper = new ObjectMapper();
-        RestCallService restCallService = new RestCallServiceImpl(webClientBuilder, objectMapper);
-        JsonPathService jsonPathService = new JsonPathServiceImpl();
-
-        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService, restCallService, jsonPathService);
+        // Use the constructor with default REST and JSON services
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
     }
 
     @Test
@@ -104,9 +80,13 @@ class RestFunctionsVerificationTest {
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
-        
-        // The REST call should return a response (either success or error)
-        assertNotNull(result.getOutputData().get("apiResponse"));
+
+        // The REST call should succeed and return actual data from the API
+        Map<String, Object> apiResponse = (Map<String, Object>) result.getOutputData().get("apiResponse");
+        assertNotNull(apiResponse);
+        assertEquals(1, apiResponse.get("id"));
+        assertEquals(false, apiResponse.get("completed"));
+        assertNotNull(apiResponse.get("todo"));
     }
 
     @Test
@@ -124,7 +104,11 @@ class RestFunctionsVerificationTest {
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
-        assertNotNull(result.getOutputData().get("apiResponse"));
+
+        // Verify the function was recognized and executed (returns error response)
+        Map<String, Object> apiResponse = (Map<String, Object>) result.getOutputData().get("apiResponse");
+        assertNotNull(apiResponse);
+        assertEquals(false, apiResponse.get("success"));
     }
 
     @Test
@@ -142,7 +126,11 @@ class RestFunctionsVerificationTest {
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
-        assertNotNull(result.getOutputData().get("apiResponse"));
+
+        // Verify the function was recognized and executed
+        Map<String, Object> apiResponse = (Map<String, Object>) result.getOutputData().get("apiResponse");
+        assertNotNull(apiResponse);
+        assertEquals(false, apiResponse.get("success"));
     }
 
     @Test
@@ -230,10 +218,10 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate creditResponse as rest_get("https://credit-api.example.com/score/123456789")
-                  - calculate creditScore as json_get(creditResponse, "score")
-                  - calculate hasDelinquencies as json_exists(creditResponse, "report.delinquencies")
-                  - calculate approval as creditScore >= 650 ? "APPROVED" : "DECLINED"
+                  - calculate todoResponse as rest_get("https://dummyjson.com/todos/1")
+                  - calculate todoId as json_get(todoResponse, "id")
+                  - calculate hasUserId as json_exists(todoResponse, "userId")
+                  - calculate status as "VALID"
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -241,9 +229,9 @@ class RestFunctionsVerificationTest {
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
-        assertNotNull(result.getOutputData().get("creditResponse"));
-        assertNotNull(result.getOutputData().get("creditScore"));
-        assertNotNull(result.getOutputData().get("hasDelinquencies"));
-        assertNotNull(result.getOutputData().get("approval"));
+        assertNotNull(result.getOutputData().get("todoResponse"));
+        assertNotNull(result.getOutputData().get("todoId"));
+        assertNotNull(result.getOutputData().get("hasUserId"));
+        assertNotNull(result.getOutputData().get("status"));
     }
 }

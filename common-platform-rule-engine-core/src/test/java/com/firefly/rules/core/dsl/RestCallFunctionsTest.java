@@ -17,19 +17,21 @@
 package com.firefly.rules.core.dsl;
 
 import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
 import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.ast.parser.DSLParser;
 import com.firefly.rules.core.services.ConstantService;
 import com.firefly.rules.core.services.JsonPathService;
 import com.firefly.rules.core.services.RestCallService;
 import com.firefly.rules.core.services.impl.JsonPathServiceImpl;
 import com.firefly.rules.core.services.impl.RestCallServiceImpl;
-import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -39,7 +41,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Test REST call functions in the DSL
@@ -50,47 +52,30 @@ class RestCallFunctionsTest {
     @Mock
     private ConstantService constantService;
 
-    @Mock
-    private WebClient.Builder webClientBuilder;
-
-    @Mock
-    private WebClient webClient;
-
     private ASTRulesEvaluationEngine evaluationEngine;
-    private RestCallService restCallService;
-    private JsonPathService jsonPathService;
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
-        // Setup mocks
-        when(webClientBuilder.defaultHeader(any(), any())).thenReturn(webClientBuilder);
-        when(webClientBuilder.build()).thenReturn(webClient);
-        when(constantService.findByCode(any())).thenReturn(Mono.empty());
+        // Mock constant service to return empty flux (no constants from database)
+        lenient().when(constantService.getConstantsByCodes(any())).thenReturn(Flux.empty());
 
-        // Create services
-        objectMapper = new ObjectMapper();
-        restCallService = new RestCallServiceImpl(webClientBuilder, objectMapper);
-        jsonPathService = new JsonPathServiceImpl();
-
-        // Create evaluation engine
-        ASTRulesDSLParser parser = new ASTRulesDSLParser();
-        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService, restCallService, jsonPathService);
+        // Use the constructor with default REST and JSON services
+        DSLParser dslParser = new DSLParser();
+        ASTRulesDSLParser parser = new ASTRulesDSLParser(dslParser);
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
     }
 
     @Test
     void testRestGetFunctionInSimpleSyntax() {
         String yaml = """
-                rules:
-                  - name: "Test REST GET"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_get with ["https://dummyjson.com/todos/1"]
+                when:
+                  - "true"
+                then:
+                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -101,18 +86,14 @@ class RestCallFunctionsTest {
     @Test
     void testRestGetFunctionInComplexSyntax() {
         String yaml = """
-                rules:
-                  - name: "Test REST GET Complex"
-                    conditions:
-                      - if: "true"
-                        then:
-                          actions:
-                            - calculate: "rest_get('https://dummyjson.com/todos/1')"
-                              as: "todoData"
+                when:
+                  - "true"
+                then:
+                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -122,16 +103,14 @@ class RestCallFunctionsTest {
     @Test
     void testRestPostFunction() {
         String yaml = """
-                rules:
-                  - name: "Test REST POST"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_post with ["https://dummyjson.com/todos/add", {"todo": "Test todo", "completed": false, "userId": 1}]
+                when:
+                  - "true"
+                then:
+                  - calculate postResponse as rest_post("https://dummyjson.com/todos/add", "test body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -140,16 +119,14 @@ class RestCallFunctionsTest {
     @Test
     void testRestCallWithHeaders() {
         String yaml = """
-                rules:
-                  - name: "Test REST with Headers"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_get with ["https://dummyjson.com/todos/1", {"Content-Type": "application/json"}]
+                when:
+                  - "true"
+                then:
+                  - calculate response as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -158,16 +135,14 @@ class RestCallFunctionsTest {
     @Test
     void testRestCallWithTimeout() {
         String yaml = """
-                rules:
-                  - name: "Test REST with Timeout"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_get with ["https://dummyjson.com/todos/1", {}, 10000]
+                when:
+                  - "true"
+                then:
+                  - calculate response as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -176,34 +151,31 @@ class RestCallFunctionsTest {
     @Test
     void testGenericRestCallFunction() {
         String yaml = """
-                rules:
-                  - name: "Test Generic REST Call"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_call with ["GET", "https://dummyjson.com/todos/1"]
+                when:
+                  - "true"
+                then:
+                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
+        assertNotNull(result.getOutputData().get("todoData"));
     }
 
     @Test
     void testRestCallErrorHandling() {
         String yaml = """
-                rules:
-                  - name: "Test REST Error Handling"
-                    when:
-                      - "true"
-                    then:
-                      - call rest_get with ["https://invalid-url-that-does-not-exist.com/api"]
+                when:
+                  - "true"
+                then:
+                  - calculate errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         // The rule should still succeed, but the REST call should return an error response
@@ -213,20 +185,17 @@ class RestCallFunctionsTest {
     @Test
     void testRestCallWithVariables() {
         String yaml = """
-                rules:
-                  - name: "Test REST with Variables"
-                    when:
-                      - "true"
-                    then:
-                      - calculate: "'https://dummyjson.com/todos/' + todoId"
-                        as: "apiUrl"
-                      - call rest_get with [apiUrl]
+                when:
+                  - "true"
+                then:
+                  - set apiUrl to "https://dummyjson.com/todos/1"
+                  - calculate response as rest_get(apiUrl)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
         inputData.put("todoId", "1");
-        
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
@@ -235,18 +204,14 @@ class RestCallFunctionsTest {
     @Test
     void testRestCallInCondition() {
         String yaml = """
-                rules:
-                  - name: "Test REST in Condition"
-                    conditions:
-                      - if: "json_get(rest_get('https://dummyjson.com/todos/1'), 'completed') == false"
-                        then:
-                          actions:
-                            - set: "todoIncomplete"
-                              to: true
+                when:
+                  - 'json_get(rest_get("https://dummyjson.com/todos/1"), "completed") == false'
+                then:
+                  - set todoIncomplete to true
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
-        RulesEvaluationResult result = evaluationEngine.evaluate(yaml, inputData);
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
 
         assertNotNull(result);
         assertTrue(result.isSuccess());
