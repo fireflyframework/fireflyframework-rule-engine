@@ -16,26 +16,26 @@
 
 package com.firefly.rules.web.controllers;
 
-import com.firefly.rules.core.dsl.evaluation.RulesEvaluationEngine;
-import com.firefly.rules.core.services.RuleDefinitionService;
-import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationResponseDTO;
-import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationRequestDTO;
-import com.firefly.rules.interfaces.dtos.evaluation.RuleEvaluationByCodeRequestDTO;
+import com.firefly.rules.core.services.RulesEvaluationService;
 import com.firefly.rules.interfaces.dtos.evaluation.PlainYamlEvaluationRequestDTO;
+import com.firefly.rules.interfaces.dtos.evaluation.RuleEvaluationByCodeRequestDTO;
+import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationRequestDTO;
+import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
-import jakarta.validation.Valid;
-import java.util.Base64;
-import java.nio.charset.StandardCharsets;
 
 /**
  * REST controller for rules evaluation operations.
@@ -49,8 +49,7 @@ import java.nio.charset.StandardCharsets;
 @Tag(name = "Rules Evaluation", description = "Operations for evaluating YAML DSL rules against input data")
 public class RulesEvaluationController {
 
-    private final RulesEvaluationEngine rulesEvaluationEngine;
-    private final RuleDefinitionService ruleDefinitionService;
+    private final RulesEvaluationService rulesEvaluationService;
 
     /**
      * Evaluate a base64-encoded YAML rules definition directly against provided input data
@@ -71,27 +70,11 @@ public class RulesEvaluationController {
     })
     public Mono<ResponseEntity<RulesEvaluationResponseDTO>> evaluateRulesDirect(
             @Parameter(description = "Evaluation request with base64-encoded YAML rules definition and camelCase input data", required = true)
-            @Valid @RequestBody RulesEvaluationRequestDTO request) {
-
-        log.info("Evaluating base64-encoded YAML rules definition with input data: {}", request.getInputData());
-
-        try {
-            // Decode base64 YAML content
-            String yamlContent = new String(Base64.getDecoder().decode(request.getRulesDefinitionBase64()), StandardCharsets.UTF_8);
-
-            return rulesEvaluationEngine.evaluateRulesReactive(yamlContent, request.getInputData())
-                    .map(this::buildResponse)
-                    .map(ResponseEntity::ok)
-                    .doOnSuccess(result -> log.info("Rules evaluation completed successfully"))
-                    .doOnError(error -> log.error("Rules evaluation failed", error));
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid base64 encoding in rules definition", e);
-            return Mono.just(ResponseEntity.badRequest().body(
-                    RulesEvaluationResponseDTO.builder()
-                            .success(false)
-                            .error("Invalid base64 encoding in rules definition: " + e.getMessage())
-                            .build()));
-        }
+            @Valid @RequestBody RulesEvaluationRequestDTO request,
+            ServerWebExchange exchange) {
+        
+        return rulesEvaluationService.evaluateRulesDirectWithAudit(request, exchange)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -114,15 +97,11 @@ public class RulesEvaluationController {
     })
     public Mono<ResponseEntity<RulesEvaluationResponseDTO>> evaluateRulesPlain(
             @Parameter(description = "Evaluation request with plain YAML rules definition and camelCase input data", required = true)
-            @Valid @RequestBody PlainYamlEvaluationRequestDTO request) {
-
-        log.info("Evaluating plain YAML rules definition with input data: {}", request.getInputData());
-
-        return rulesEvaluationEngine.evaluateRulesReactive(request.getYamlContent(), request.getInputData())
-                .map(this::buildResponse)
-                .map(ResponseEntity::ok)
-                .doOnSuccess(result -> log.info("Plain YAML rules evaluation completed successfully"))
-                .doOnError(error -> log.error("Plain YAML rules evaluation failed", error));
+            @Valid @RequestBody PlainYamlEvaluationRequestDTO request,
+            ServerWebExchange exchange) {
+        
+        return rulesEvaluationService.evaluateRulesPlainWithAudit(request, exchange)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -144,30 +123,10 @@ public class RulesEvaluationController {
     })
     public Mono<ResponseEntity<RulesEvaluationResponseDTO>> evaluateRuleByCode(
             @Parameter(description = "Evaluation request with rule code and camelCase input data", required = true)
-            @Valid @RequestBody RuleEvaluationByCodeRequestDTO request) {
+            @Valid @RequestBody RuleEvaluationByCodeRequestDTO request,
+            ServerWebExchange exchange) {
 
-        log.info("Evaluating stored rule definition by code: {} with input data: {}",
-                request.getRuleDefinitionCode(), request.getInputData());
-
-        return ruleDefinitionService.evaluateRuleByCode(request.getRuleDefinitionCode(), request.getInputData())
-                .map(this::buildResponse)
-                .map(ResponseEntity::ok)
-                .doOnSuccess(result -> log.info("Rule evaluation by code completed successfully"))
-                .doOnError(error -> log.error("Rule evaluation by code failed", error));
-    }
-
-    /**
-     * Helper method to build response DTO from evaluation result
-     */
-    private RulesEvaluationResponseDTO buildResponse(com.firefly.rules.core.dsl.evaluation.RulesEvaluationResult result) {
-        return RulesEvaluationResponseDTO.builder()
-                .success(result.isSuccess())
-                .conditionResult(result.getConditionResult())
-                .outputData(result.getOutputData())
-                .executionTimeMs(result.getExecutionTimeMs())
-                .circuitBreakerTriggered(result.isCircuitBreakerTriggered())
-                .circuitBreakerMessage(result.getCircuitBreakerMessage())
-                .error(result.getError())
-                .build();
+        return rulesEvaluationService.evaluateRuleByCodeWithAudit(request, exchange)
+                .map(ResponseEntity::ok);
     }
 }

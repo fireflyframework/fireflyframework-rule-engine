@@ -14,6 +14,8 @@ servers:
 tags:
   - name: YAML DSL Validation
     description: Static code analysis and validation for YAML DSL rules
+  - name: Audit Trails
+    description: Operations for querying audit trail records
   - name: Rule Definitions
     description: Operations for managing YAML DSL rule definitions
   - name: Rules Evaluation
@@ -620,6 +622,45 @@ paths:
           description: Invalid filter request
         '500':
           description: Internal server error
+  /api/v1/audit/trails:
+    post:
+      tags:
+        - Audit Trails
+      summary: Get audit trails with filtering and pagination
+      description: Retrieve audit trail records with optional filtering by operation type, entity type, user, date range, and other criteria. Supports pagination and sorting.
+      operationId: getAuditTrails
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditTrailFilterDTO'
+        required: true
+      responses:
+        '200':
+          description: Audit trails retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '400':
+          description: Invalid filter criteria
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
   /api/v1/validation/syntax:
     get:
       tags:
@@ -709,6 +750,258 @@ paths:
           description: Constant not found
         '500':
           description: Internal server error
+  /api/v1/audit/trails/{id}:
+    get:
+      tags:
+        - Audit Trails
+      summary: Get audit trail by ID
+      description: Retrieve a specific audit trail record by its unique identifier.
+      operationId: getAuditTrailById
+      parameters:
+        - name: id
+          in: path
+          description: Audit trail ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audit trail retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuditTrailDTO'
+        '404':
+          description: Audit trail not found
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuditTrailDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/AuditTrailDTO'
+  /api/v1/audit/trails/user/{userId}:
+    get:
+      tags:
+        - Audit Trails
+      summary: Get audit trails by user
+      description: Retrieve audit trail records filtered by a specific user.
+      operationId: getAuditTrailsByUser
+      parameters:
+        - name: userId
+          in: path
+          description: User ID
+          required: true
+          schema:
+            type: string
+          example: john.doe@company.com
+        - name: page
+          in: query
+          description: Page number (0-based)
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          description: Page size
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Audit trails retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '400':
+          description: Invalid user ID
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+  /api/v1/audit/trails/operation/{operationType}:
+    get:
+      tags:
+        - Audit Trails
+      summary: Get audit trails by operation type
+      description: Retrieve audit trail records filtered by a specific operation type.
+      operationId: getAuditTrailsByOperationType
+      parameters:
+        - name: operationType
+          in: path
+          description: Operation type
+          required: true
+          schema:
+            type: string
+          example: RULE_DEFINITION_CREATE
+        - name: page
+          in: query
+          description: Page number (0-based)
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 0
+          example: 0
+        - name: size
+          in: query
+          description: Page size
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 20
+          example: 20
+      responses:
+        '200':
+          description: Audit trails retrieved successfully
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '400':
+          description: Invalid operation type
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/PaginationResponseAuditTrailDTO'
+  /api/v1/audit/trails/entity/{entityId}:
+    get:
+      tags:
+        - Audit Trails
+      summary: Get recent audit trails for entity
+      description: Retrieve recent audit trail records for a specific entity (e.g., rule definition).
+      operationId: getRecentAuditTrailsForEntity
+      parameters:
+        - name: entityId
+          in: path
+          description: Entity ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 10
+          example: 10
+      responses:
+        '200':
+          description: Recent audit trails retrieved successfully
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditTrailDTO'
+        '400':
+          description: Invalid entity ID or limit
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditTrailDTO'
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditTrailDTO'
+  /api/v1/audit/statistics:
+    get:
+      tags:
+        - Audit Trails
+      summary: Get audit trail statistics
+      description: Retrieve statistical information about audit trails including counts by operation type, success rates, and other metrics.
+      operationId: getAuditTrailStatistics
+      responses:
+        '200':
+          description: Audit trail statistics retrieved successfully
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /api/v1/audit/trails/cleanup:
+    delete:
+      tags:
+        - Audit Trails
+      summary: Delete old audit trails
+      description: Delete audit trail records older than the specified retention period. This is typically used for maintenance and compliance with data retention policies.
+      operationId: deleteOldAuditTrails
+      parameters:
+        - name: retentionDays
+          in: query
+          description: Number of days to retain audit trails
+          required: true
+          schema:
+            type: integer
+            format: int32
+          example: 90
+      responses:
+        '200':
+          description: Old audit trails deleted successfully
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        '400':
+          description: Invalid retention days parameter
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+        '500':
+          description: Internal server error
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
 components:
   schemas:
     RuleDefinitionDTO:
@@ -1408,6 +1701,196 @@ components:
           items:
             type: object
             description: The list of items for the current page.
+        totalElements:
+          type: integer
+          description: The total number of elements across all pages.
+          format: int64
+        totalPages:
+          type: integer
+          description: The total number of pages based on the data size and page size.
+          format: int32
+        currentPage:
+          type: integer
+          description: The current page number, typically zero-based.
+          format: int32
+      description: Represents a paginated response containing a list of items and pagination metadata.
+    AuditTrailFilterDTO:
+      type: object
+      properties:
+        operationType:
+          type: string
+          description: Filter by operation type
+          example: RULE_DEFINITION_CREATE
+          enum:
+            - RULE_DEFINITION_CREATE
+            - RULE_DEFINITION_UPDATE
+            - RULE_DEFINITION_DELETE
+            - RULE_EVALUATION_DIRECT
+            - RULE_EVALUATION_BY_CODE
+            - RULE_EVALUATION_PLAIN
+        entityType:
+          type: string
+          description: Filter by entity type
+          example: RULE_DEFINITION
+          enum:
+            - RULE_DEFINITION
+            - RULE_EVALUATION
+        entityId:
+          type: string
+          description: Filter by entity ID
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        ruleCode:
+          type: string
+          description: Filter by rule code
+          example: credit_scoring_v1
+        userId:
+          type: string
+          description: Filter by user ID
+          example: john.doe@company.com
+        success:
+          type: boolean
+          description: Filter by success status
+          example: true
+        startDate:
+          type: string
+          description: Filter by start date (inclusive)
+          format: date-time
+        endDate:
+          type: string
+          description: Filter by end date (inclusive)
+          format: date-time
+        sessionId:
+          type: string
+          description: Filter by session ID
+        correlationId:
+          type: string
+          description: Filter by correlation ID
+        page:
+          type: integer
+          description: Page number (0-based)
+          format: int32
+          example: 0
+          default: 0
+        size:
+          type: integer
+          description: Page size
+          format: int32
+          example: 20
+          default: 20
+        sortBy:
+          type: string
+          description: Sort field
+          example: createdAt
+          default: createdAt
+        sortDirection:
+          type: string
+          description: Sort direction
+          example: DESC
+          default: DESC
+          enum:
+            - ASC
+            - DESC
+      description: Filter criteria and pagination parameters
+    AuditTrailDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the audit record
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        operationType:
+          type: string
+          description: Type of operation performed
+          example: RULE_DEFINITION_CREATE
+          enum:
+            - RULE_DEFINITION_CREATE
+            - RULE_DEFINITION_UPDATE
+            - RULE_DEFINITION_DELETE
+            - RULE_EVALUATION_DIRECT
+            - RULE_EVALUATION_BY_CODE
+            - RULE_EVALUATION_PLAIN
+        entityType:
+          type: string
+          description: Type of entity being operated on
+          example: RULE_DEFINITION
+          enum:
+            - RULE_DEFINITION
+            - RULE_EVALUATION
+        entityId:
+          type: string
+          description: ID of the entity being operated on
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        ruleCode:
+          type: string
+          description: Code of the rule definition
+          example: credit_scoring_v1
+        userId:
+          type: string
+          description: User who performed the operation
+          example: john.doe@company.com
+        ipAddress:
+          type: string
+          description: IP address from which the operation was performed
+          example: 192.168.1.100
+        userAgent:
+          type: string
+          description: User agent string from the request
+        httpMethod:
+          type: string
+          description: HTTP method used
+          example: POST
+        endpoint:
+          type: string
+          description: Request endpoint
+          example: /api/v1/rules/definitions
+        requestData:
+          type: string
+          description: Request data as JSON string
+        responseData:
+          type: string
+          description: Response data as JSON string
+        statusCode:
+          type: integer
+          description: HTTP status code
+          format: int32
+          example: 201
+        success:
+          type: boolean
+          description: Whether the operation was successful
+          example: true
+        errorMessage:
+          type: string
+          description: Error message if operation failed
+        executionTimeMs:
+          type: integer
+          description: Execution time in milliseconds
+          format: int64
+          example: 150
+        metadata:
+          type: string
+          description: Additional metadata as JSON string
+        sessionId:
+          type: string
+          description: Session ID for tracking related operations
+        correlationId:
+          type: string
+          description: Correlation ID for distributed tracing
+        createdAt:
+          type: string
+          description: Timestamp when the audit record was created
+          format: date-time
+      description: Audit trail record for rule engine operations
+    PaginationResponseAuditTrailDTO:
+      type: object
+      properties:
+        content:
+          type: array
+          description: The list of items for the current page.
+          items:
+            $ref: '#/components/schemas/AuditTrailDTO'
         totalElements:
           type: integer
           description: The total number of elements across all pages.

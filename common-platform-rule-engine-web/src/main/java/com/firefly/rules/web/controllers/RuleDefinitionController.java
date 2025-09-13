@@ -26,14 +26,15 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import jakarta.validation.Valid;
 import java.util.UUID;
 
 /**
@@ -58,14 +59,11 @@ public class RuleDefinitionController {
     @PostMapping("/filter")
     public Mono<ResponseEntity<PaginationResponse<RuleDefinitionDTO>>> filterRuleDefinitions(
             @Parameter(description = "Filter criteria and pagination parameters", required = true)
-            @RequestBody FilterRequest<RuleDefinitionDTO> filterRequest) {
+            @RequestBody FilterRequest<RuleDefinitionDTO> filterRequest,
+            ServerWebExchange exchange) {
         
-        log.info("Filtering rule definitions with criteria: {}", filterRequest);
-        
-        return ruleDefinitionService.filterRuleDefinitions(filterRequest)
-                .map(ResponseEntity::ok)
-                .doOnSuccess(result -> log.info("Rule definitions filtered successfully"))
-                .doOnError(error -> log.error("Error filtering rule definitions", error));
+        return ruleDefinitionService.filterRuleDefinitionsWithAudit(filterRequest, exchange)
+                .map(ResponseEntity::ok);
     }
 
     @Operation(summary = "Create a new rule definition",
@@ -82,14 +80,11 @@ public class RuleDefinitionController {
     @PostMapping
     public Mono<ResponseEntity<RuleDefinitionDTO>> createRuleDefinition(
             @Parameter(description = "Rule definition to create with YAML content following naming conventions", required = true)
-            @Valid @RequestBody RuleDefinitionDTO ruleDefinitionDTO) {
+            @Valid @RequestBody RuleDefinitionDTO ruleDefinitionDTO,
+            ServerWebExchange exchange) {
         
-        log.info("Creating rule definition with code: {}", ruleDefinitionDTO.getCode());
-        
-        return ruleDefinitionService.createRuleDefinition(ruleDefinitionDTO)
-                .map(created -> ResponseEntity.status(HttpStatus.CREATED).body(created))
-                .doOnSuccess(result -> log.info("Rule definition created successfully"))
-                .doOnError(error -> log.error("Error creating rule definition", error));
+        return ruleDefinitionService.createRuleDefinitionWithAudit(ruleDefinitionDTO, exchange)
+                .map(created -> ResponseEntity.status(HttpStatus.CREATED).body(created));
     }
 
     @Operation(summary = "Update a rule definition", description = "Update an existing YAML DSL rule definition with validation")
@@ -104,14 +99,11 @@ public class RuleDefinitionController {
             @Parameter(description = "Rule definition ID", required = true)
             @PathVariable UUID id,
             @Parameter(description = "Updated rule definition", required = true)
-            @Valid @RequestBody RuleDefinitionDTO ruleDefinitionDTO) {
+            @Valid @RequestBody RuleDefinitionDTO ruleDefinitionDTO,
+            ServerWebExchange exchange) {
         
-        log.info("Updating rule definition with ID: {}", id);
-        
-        return ruleDefinitionService.updateRuleDefinition(id, ruleDefinitionDTO)
-                .map(ResponseEntity::ok)
-                .doOnSuccess(result -> log.info("Rule definition updated successfully"))
-                .doOnError(error -> log.error("Error updating rule definition", error));
+        return ruleDefinitionService.updateRuleDefinitionWithAudit(id, ruleDefinitionDTO, exchange)
+                .map(ResponseEntity::ok);
     }
 
     @Operation(summary = "Delete a rule definition", description = "Delete a rule definition by ID")
@@ -123,14 +115,12 @@ public class RuleDefinitionController {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteRuleDefinition(
             @Parameter(description = "Rule definition ID", required = true)
-            @PathVariable UUID id) {
-        
-        log.info("Deleting rule definition with ID: {}", id);
-        
-        return ruleDefinitionService.deleteRuleDefinition(id)
+            @PathVariable UUID id,
+            ServerWebExchange exchange) {
+
+        return ruleDefinitionService.deleteRuleDefinitionWithAudit(id, exchange)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()))
-                .doOnSuccess(result -> log.info("Rule definition deleted successfully"))
-                .doOnError(error -> log.error("Error deleting rule definition", error));
+                .onErrorReturn(ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Get a rule definition by ID", description = "Retrieve a specific rule definition by its ID")
@@ -142,15 +132,12 @@ public class RuleDefinitionController {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<RuleDefinitionDTO>> getRuleDefinitionById(
             @Parameter(description = "Rule definition ID", required = true)
-            @PathVariable UUID id) {
-        
-        log.info("Getting rule definition by ID: {}", id);
-        
-        return ruleDefinitionService.getRuleDefinitionById(id)
+            @PathVariable UUID id,
+            ServerWebExchange exchange) {
+
+        return ruleDefinitionService.getRuleDefinitionByIdWithAudit(id, exchange)
                 .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
-                .doOnSuccess(result -> log.info("Rule definition retrieved successfully"))
-                .doOnError(error -> log.error("Error retrieving rule definition", error));
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
     }
 
     @Operation(summary = "Get a rule definition by code", description = "Retrieve a specific rule definition by its unique code")
@@ -162,15 +149,12 @@ public class RuleDefinitionController {
     @GetMapping("/by-code/{code}")
     public Mono<ResponseEntity<RuleDefinitionDTO>> getRuleDefinitionByCode(
             @Parameter(description = "Rule definition code", required = true)
-            @PathVariable String code) {
-        
-        log.info("Getting rule definition by code: {}", code);
-        
-        return ruleDefinitionService.getRuleDefinitionByCode(code)
+            @PathVariable String code,
+            ServerWebExchange exchange) {
+
+        return ruleDefinitionService.getRuleDefinitionByCodeWithAudit(code, exchange)
                 .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
-                .doOnSuccess(result -> log.info("Rule definition retrieved successfully"))
-                .doOnError(error -> log.error("Error retrieving rule definition", error));
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()));
     }
 
     @Operation(summary = "Validate a YAML DSL rule definition",
@@ -185,13 +169,10 @@ public class RuleDefinitionController {
     @PostMapping("/validate")
     public Mono<ResponseEntity<ValidationResult>> validateRuleDefinition(
             @Parameter(description = "YAML DSL content to validate. Must follow naming conventions: camelCase for inputs, snake_case for computed variables, UPPER_CASE for constants.", required = true)
-            @RequestBody String yamlContent) {
-        
-        log.info("Validating YAML DSL rule definition");
-        
-        return ruleDefinitionService.validateRuleDefinition(yamlContent)
-                .map(ResponseEntity::ok)
-                .doOnSuccess(result -> log.info("Rule definition validation completed"))
-                .doOnError(error -> log.error("Error validating rule definition", error));
+            @RequestBody String yamlContent,
+            ServerWebExchange exchange) {
+
+        return ruleDefinitionService.validateRuleDefinitionWithAudit(yamlContent, exchange)
+                .map(ResponseEntity::ok);
     }
 }

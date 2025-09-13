@@ -18,16 +18,12 @@ package com.firefly.rules.interfaces.dtos.evaluation;
 
 import com.firefly.rules.interfaces.validation.ValidInputVariableNames;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import jakarta.validation.constraints.Pattern;
 import java.util.Map;
 
 /**
