@@ -12,6 +12,8 @@ This guide provides comprehensive instructions for setting up, developing, testi
 - [Database Setup](#database-setup)
 - [IDE Configuration](#ide-configuration)
 - [Debugging](#debugging)
+- [AST System Deep Dive](#ast-system-deep-dive)
+- [Extending the AST System](#extending-the-ast-system)
 - [Contributing](#contributing)
 
 ## Prerequisites
@@ -515,5 +517,728 @@ Closes #123"
 - No SonarQube critical issues
 - Documentation updated
 - Changelog entry added
+
+## AST System Deep Dive
+
+The Firefly Rule Engine is built on a modern **Abstract Syntax Tree (AST) architecture** that provides type-safe, extensible, and high-performance rule processing. This section provides a comprehensive guide to understanding and extending the AST system.
+
+### 🏗️ **AST Architecture Overview**
+
+The AST system replaces traditional string-based rule evaluation with structured, type-safe processing:
+
+```mermaid
+graph TB
+    subgraph "YAML Input"
+        YAML[YAML Rule Definition]
+    end
+
+    subgraph "AST Parsing Layer"
+        YAML_PARSER[YAML Parser]
+        AST_PARSER[AST Rules DSL Parser]
+        DSL_PARSER[DSL Parser]
+    end
+
+    subgraph "AST Model Layer"
+        AST_NODES[AST Node Hierarchy]
+        EXPRESSIONS[Expression Nodes]
+        CONDITIONS[Condition Nodes]
+        ACTIONS[Action Nodes]
+    end
+
+    subgraph "AST Processing Layer"
+        VISITOR_PATTERN[Visitor Pattern]
+        EXPR_EVAL[Expression Evaluator]
+        ACTION_EXEC[Action Executor]
+        VALIDATION_VISITOR[Validation Visitor]
+    end
+
+    subgraph "Execution Context"
+        EVAL_CONTEXT[Evaluation Context]
+        VARIABLE_RESOLVER[Variable Resolver]
+        CONSTANT_LOADER[Constant Loader]
+    end
+
+    YAML --> YAML_PARSER
+    YAML_PARSER --> AST_PARSER
+    AST_PARSER --> DSL_PARSER
+    DSL_PARSER --> AST_NODES
+    AST_NODES --> EXPRESSIONS
+    AST_NODES --> CONDITIONS
+    AST_NODES --> ACTIONS
+
+    EXPRESSIONS --> VISITOR_PATTERN
+    CONDITIONS --> VISITOR_PATTERN
+    ACTIONS --> VISITOR_PATTERN
+
+    VISITOR_PATTERN --> EXPR_EVAL
+    VISITOR_PATTERN --> ACTION_EXEC
+    VISITOR_PATTERN --> VALIDATION_VISITOR
+
+    EXPR_EVAL --> EVAL_CONTEXT
+    ACTION_EXEC --> EVAL_CONTEXT
+    EVAL_CONTEXT --> VARIABLE_RESOLVER
+    EVAL_CONTEXT --> CONSTANT_LOADER
+
+    style AST_NODES fill:#e0f2f1
+    style VISITOR_PATTERN fill:#f3e5f5
+    style EVAL_CONTEXT fill:#e8f5e8
+```
+
+### 🌳 **AST Node Hierarchy**
+
+The AST system uses a comprehensive node hierarchy that represents all possible rule constructs:
+
+#### **Base AST Node**
+````java
+public abstract class ASTNode {
+    private SourceLocation location;
+
+    public abstract <T> T accept(ASTVisitor<T> visitor);
+    public abstract String toDebugString();
+    public String getNodeType() { return this.getClass().getSimpleName(); }
+}
+````
+
+#### **Complete Node Hierarchy**
+```
+ASTNode (abstract base)
+├── Expression (abstract)
+│   ├── LiteralExpression (numbers, strings, booleans)
+│   ├── VariableExpression (variable references)
+│   ├── BinaryExpression (binary operations: +, -, *, /, etc.)
+│   ├── UnaryExpression (unary operations: -, !, etc.)
+│   ├── FunctionCallExpression (function calls with parameters)
+│   └── ArithmeticExpression (complex arithmetic with multiple operands)
+├── Condition (abstract)
+│   ├── ComparisonCondition (>, <, ==, !=, etc.)
+│   ├── LogicalCondition (AND, OR, NOT)
+│   └── ExpressionCondition (expression-based conditions)
+└── Action (abstract)
+    ├── AssignmentAction (variable = value)
+    ├── SetAction (set variable to value)
+    ├── CalculateAction (calculate variable as expression)
+    ├── FunctionCallAction (call function with parameters)
+    ├── ConditionalAction (if-then-else actions)
+    ├── ArithmeticAction (arithmetic operations)
+    ├── ListAction (list operations)
+    └── CircuitBreakerAction (execution control)
+```
+
+### 🎯 **Visitor Pattern Implementation**
+
+The AST system uses the **Visitor Pattern** to separate operations from the AST structure, enabling clean extensibility:
+
+#### **ASTVisitor Interface**
+````java
+public interface ASTVisitor<T> {
+    // Expression visitors
+    T visitBinaryExpression(BinaryExpression node);
+    T visitVariableExpression(VariableExpression node);
+    T visitLiteralExpression(LiteralExpression node);
+    T visitFunctionCallExpression(FunctionCallExpression node);
+
+    // Condition visitors
+    T visitComparisonCondition(ComparisonCondition node);
+    T visitLogicalCondition(LogicalCondition node);
+
+    // Action visitors
+    T visitSetAction(SetAction node);
+    T visitCalculateAction(CalculateAction node);
+    T visitCircuitBreakerAction(CircuitBreakerAction node);
+}
+````
+
+#### **Expression Evaluator Visitor**
+````java
+public class ExpressionEvaluator implements ASTVisitor<Object> {
+    private final EvaluationContext context;
+
+    @Override
+    public Object visitBinaryExpression(BinaryExpression node) {
+        Object leftValue = node.getLeft().accept(this);
+        Object rightValue = node.getRight().accept(this);
+        return evaluateOperation(node.getOperator(), leftValue, rightValue);
+    }
+
+    @Override
+    public Object visitVariableExpression(VariableExpression node) {
+        return context.getValue(node.getVariableName());
+    }
+}
+````
+
+### 🔄 **AST Processing Pipeline**
+
+#### **1. YAML to AST Parsing**
+````java
+@Component
+public class ASTRulesDSLParser {
+    private final DSLParser dslParser;
+    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+
+    public ASTRulesDSL parseRules(String rulesDefinition) {
+        // Parse YAML to Map first
+        Map<String, Object> yamlMap = yamlMapper.readValue(rulesDefinition, Map.class);
+        // Convert to AST model
+        return convertToASTModel(yamlMap);
+    }
+}
+````
+
+#### **2. AST Evaluation Engine**
+````java
+@Component
+public class ASTRulesEvaluationEngine {
+
+    private ASTRulesEvaluationResult evaluateRules(ASTRulesDSL rulesDSL, EvaluationContext context) {
+        // Create visitors
+        ExpressionEvaluator expressionEvaluator = new ExpressionEvaluator(context);
+        ActionExecutor actionExecutor = new ActionExecutor(context, expressionEvaluator);
+
+        // Evaluate conditions using visitor pattern
+        boolean conditionResult = evaluateConditions(rulesDSL.getConditions(), expressionEvaluator);
+
+        // Execute appropriate actions
+        if (conditionResult) {
+            executeActions(rulesDSL.getThenActions(), actionExecutor);
+        } else {
+            executeActions(rulesDSL.getElseActions(), actionExecutor);
+        }
+
+        return buildResult(context, conditionResult);
+    }
+}
+````
+
+### 🧠 **Evaluation Context**
+
+The `EvaluationContext` maintains state during rule evaluation with priority-based variable resolution:
+
+````java
+public class EvaluationContext {
+    private Map<String, Object> inputVariables;     // From API request (camelCase)
+    private Map<String, Object> systemConstants;    // From database (UPPER_CASE)
+    private Map<String, Object> computedVariables;  // Calculated during execution (snake_case)
+
+    public Object getValue(String name) {
+        // Priority: Computed > Input > Constants
+        if (computedVariables.containsKey(name)) return computedVariables.get(name);
+        if (inputVariables.containsKey(name)) return inputVariables.get(name);
+        return systemConstants.get(name);
+    }
+}
+````
+
+## Extending the AST System
+
+This section provides step-by-step tutorials for extending the AST system with new operators, functions, and validation rules.
+
+### 🔧 **Adding New Operators**
+
+#### **Step 1: Define the Operator**
+First, add your new operator to the supported operators list:
+
+```java
+// In ExpressionEvaluator.java
+private Object evaluateOperation(String operator, Object left, Object right) {
+    return switch (operator.toLowerCase()) {
+        case "greater_than" -> compareGreaterThan(left, right);
+        case "less_than" -> compareLessThan(left, right);
+        case "your_new_operator" -> evaluateYourNewOperator(left, right);  // Add this
+        // ... existing operators
+        default -> throw new ASTException("Unknown operator: " + operator);
+    };
+}
+```
+
+#### **Step 2: Implement the Operator Logic**
+```java
+// In ExpressionEvaluator.java
+private Object evaluateYourNewOperator(Object left, Object right) {
+    // Type checking
+    if (left == null || right == null) {
+        return false;
+    }
+
+    // Convert to appropriate types
+    if (left instanceof Number leftNum && right instanceof Number rightNum) {
+        // Implement your numeric logic
+        return performNumericOperation(leftNum, rightNum);
+    }
+
+    if (left instanceof String leftStr && right instanceof String rightStr) {
+        // Implement your string logic
+        return performStringOperation(leftStr, rightStr);
+    }
+
+    // Handle other types or throw exception
+    throw new ASTException("Unsupported types for your_new_operator: " +
+                          left.getClass() + " and " + right.getClass());
+}
+
+private boolean performNumericOperation(Number left, Number right) {
+    // Your custom numeric logic here
+    double leftVal = left.doubleValue();
+    double rightVal = right.doubleValue();
+
+    // Example: "approximately_equals" operator with tolerance
+    double tolerance = 0.001;
+    return Math.abs(leftVal - rightVal) < tolerance;
+}
+```
+
+#### **Step 3: Add Validation Support**
+```java
+// In YamlDslValidator.java - add to validateOperators method
+private void validateOperators(Map<String, Object> yamlMap, List<ValidationError> errors) {
+    // ... existing validation logic
+
+    // Add your operator to the supported list
+    Set<String> supportedOperators = Set.of(
+        "greater_than", "less_than", "equals", "not_equals",
+        "your_new_operator"  // Add this
+    );
+
+    // Validation logic will automatically include your operator
+}
+```
+
+#### **Step 4: Add Tests**
+```java
+@Test
+@DisplayName("Should evaluate your_new_operator correctly")
+void testYourNewOperator() {
+    // Test numeric case
+    String yaml = """
+        name: "Test Your New Operator"
+        description: "Test custom operator"
+        inputs: [value1, value2]
+        when:
+          - value1 your_new_operator value2
+        then:
+          - set result to true
+        else:
+          - set result to false
+        output:
+          result: boolean
+        """;
+
+    Map<String, Object> inputData = Map.of(
+        "value1", 10.001,
+        "value2", 10.0
+    );
+
+    ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getConditionResult()).isTrue();
+    assertThat(result.getOutputData().get("result")).isEqualTo(true);
+}
+```
+
+### 🔧 **Adding New Functions**
+
+#### **Step 1: Add Function to Expression Evaluator**
+````java
+@Override
+public Object visitFunctionCallExpression(FunctionCallExpression node) {
+    String functionName = node.getFunctionName();
+    Object[] args = node.hasArguments() ?
+        node.getArguments().stream().map(arg -> arg.accept(this)).toArray() :
+        new Object[0];
+
+    return switch (functionName.toLowerCase()) {
+        // Existing functions...
+        case "your_custom_function" -> yourCustomFunction(args);
+        default -> {
+            log.warn("Unknown function: {}", functionName);
+            yield null;
+        }
+    };
+}
+````
+
+#### **Step 2: Implement the Function**
+```java
+// In ExpressionEvaluator.java
+private Object yourCustomFunction(Object[] args) {
+    // Validate argument count
+    if (args.length != 2) {
+        throw new ASTException("your_custom_function requires exactly 2 arguments, got " + args.length);
+    }
+
+    // Type validation and conversion
+    if (!(args[0] instanceof Number) || !(args[1] instanceof Number)) {
+        throw new ASTException("your_custom_function requires numeric arguments");
+    }
+
+    double arg1 = ((Number) args[0]).doubleValue();
+    double arg2 = ((Number) args[1]).doubleValue();
+
+    // Your custom logic
+    return Math.pow(arg1, arg2) + Math.sqrt(arg1 * arg2);
+}
+```
+
+#### **Step 3: Add Function to Action Executor (if needed)**
+```java
+// In ActionExecutor.java - if your function can be used in actions
+case "your_custom_function" -> {
+    yield expressionEvaluator.visitFunctionCallExpression(
+        new FunctionCallExpression(functionName, parameters)
+    );
+}
+```
+
+#### **Step 4: Add Comprehensive Tests**
+```java
+@Test
+@DisplayName("Should execute your_custom_function correctly")
+void testYourCustomFunction() {
+    String yaml = """
+        name: "Test Custom Function"
+        description: "Test custom function implementation"
+        inputs: [base, exponent]
+        when:
+          - your_custom_function(base, exponent) greater_than 100
+        then:
+          - calculate result as your_custom_function(base, exponent)
+          - set status to "HIGH"
+        else:
+          - calculate result as your_custom_function(base, exponent)
+          - set status to "LOW"
+        output:
+          result: number
+          status: text
+        """;
+
+    Map<String, Object> inputData = Map.of(
+        "base", 5.0,
+        "exponent", 3.0
+    );
+
+    ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getOutputData().get("result")).isEqualTo(Math.pow(5.0, 3.0) + Math.sqrt(5.0 * 3.0));
+    assertThat(result.getOutputData().get("status")).isEqualTo("HIGH");
+}
+
+@Test
+@DisplayName("Should handle your_custom_function with invalid arguments")
+void testYourCustomFunctionInvalidArgs() {
+    String yaml = """
+        name: "Test Custom Function Error"
+        description: "Test custom function with invalid arguments"
+        inputs: [value]
+        when:
+          - your_custom_function(value) greater_than 0  # Wrong number of args
+        then:
+          - set result to true
+        else:
+          - set result to false
+        output:
+          result: boolean
+        """;
+
+    Map<String, Object> inputData = Map.of("value", 5.0);
+
+    assertThatThrownBy(() -> evaluationEngine.evaluateRules(yaml, inputData))
+        .isInstanceOf(ASTException.class)
+        .hasMessageContaining("your_custom_function requires exactly 2 arguments");
+}
+```
+
+### 🔧 **Adding New AST Node Types**
+
+#### **Step 1: Create the New Node Class**
+```java
+// Create new file: YourCustomExpression.java
+package com.firefly.rules.core.dsl.ast.expression;
+
+import com.firefly.rules.core.dsl.ast.ASTNode;
+import com.firefly.rules.core.dsl.ast.ASTVisitor;
+import com.firefly.rules.core.dsl.ast.SourceLocation;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@Data
+@EqualsAndHashCode(callSuper = true)
+public class YourCustomExpression extends Expression {
+
+    private final String customProperty;
+    private final Expression innerExpression;
+
+    public YourCustomExpression(SourceLocation location, String customProperty, Expression innerExpression) {
+        super(location);
+        this.customProperty = customProperty;
+        this.innerExpression = innerExpression;
+    }
+
+    @Override
+    public <T> T accept(ASTVisitor<T> visitor) {
+        return visitor.visitYourCustomExpression(this);
+    }
+
+    @Override
+    public String toDebugString() {
+        return String.format("YourCustomExpression(property=%s, inner=%s)",
+                           customProperty, innerExpression.toDebugString());
+    }
+}
+```
+
+#### **Step 2: Update ASTVisitor Interface**
+```java
+// In ASTVisitor.java
+public interface ASTVisitor<T> {
+    // ... existing methods
+    T visitYourCustomExpression(YourCustomExpression node);
+}
+```
+
+#### **Step 3: Implement Visitor Methods**
+```java
+// In ExpressionEvaluator.java
+@Override
+public Object visitYourCustomExpression(YourCustomExpression node) {
+    // Evaluate the inner expression first
+    Object innerValue = node.getInnerExpression().accept(this);
+
+    // Apply your custom logic based on the custom property
+    return switch (node.getCustomProperty().toLowerCase()) {
+        case "double" -> multiplyByTwo(innerValue);
+        case "square" -> square(innerValue);
+        case "negate" -> negate(innerValue);
+        default -> throw new ASTException("Unknown custom property: " + node.getCustomProperty());
+    };
+}
+
+private Object multiplyByTwo(Object value) {
+    if (value instanceof Number num) {
+        return num.doubleValue() * 2;
+    }
+    throw new ASTException("Cannot double non-numeric value: " + value);
+}
+```
+
+#### **Step 4: Update Parser to Create New Nodes**
+```java
+// In DSLParser.java
+public Expression parseExpression(String expressionStr) {
+    // ... existing parsing logic
+
+    // Add parsing for your custom syntax
+    if (expressionStr.startsWith("custom:")) {
+        String[] parts = expressionStr.substring(7).split(":", 2);
+        if (parts.length == 2) {
+            String property = parts[0];
+            Expression inner = parseExpression(parts[1]);
+            return new YourCustomExpression(null, property, inner);
+        }
+    }
+
+    // ... rest of parsing logic
+}
+```
+
+### 🔧 **Adding New Validation Rules**
+
+#### **Step 1: Create Custom Validation Visitor**
+```java
+// Create new file: YourCustomValidationVisitor.java
+package com.firefly.rules.core.validation;
+
+import com.firefly.rules.core.dsl.ast.ASTVisitor;
+import com.firefly.rules.core.dsl.ast.expression.YourCustomExpression;
+import com.firefly.rules.interfaces.dtos.validation.ValidationError;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class YourCustomValidationVisitor implements ASTVisitor<List<ValidationError>> {
+
+    @Override
+    public List<ValidationError> visitYourCustomExpression(YourCustomExpression node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate custom property
+        if (!isValidCustomProperty(node.getCustomProperty())) {
+            errors.add(new ValidationError(
+                "Invalid custom property: " + node.getCustomProperty(),
+                "CUSTOM_PROPERTY_INVALID",
+                node.getLocationString()
+            ));
+        }
+
+        // Validate inner expression
+        errors.addAll(node.getInnerExpression().accept(this));
+
+        return errors;
+    }
+
+    private boolean isValidCustomProperty(String property) {
+        return Set.of("double", "square", "negate").contains(property.toLowerCase());
+    }
+
+    // Implement other visitor methods with empty implementations or delegate to base visitor
+    @Override
+    public List<ValidationError> visitBinaryExpression(BinaryExpression node) {
+        // Delegate to existing validation or implement custom logic
+        return new ArrayList<>();
+    }
+
+    // ... other methods
+}
+```
+
+#### **Step 2: Integrate with Main Validator**
+```java
+// In YamlDslValidator.java
+public ValidationResult validate(String yamlContent) {
+    // ... existing validation logic
+
+    // Add your custom validation
+    YourCustomValidationVisitor customValidator = new YourCustomValidationVisitor();
+    List<ValidationError> customErrors = astModel.accept(customValidator);
+    allErrors.addAll(customErrors);
+
+    // ... rest of validation logic
+}
+```
+
+### 🧪 **Testing Your Extensions**
+
+#### **Comprehensive Test Strategy**
+```java
+@TestMethodOrder(OrderAnnotation.class)
+@DisplayName("Custom AST Extensions Integration Tests")
+class CustomASTExtensionsTest {
+
+    @Test
+    @Order(1)
+    @DisplayName("Should parse custom syntax correctly")
+    void testCustomSyntaxParsing() {
+        String yaml = """
+            name: "Custom Syntax Test"
+            description: "Test custom AST extensions"
+            inputs: [value]
+            when:
+              - custom:double:value greater_than 10
+            then:
+              - calculate result as your_custom_function(value, 2)
+            else:
+              - set result to 0
+            output:
+              result: number
+            """;
+
+        // Should parse without errors
+        assertThatCode(() -> astParser.parseRules(yaml))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @Order(2)
+    @DisplayName("Should validate custom syntax correctly")
+    void testCustomSyntaxValidation() {
+        String validYaml = """
+            name: "Valid Custom Syntax"
+            inputs: [value]
+            when:
+              - custom:double:value greater_than 10
+            then:
+              - set result to true
+            output:
+              result: boolean
+            """;
+
+        ValidationResult result = validator.validate(validYaml);
+        assertThat(result.getStatus()).isEqualTo(ValidationStatus.VALID);
+
+        String invalidYaml = """
+            name: "Invalid Custom Syntax"
+            inputs: [value]
+            when:
+              - custom:invalid_property:value greater_than 10
+            then:
+              - set result to true
+            output:
+              result: boolean
+            """;
+
+        ValidationResult invalidResult = validator.validate(invalidYaml);
+        assertThat(invalidResult.getStatus()).isEqualTo(ValidationStatus.ERROR);
+        assertThat(invalidResult.getIssues().getErrors())
+            .anyMatch(error -> error.getMessage().contains("Invalid custom property"));
+    }
+
+    @Test
+    @Order(3)
+    @DisplayName("Should execute custom extensions correctly")
+    void testCustomExtensionExecution() {
+        String yaml = """
+            name: "Custom Extension Execution"
+            inputs: [base, multiplier]
+            when:
+              - custom:double:base greater_than multiplier
+            then:
+              - calculate result as your_custom_function(base, multiplier)
+              - set status to "SUCCESS"
+            else:
+              - set result to 0
+              - set status to "FAILED"
+            output:
+              result: number
+              status: text
+            """;
+
+        Map<String, Object> inputData = Map.of(
+            "base", 5.0,
+            "multiplier", 8.0
+        );
+
+        ASTRulesEvaluationResult result = evaluationEngine.evaluateRules(yaml, inputData);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getConditionResult()).isTrue(); // custom:double:5.0 = 10.0 > 8.0
+        assertThat(result.getOutputData().get("status")).isEqualTo("SUCCESS");
+
+        // Verify custom function calculation
+        double expectedResult = Math.pow(5.0, 8.0) + Math.sqrt(5.0 * 8.0);
+        assertThat(result.getOutputData().get("result")).isEqualTo(expectedResult);
+    }
+}
+```
+
+### 📚 **Best Practices for AST Extensions**
+
+#### **1. Type Safety**
+- Always validate argument types in functions
+- Use proper type conversion and error handling
+- Provide clear error messages for type mismatches
+
+#### **2. Performance Considerations**
+- Avoid expensive operations in frequently called functions
+- Consider caching for complex calculations
+- Use lazy evaluation where appropriate
+
+#### **3. Error Handling**
+- Throw `ASTException` for AST-related errors
+- Include context information in error messages
+- Provide suggestions for fixing errors when possible
+
+#### **4. Documentation**
+- Document all new operators, functions, and node types
+- Provide examples in YAML DSL format
+- Include performance characteristics and limitations
+
+#### **5. Testing**
+- Write comprehensive unit tests for all extensions
+- Include edge cases and error scenarios
+- Test integration with existing AST components
+- Verify validation rules work correctly
+
+This comprehensive guide provides everything needed to understand and extend the Firefly Rule Engine's AST system. The modular architecture and visitor pattern make it straightforward to add new functionality while maintaining type safety and performance.
 
 This developer guide provides everything needed to start contributing to the Firefly Rule Engine project.

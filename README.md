@@ -5,7 +5,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 [![Maven](https://img.shields.io/badge/Maven-3.8+-red.svg)](https://maven.apache.org/)
 
-A powerful, flexible, and high-performance rule engine designed for the **Firefly OpenCore Banking Platform**. The Firefly Rule Engine enables financial institutions to define, manage, and execute complex business rules using an intuitive YAML-based Domain Specific Language (DSL).
+A powerful, flexible, and high-performance rule engine designed for the **Firefly OpenCore Banking Platform**. The Firefly Rule Engine enables financial institutions to define, manage, and execute complex business rules using an intuitive YAML-based Domain Specific Language (DSL) with a modern **AST-based (Abstract Syntax Tree) architecture**.
 
 ## 🏦 Banking-First Design
 
@@ -20,31 +20,37 @@ Built specifically for financial services, the Firefly Rule Engine excels at:
 
 ## ✨ Key Features
 
-### 🚀 **High Performance**
+### 🚀 **High Performance AST Architecture**
+- **AST-Based Processing** - Modern Abstract Syntax Tree architecture for type-safe, optimized rule evaluation
 - **Reactive Architecture** - Built on Spring WebFlux for non-blocking, high-throughput processing
-- **Concurrent Execution** - Parallel rule evaluation for maximum performance
+- **Visitor Pattern** - Clean separation of concerns with extensible visitor-based operations
+- **Zero String Parsing Overhead** - Direct AST traversal eliminates runtime parsing costs
 - **Circuit Breaker Support** - Built-in resilience patterns for production environments
 
-### 📝 **Intuitive YAML DSL**
+### 📝 **Intuitive YAML DSL with Advanced Validation**
 - **Human-Readable Syntax** - Business users can read and understand rules
-- **Rich Operator Support** - Comprehensive set of comparison, logical, and arithmetic operators
+- **Rich Operator Support** - 26+ comparison operators and comprehensive logical operations
 - **Banking-Specific Functions** - Pre-built functions for common financial calculations
+- **Comprehensive Validation** - Multi-layer validation with syntax, semantic, and best practice checks
+- **DSL Reference Compliance** - 100% compliance with documented YAML DSL specification
 
 ### 🔧 **Enterprise Ready**
-- **RESTful APIs** - Complete REST API for rule evaluation and management
+- **RESTful APIs** - Complete REST API for rule evaluation, management, and validation
 - **YAML DSL Storage** - Store, version, and manage rule definitions in PostgreSQL
 - **Database Integration** - PostgreSQL support with R2DBC for reactive data access
+- **Comprehensive Audit Trail** - Complete audit logging for compliance and monitoring
 - **OpenAPI Documentation** - Auto-generated API documentation with Swagger UI
-- **Comprehensive Logging** - Structured JSON logging for observability
+- **Comprehensive Logging** - Structured JSON logging with operation IDs for full observability
 
-### 🏗️ **Modular Architecture**
+### 🏗️ **Modern Modular Architecture**
+- **AST-Based Core** - Type-safe Abstract Syntax Tree processing with visitor pattern
 - **Clean Separation** - Distinct modules for core logic, web APIs, models, and interfaces
-- **Extensible Design** - Easy to extend with custom operators and functions
+- **Extensible Design** - Easy to extend with custom operators, functions, and validation rules
 - **SDK Support** - Client SDK for easy integration
 
 ## 🏛️ Architecture Overview
 
-The Firefly Rule Engine follows a modular, layered architecture:
+The Firefly Rule Engine follows a modern **AST-based modular architecture** with clean separation of concerns:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -54,32 +60,54 @@ The Firefly Rule Engine follows a modular, layered architecture:
 │  │ Controller  │ │ Controller  │ │      Controller         ││
 │  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
-│                     Core Engine                             │
+│                   AST-Based Core Engine                     │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ DSL Parser  │ │ Evaluator   │ │    Action Executor      ││
+│  │ AST Rules   │ │ AST Rules   │ │    YAML DSL             ││
+│  │ DSL Parser  │ │ Evaluation  │ │    Validator            ││
+│  │             │ │ Engine      │ │                         ││
 │  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ Validator   │ │ Variable    │ │    Rule Definition      ││
-│  │             │ │ Resolver    │ │    Service              ││
+│  │ AST Visitor │ │ Expression  │ │    Action               ││
+│  │ Pattern     │ │ Evaluator   │ │    Executor             ││
+│  └─────────────┘ └─────────────┘ └─────────────────────────┘│
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
+│  │ Validation  │ │ Variable    │ │    Rule Definition      ││
+│  │ Visitor     │ │ Reference   │ │    Service              ││
+│  │             │ │ Collector   │ │                         ││
 │  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
-│                   Data Models & DTOs                        │
+│                   AST Model & DTOs                          │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
+│  │ AST Node    │ │ Expression  │ │    Condition            ││
+│  │ Hierarchy   │ │ Nodes       │ │    Nodes                ││
+│  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │                  Database Layer (R2DBC)                     │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ Constants   │ │ Rule        │ │      Migrations         ││
-│  │ Repository  │ │ Definitions │ │      & Schema           ││
+│  │ Constants   │ │ Rule        │ │    Audit Trail          ││
+│  │ Repository  │ │ Definitions │ │    Repository           ││
 │  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Modules
 
-- **`common-platform-rule-engine-core`** - Core rule evaluation engine, DSL processing, and validation
+- **`common-platform-rule-engine-core`** - AST-based rule evaluation engine, DSL processing, and comprehensive validation
 - **`common-platform-rule-engine-web`** - REST API controllers for evaluation, rule management, and validation
 - **`common-platform-rule-engine-models`** - Data entities, repositories, and database schema
 - **`common-platform-rule-engine-interfaces`** - DTOs, service interfaces, and contracts
 - **`common-platform-rule-engine-sdk`** - Client SDK for integration
+
+### AST Architecture Benefits
+
+The Firefly Rule Engine has **completely migrated from string-based parsing to a pure AST-based architecture**:
+
+- **🎯 Type Safety**: Compile-time type checking eliminates runtime errors
+- **⚡ Performance**: Direct AST traversal is faster than string parsing
+- **🔧 Extensibility**: Visitor pattern makes adding new operations trivial
+- **🛡️ Validation**: Deep semantic validation using AST structure
+- **📊 Maintainability**: Clear separation between parsing, validation, and execution
+- **🚫 No Legacy Dependencies**: String-based parser completely removed for cleaner architecture
 
 ## 🚀 Quick Start
 
@@ -149,12 +177,13 @@ The Firefly Rule Engine provides comprehensive YAML DSL storage capabilities, al
 - Consistent rule execution across environments
 - Audit trail for rule usage
 
-### 🛡️ **Validation & Quality Assurance**
-- Comprehensive YAML DSL validation before storage
-- Naming convention enforcement
-- Dependency analysis and circular reference detection
-- Performance optimization suggestions
-- Best practices compliance checking
+### 🛡️ **Advanced Validation & Quality Assurance**
+- **Multi-Layer Validation**: Syntax, semantic, DSL reference compliance, and best practices
+- **AST-Based Semantic Validation**: Deep validation using structured AST traversal
+- **Naming Convention Enforcement**: Strict camelCase, UPPER_CASE, and snake_case validation
+- **Dependency Analysis**: Circular reference detection and variable resolution validation
+- **Performance Optimization**: Suggestions for improving rule performance and maintainability
+- **Quality Scoring**: 0-100 quality score with detailed improvement recommendations
 
 ### 📊 **Example: Store and Evaluate a Rule**
 
@@ -358,18 +387,81 @@ context.setComputedVariable("debt_to_income", calculatedValue);
 ## 📚 Documentation
 
 ### Core Documentation
-- **[YAML DSL Reference](docs/yaml-dsl-reference.md)** - Complete syntax guide with examples
-- **[API Documentation](docs/api-documentation.md)** - REST API reference and examples
-- **[Architecture Guide](docs/architecture.md)** - Detailed system architecture and design
+- **[YAML DSL Reference](docs/yaml-dsl-reference.md)** - Complete syntax guide with 1576 lines covering all operators, functions, and examples
+- **[API Documentation](docs/api-documentation.md)** - REST API reference with comprehensive examples
+- **[Architecture Guide](docs/architecture.md)** - Detailed AST-based system architecture and design patterns
 
 ### Guides & Tutorials
-- **[Developer Guide](docs/developer-guide.md)** - Setup, development, and deployment
-- **[User Guide](docs/user-guide.md)** - Step-by-step tutorials for common scenarios
-- **[Configuration Reference](docs/configuration.md)** - All configuration options
+- **[Developer Guide](docs/developer-guide.md)** - Setup, development, and deployment for AST-based engine
+- **[Inputs Section Guide](docs/inputs-section-guide.md)** - Comprehensive guide on variable types and naming conventions
 
-### Banking Examples
-- **[Credit Scoring Rules](examples/credit-scoring-rules.yaml)** - Credit assessment examples
-- **[AML Risk Assessment](examples/financial-risk-assessment-rules.yaml)** - Anti-money laundering rules
+### Key Features Covered
+- **AST-Based Processing**: Complete guide to Abstract Syntax Tree architecture
+- **Visitor Pattern Implementation**: How to extend the engine with custom operations
+- **Comprehensive Validation**: Multi-layer validation system with quality scoring
+- **Variable Resolution**: Priority-based resolution with automatic constant detection
+- **Banking-Specific Functions**: Financial calculations and validation functions
+- **Audit Trail System**: Complete audit logging for compliance and monitoring
+
+## 🔍 Audit Trail System
+
+The Firefly Rule Engine includes comprehensive audit trail capabilities for compliance, monitoring, and debugging:
+
+### 📊 **Audit Trail Features**
+- **Complete Operation Tracking** - All rule operations (create, update, delete, evaluate) are audited
+- **Detailed Request/Response Logging** - Full request and response data captured as JSON
+- **Performance Metrics** - Execution times, status codes, and success/failure tracking
+- **User Activity Monitoring** - Track who performed what operations when
+- **Compliance Ready** - SOX, GDPR, PCI DSS, and Basel III compliance support
+
+### 🔧 **Audit Trail API Examples**
+
+#### Query Audit Trails with Filtering
+```bash
+# Get audit trails for rule evaluations by a specific user
+curl -X POST http://localhost:8080/api/v1/audit/trails \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationType": "RULE_EVALUATION_DIRECT",
+    "userId": "john.doe@company.com",
+    "startDate": "2025-01-01T00:00:00Z",
+    "endDate": "2025-01-31T23:59:59Z",
+    "page": 0,
+    "size": 20,
+    "sortBy": "createdAt",
+    "sortDirection": "DESC"
+  }'
+```
+
+#### Get Audit Trail by ID
+```bash
+curl -X GET http://localhost:8080/api/v1/audit/trails/{auditId}
+```
+
+#### Get Recent Activity for a Rule
+```bash
+curl -X GET http://localhost:8080/api/v1/audit/trails/entity/{ruleId}?limit=10
+```
+
+#### Get Audit Trails by Operation Type
+```bash
+curl -X GET http://localhost:8080/api/v1/audit/trails/operation/RULE_DEFINITION_CREATE?page=0&size=20
+```
+
+### 📈 **Audit Event Types**
+- `RULE_DEFINITION_CREATE` - New rule definition created
+- `RULE_DEFINITION_UPDATE` - Existing rule definition updated
+- `RULE_DEFINITION_DELETE` - Rule definition deleted
+- `RULE_EVALUATION_DIRECT` - Direct YAML evaluation
+- `RULE_EVALUATION_BY_CODE` - Stored rule evaluation by code
+- `RULE_EVALUATION_PLAIN` - Plain YAML evaluation
+- `DSL_VALIDATION` - YAML DSL validation requests
+
+### 🔒 **Compliance & Security**
+- **Immutable Records** - Audit trails cannot be modified after creation
+- **Data Protection** - Automatic PII masking in audit records
+- **Access Control** - Role-based access to audit trail data
+- **Retention Policies** - Configurable retention periods for compliance requirements
 
 ## 🔧 Configuration
 
@@ -462,35 +554,40 @@ management:
         include: health,info,prometheus
 ```
 
-## 🔄 Data Flow Architecture
+## 🔄 AST-Based Data Flow Architecture
 
 ```mermaid
-graph TD
+graph LR
     A[API Request] --> B[RulesEvaluationController]
-    B --> C[RulesEvaluationEngine]
-    C --> D[Parse YAML DSL]
-    D --> E[Create EvaluationContext]
-    E --> F[Load Input Variables]
-    F --> G[Auto-detect Constants]
-    G --> H[Query Database for Constants]
-    H --> I[Variable Resolution]
-    I --> J[Condition Evaluation]
-    J --> K[Action Execution]
-    K --> L[Generate Output]
-    L --> M[Return Response]
+    B --> C[ASTRulesEvaluationEngine]
+    C --> D[AST Rules DSL Parser]
+    D --> E[Create AST Model]
+    E --> F[Create EvaluationContext]
+    F --> G[Variable Reference Collector]
+    G --> H[Auto-detect Constants]
+    H --> I[Query Database for Constants]
+    I --> J[AST Visitor Pattern]
+    J --> K[Expression Evaluator]
+    J --> L[Action Executor]
+    K --> M[Generate Output]
+    L --> M
+    M --> N[Return Response]
 
     style A fill:#e1f5fe
+    style E fill:#e0f2f1
+    style J fill:#f3e5f5
     style M fill:#e8f5e8
-    style H fill:#fff3e0
+    style I fill:#fff3e0
 ```
 
-### Variable Resolution Flow
+### AST-Based Variable Resolution Flow
 
-1. **Input Processing**: API request data becomes input variables
-2. **Constant Detection**: System scans rule for `UPPER_CASE_NAMES`
-3. **Database Query**: Automatically loads matching constants
-4. **Priority Resolution**: Computed > Input > Constants
-5. **Rule Execution**: Variables resolved during evaluation
+1. **AST Parsing**: YAML converted to structured AST nodes
+2. **Variable Collection**: `VariableReferenceCollector` visitor extracts all variable references
+3. **Constant Detection**: System identifies `UPPER_CASE_NAMES` using regex patterns
+4. **Database Query**: Automatically loads matching constants from database
+5. **Priority Resolution**: Computed > Input > Constants (using EvaluationContext)
+6. **AST Evaluation**: Visitors traverse AST nodes for type-safe evaluation
 
 ## 🧪 Testing
 
