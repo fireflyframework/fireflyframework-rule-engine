@@ -22,10 +22,14 @@ import com.firefly.rules.core.dsl.ast.condition.ComparisonCondition;
 import com.firefly.rules.core.dsl.ast.condition.ExpressionCondition;
 import com.firefly.rules.core.dsl.ast.condition.LogicalCondition;
 import com.firefly.rules.core.dsl.ast.expression.*;
+import com.firefly.rules.core.services.JsonPathService;
+import com.firefly.rules.core.services.RestCallService;
+import com.firefly.rules.core.utils.JsonLogger;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -34,11 +38,21 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 public class ExpressionEvaluator implements ASTVisitor<Object> {
-    
+
     private final EvaluationContext context;
-    
+    private final RestCallService restCallService;
+    private final JsonPathService jsonPathService;
+
     public ExpressionEvaluator(EvaluationContext context) {
         this.context = context;
+        this.restCallService = null; // Will be injected when needed
+        this.jsonPathService = null; // Will be injected when needed
+    }
+
+    public ExpressionEvaluator(EvaluationContext context, RestCallService restCallService, JsonPathService jsonPathService) {
+        this.context = context;
+        this.restCallService = restCallService;
+        this.jsonPathService = jsonPathService;
     }
     
     // Expression visitors
@@ -71,6 +85,8 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case NOT_IN_LIST -> !inList(leftValue, rightValue);
             case BETWEEN -> throw new IllegalStateException("BETWEEN operator should be handled in ComparisonCondition, not BinaryExpression");
             case NOT_BETWEEN -> throw new IllegalStateException("NOT_BETWEEN operator should be handled in ComparisonCondition, not BinaryExpression");
+            case AGE_AT_LEAST -> ageAtLeast(leftValue, rightValue);
+            case AGE_LESS_THAN -> ageLessThan(leftValue, rightValue);
             case AND -> toBoolean(leftValue) && toBoolean(rightValue);
             case OR -> toBoolean(leftValue) || toBoolean(rightValue);
             // Handle additional aliases and operators
@@ -99,6 +115,27 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case TO_LOWER -> operandValue != null ? operandValue.toString().toLowerCase() : null;
             case TRIM -> operandValue != null ? operandValue.toString().trim() : null;
             case LENGTH -> operandValue != null ? operandValue.toString().length() : 0;
+
+            // Validation operators
+            case IS_POSITIVE -> isPositive(operandValue);
+            case IS_NEGATIVE -> isNegative(operandValue);
+            case IS_ZERO -> isZero(operandValue);
+            case IS_EMPTY -> isEmpty(operandValue);
+            case IS_NOT_EMPTY -> !isEmpty(operandValue);
+            case IS_NUMERIC -> isNumeric(operandValue);
+            case IS_NOT_NUMERIC -> !isNumeric(operandValue);
+            case IS_EMAIL -> isEmail(operandValue);
+            case IS_PHONE -> isPhone(operandValue);
+            case IS_DATE -> isDate(operandValue);
+            case IS_PERCENTAGE -> isPercentage(operandValue);
+            case IS_CURRENCY -> isCurrency(operandValue);
+            case IS_CREDIT_SCORE -> isCreditScore(operandValue);
+            case IS_SSN -> isSSN(operandValue);
+            case IS_ACCOUNT_NUMBER -> isAccountNumber(operandValue);
+            case IS_ROUTING_NUMBER -> isRoutingNumber(operandValue);
+            case IS_BUSINESS_DAY -> isBusinessDay(operandValue);
+            case IS_WEEKEND -> isWeekend(operandValue);
+
             // Handle aliases
             case MINUS -> negate(operandValue);
             case PLUS -> operandValue; // No-op for positive
@@ -226,6 +263,20 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "calculate_debt_ratio" -> calculateDebtRatio(args);
             case "calculate_ltv" -> calculateLTV(args);
             case "calculate_payment_schedule" -> calculatePaymentSchedule(args);
+
+            // REST API functions
+            case "rest_get" -> restGet(args);
+            case "rest_post" -> restPost(args);
+            case "rest_put" -> restPut(args);
+            case "rest_delete" -> restDelete(args);
+            case "rest_patch" -> restPatch(args);
+            case "rest_call" -> restCall(args);
+
+            // JSON path functions
+            case "json_get", "json_path" -> jsonGet(args);
+            case "json_exists" -> jsonExists(args);
+            case "json_size" -> jsonSize(args);
+            case "json_type" -> jsonType(args);
 
             default -> {
                 log.warn("Unknown function: {}", functionName);
@@ -428,35 +479,35 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
         if (left instanceof String || right instanceof String) {
             return toString(left) + toString(right);
         }
-        return toNumber(left).add(toNumber(right));
+        return toNumberSafe(left).add(toNumberSafe(right));
     }
     
     private Object subtract(Object left, Object right) {
-        return toNumber(left).subtract(toNumber(right));
+        return toNumberSafe(left).subtract(toNumberSafe(right));
     }
     
     private Object multiply(Object left, Object right) {
-        return toNumber(left).multiply(toNumber(right));
+        return toNumberSafe(left).multiply(toNumberSafe(right));
     }
     
     private Object divide(Object left, Object right) {
-        BigDecimal rightNum = toNumber(right);
+        BigDecimal rightNum = toNumberSafe(right);
         if (rightNum.compareTo(BigDecimal.ZERO) == 0) {
             throw new ArithmeticException("Division by zero");
         }
-        return toNumber(left).divide(rightNum, 10, BigDecimal.ROUND_HALF_UP);
+        return toNumberSafe(left).divide(rightNum, 10, BigDecimal.ROUND_HALF_UP);
     }
     
     private Object modulo(Object left, Object right) {
-        return toNumber(left).remainder(toNumber(right));
+        return toNumberSafe(left).remainder(toNumberSafe(right));
     }
     
     private Object power(Object left, Object right) {
-        return BigDecimal.valueOf(Math.pow(toNumber(left).doubleValue(), toNumber(right).doubleValue()));
+        return BigDecimal.valueOf(Math.pow(toNumberSafe(left).doubleValue(), toNumberSafe(right).doubleValue()));
     }
     
     private Object negate(Object value) {
-        return toNumber(value).negate();
+        return toNumberSafe(value).negate();
     }
     
     private boolean equals(Object left, Object right) {
@@ -471,18 +522,30 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     }
     
     private boolean greaterThan(Object left, Object right) {
+        if (left == null || right == null) {
+            throw new IllegalArgumentException("Cannot compare null values: " + left + " > " + right);
+        }
         return toNumber(left).compareTo(toNumber(right)) > 0;
     }
-    
+
     private boolean lessThan(Object left, Object right) {
+        if (left == null || right == null) {
+            throw new IllegalArgumentException("Cannot compare null values: " + left + " < " + right);
+        }
         return toNumber(left).compareTo(toNumber(right)) < 0;
     }
-    
+
     private boolean greaterThanOrEqual(Object left, Object right) {
+        if (left == null || right == null) {
+            throw new IllegalArgumentException("Cannot compare null values: " + left + " >= " + right);
+        }
         return toNumber(left).compareTo(toNumber(right)) >= 0;
     }
-    
+
     private boolean lessThanOrEqual(Object left, Object right) {
+        if (left == null || right == null) {
+            throw new IllegalArgumentException("Cannot compare null values: " + left + " <= " + right);
+        }
         return toNumber(left).compareTo(toNumber(right)) <= 0;
     }
     
@@ -528,6 +591,22 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     }
     
     private BigDecimal toNumber(Object value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Cannot convert null to number");
+        }
+        if (value instanceof BigDecimal) return (BigDecimal) value;
+        if (value instanceof Number) return BigDecimal.valueOf(((Number) value).doubleValue());
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Cannot convert '" + value + "' to number");
+        }
+    }
+
+    /**
+     * Safe number conversion that treats null as zero (for arithmetic operations)
+     */
+    private BigDecimal toNumberSafe(Object value) {
         if (value == null) return BigDecimal.ZERO;
         if (value instanceof BigDecimal) return (BigDecimal) value;
         if (value instanceof Number) return BigDecimal.valueOf(((Number) value).doubleValue());
@@ -1833,6 +1912,339 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             return schedule;
         } catch (Exception e) {
             log.warn("Error calculating payment schedule: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // REST API Functions
+
+    private Object restGet(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 1) {
+            return createErrorResponse("rest_get requires at least 1 argument: url");
+        }
+
+        try {
+            String url = args[0].toString();
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 1 ? (Map<String, String>) args[1] : null;
+            Long timeout = args.length > 2 ? toLong(args[2]) : null;
+
+            return restCallService.get(url, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST GET failed: " + e.getMessage());
+        }
+    }
+
+    private Object restPost(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 2) {
+            return createErrorResponse("rest_post requires at least 2 arguments: url, body");
+        }
+
+        try {
+            String url = args[0].toString();
+            Object body = args[1];
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 2 ? (Map<String, String>) args[2] : null;
+            Long timeout = args.length > 3 ? toLong(args[3]) : null;
+
+            return restCallService.post(url, body, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST POST failed: " + e.getMessage());
+        }
+    }
+
+    private Object restPut(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 2) {
+            return createErrorResponse("rest_put requires at least 2 arguments: url, body");
+        }
+
+        try {
+            String url = args[0].toString();
+            Object body = args[1];
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 2 ? (Map<String, String>) args[2] : null;
+            Long timeout = args.length > 3 ? toLong(args[3]) : null;
+
+            return restCallService.put(url, body, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST PUT failed: " + e.getMessage());
+        }
+    }
+
+    private Object restDelete(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 1) {
+            return createErrorResponse("rest_delete requires at least 1 argument: url");
+        }
+
+        try {
+            String url = args[0].toString();
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 1 ? (Map<String, String>) args[1] : null;
+            Long timeout = args.length > 2 ? toLong(args[2]) : null;
+
+            return restCallService.delete(url, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST DELETE failed: " + e.getMessage());
+        }
+    }
+
+    private Object restPatch(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 2) {
+            return createErrorResponse("rest_patch requires at least 2 arguments: url, body");
+        }
+
+        try {
+            String url = args[0].toString();
+            Object body = args[1];
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 2 ? (Map<String, String>) args[2] : null;
+            Long timeout = args.length > 3 ? toLong(args[3]) : null;
+
+            return restCallService.patch(url, body, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST PATCH failed: " + e.getMessage());
+        }
+    }
+
+    private Object restCall(Object[] args) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available");
+            return createErrorResponse("RestCallService not available");
+        }
+
+        if (args.length < 2) {
+            return createErrorResponse("rest_call requires at least 2 arguments: method, url");
+        }
+
+        try {
+            String method = args[0].toString();
+            String url = args[1].toString();
+            Object body = args.length > 2 ? args[2] : null;
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = args.length > 3 ? (Map<String, String>) args[3] : null;
+            Long timeout = args.length > 4 ? toLong(args[4]) : null;
+
+            return restCallService.request(method, url, body, headers, timeout).block();
+        } catch (Exception e) {
+            return createErrorResponse("REST call failed: " + e.getMessage());
+        }
+    }
+
+    // JSON Path Functions
+
+    private Object jsonGet(Object[] args) {
+        if (jsonPathService == null) {
+            log.warn("JsonPathService not available");
+            return null;
+        }
+
+        if (args.length < 2) {
+            log.warn("json_get requires 2 arguments: jsonData, path");
+            return null;
+        }
+
+        try {
+            Object jsonData = args[0];
+            String path = args[1].toString();
+
+            return jsonPathService.extractValue(jsonData, path);
+        } catch (Exception e) {
+            log.warn("Error in json_get: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Object jsonExists(Object[] args) {
+        if (jsonPathService == null) {
+            log.warn("JsonPathService not available");
+            return false;
+        }
+
+        if (args.length < 2) {
+            log.warn("json_exists requires 2 arguments: jsonData, path");
+            return false;
+        }
+
+        try {
+            Object jsonData = args[0];
+            String path = args[1].toString();
+
+            return jsonPathService.pathExists(jsonData, path);
+        } catch (Exception e) {
+            log.warn("Error in json_exists: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private Object jsonSize(Object[] args) {
+        if (jsonPathService == null) {
+            log.warn("JsonPathService not available");
+            return -1;
+        }
+
+        if (args.length < 2) {
+            log.warn("json_size requires 2 arguments: jsonData, path");
+            return -1;
+        }
+
+        try {
+            Object jsonData = args[0];
+            String path = args[1].toString();
+
+            return jsonPathService.getSize(jsonData, path);
+        } catch (Exception e) {
+            log.warn("Error in json_size: {}", e.getMessage());
+            return -1;
+        }
+    }
+
+    private Object jsonType(Object[] args) {
+        if (jsonPathService == null) {
+            log.warn("JsonPathService not available");
+            return null;
+        }
+
+        if (args.length < 2) {
+            log.warn("json_type requires 2 arguments: jsonData, path");
+            return null;
+        }
+
+        try {
+            Object jsonData = args[0];
+            String path = args[1].toString();
+
+            Class<?> type = jsonPathService.getValueType(jsonData, path);
+            return type != null ? type.getSimpleName() : null;
+        } catch (Exception e) {
+            log.warn("Error in json_type: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Map<String, Object> createErrorResponse(String message) {
+        Map<String, Object> errorResponse = new java.util.HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("error", true);
+        errorResponse.put("message", message);
+        return errorResponse;
+    }
+
+    @Override
+    public Object visitJsonPathExpression(JsonPathExpression node) {
+        if (jsonPathService == null) {
+            log.warn("JsonPathService not available for JSON path expression");
+            return null;
+        }
+
+        try {
+            Object sourceValue = node.getSourceExpression().accept(this);
+            if (sourceValue == null) {
+                return null;
+            }
+
+            String jsonPath = node.getJsonPath();
+            Object result = jsonPathService.extractValue(sourceValue, jsonPath);
+
+            JsonLogger.info(log, context.getOperationId(),
+                String.format("JSON path extraction: %s -> %s", jsonPath, result));
+
+            return result;
+        } catch (Exception e) {
+            JsonLogger.error(log, context.getOperationId(),
+                "Error evaluating JSON path expression: " + node.toDebugString(), e);
+            return null;
+        }
+    }
+
+    @Override
+    public Object visitRestCallExpression(RestCallExpression node) {
+        if (restCallService == null) {
+            log.warn("RestCallService not available for REST call expression");
+            return null;
+        }
+
+        try {
+            // Evaluate URL
+            String url = (String) node.getUrlExpression().accept(this);
+            if (url == null || url.trim().isEmpty()) {
+                throw new IllegalArgumentException("URL cannot be null or empty");
+            }
+
+            // Evaluate optional parameters
+            Object body = node.getBodyExpression() != null ?
+                node.getBodyExpression().accept(this) : null;
+
+            @SuppressWarnings("unchecked")
+            Map<String, String> headers = node.getHeadersExpression() != null ?
+                (Map<String, String>) node.getHeadersExpression().accept(this) : null;
+
+            Long timeout = node.getTimeoutExpression() != null ?
+                toLong(node.getTimeoutExpression().accept(this)) : null;
+
+            // Make the REST call
+            String method = node.getHttpMethod();
+            JsonLogger.info(log, context.getOperationId(),
+                String.format("Making REST call: %s %s", method, url));
+
+            // Since we're in a synchronous context, we need to block on the reactive call
+            Map<String, Object> result = restCallService.request(method, url, body, headers, timeout)
+                .block(); // This blocks the current thread - in production, consider async handling
+
+            JsonLogger.info(log, context.getOperationId(),
+                String.format("REST call completed: %s %s", method, url));
+
+            return result;
+
+        } catch (Exception e) {
+            JsonLogger.error(log, context.getOperationId(),
+                "Error evaluating REST call expression: " + node.toDebugString(), e);
+
+            // Return error response instead of null
+            Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", true);
+            errorResponse.put("message", e.getMessage());
+            return errorResponse;
+        }
+    }
+
+
+
+    /**
+     * Convert an object to Long
+     */
+    private Long toLong(Object value) {
+        if (value == null) return null;
+        if (value instanceof Long) return (Long) value;
+        if (value instanceof Number) return ((Number) value).longValue();
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
             return null;
         }
     }

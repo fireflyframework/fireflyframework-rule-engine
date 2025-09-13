@@ -89,7 +89,7 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                         long executionTime = System.currentTimeMillis() - startTime;
                         log.error("Rules evaluation failed", error);
 
-                        // Record audit event for error and re-throw
+                        // Record audit event for error and return error response
                         return auditHelper.recordAuditEventWithError(
                                 AuditEventType.RULE_EVALUATION_DIRECT,
                                 null, // entityId
@@ -99,7 +99,11 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                                 500,
                                 executionTime,
                                 exchange
-                        ).then(Mono.error(error));
+                        ).then(Mono.just(RulesEvaluationResponseDTO.builder()
+                                .success(false)
+                                .error(error.getMessage())
+                                .executionTimeMs(executionTime)
+                                .build()));
                     });
         } catch (IllegalArgumentException e) {
             long executionTime = System.currentTimeMillis() - startTime;
@@ -126,8 +130,9 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
     public Mono<RulesEvaluationResponseDTO> evaluateRulesPlainWithAudit(
             PlainYamlEvaluationRequestDTO request, ServerWebExchange exchange) {
         
+
         log.info("Evaluating plain YAML rules definition with input data: {}", request.getInputData());
-        
+
         long startTime = System.currentTimeMillis();
         
         return rulesEvaluationEngine.evaluateRulesReactive(request.getYamlContent(), request.getInputData())
@@ -157,7 +162,7 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                     long executionTime = System.currentTimeMillis() - startTime;
                     log.error("Plain YAML rules evaluation failed", error);
 
-                    // Record audit event for error and re-throw
+                    // Record audit event for error and return error response
                     return auditHelper.recordAuditEventWithError(
                             AuditEventType.RULE_EVALUATION_PLAIN,
                             null, // entityId
@@ -167,7 +172,11 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                             500,
                             executionTime,
                             exchange
-                    ).then(Mono.error(error));
+                    ).then(Mono.just(RulesEvaluationResponseDTO.builder()
+                            .success(false)
+                            .error(error.getMessage())
+                            .executionTimeMs(executionTime)
+                            .build()));
                 });
     }
 
@@ -206,7 +215,7 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                     long executionTime = System.currentTimeMillis() - startTime;
                     log.error("Rule evaluation by code failed", error);
 
-                    // Record audit event for error and re-throw
+                    // Record audit event for error and return error response
                     return auditHelper.recordAuditEventWithError(
                             AuditEventType.RULE_EVALUATION_BY_CODE,
                             null, // entityId
@@ -216,7 +225,11 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                             500,
                             executionTime,
                             exchange
-                    ).then(Mono.error(error));
+                    ).then(Mono.just(RulesEvaluationResponseDTO.builder()
+                            .success(false)
+                            .error(error.getMessage())
+                            .executionTimeMs(executionTime)
+                            .build()));
                 });
     }
 
@@ -229,6 +242,9 @@ public class RulesEvaluationServiceImpl implements RulesEvaluationService {
                 .conditionResult(result.isConditionResult())
                 .outputData(result.getOutputData())
                 .circuitBreakerTriggered(result.isCircuitBreakerTriggered())
+                .circuitBreakerMessage(result.getCircuitBreakerMessage())
+                .error(result.getError())
+                .executionTimeMs(result.getExecutionTimeMs())
                 .build();
     }
 

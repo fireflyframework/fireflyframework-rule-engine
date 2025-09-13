@@ -488,4 +488,53 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
 
         return errors;
     }
+
+    @Override
+    public List<ValidationError> visitJsonPathExpression(JsonPathExpression node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate source expression
+        errors.addAll(node.getSourceExpression().accept(this));
+
+        // Validate JSON path syntax
+        if (node.getJsonPath() == null || node.getJsonPath().trim().isEmpty()) {
+            errors.add(new ValidationError(
+                "JSON path cannot be empty",
+                node.getLocation(),
+                "VAL_019"
+            ));
+        }
+
+        return errors;
+    }
+
+    @Override
+    public List<ValidationError> visitRestCallExpression(RestCallExpression node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate URL expression
+        errors.addAll(node.getUrlExpression().accept(this));
+
+        // Validate HTTP method
+        if (node.getHttpMethod() == null || node.getHttpMethod().trim().isEmpty()) {
+            errors.add(new ValidationError(
+                "HTTP method cannot be empty",
+                node.getLocation(),
+                "VAL_020"
+            ));
+        }
+
+        // Validate optional expressions
+        if (node.getBodyExpression() != null) {
+            errors.addAll(node.getBodyExpression().accept(this));
+        }
+        if (node.getHeadersExpression() != null) {
+            errors.addAll(node.getHeadersExpression().accept(this));
+        }
+        if (node.getTimeoutExpression() != null) {
+            errors.addAll(node.getTimeoutExpression().accept(this));
+        }
+
+        return errors;
+    }
 }

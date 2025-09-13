@@ -24,10 +24,14 @@ import com.firefly.rules.core.dsl.ast.visitor.ActionExecutor;
 import com.firefly.rules.core.dsl.ast.visitor.EvaluationContext;
 import com.firefly.rules.core.dsl.ast.visitor.ExpressionEvaluator;
 import com.firefly.rules.core.services.ConstantService;
+import com.firefly.rules.core.services.JsonPathService;
+import com.firefly.rules.core.services.RestCallService;
+import com.firefly.rules.core.services.impl.JsonPathServiceImpl;
+import com.firefly.rules.core.services.impl.RestCallServiceImpl;
 import com.firefly.rules.core.utils.JsonLogger;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -39,25 +43,59 @@ import java.util.stream.Collectors;
  * Handles all rule evaluation using AST parsing and visitor patterns.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class ASTRulesEvaluationEngine {
-    
+
     private final ASTRulesDSLParser parser;
     private final ConstantService constantService;
+    private final RestCallService restCallService;
+    private final JsonPathService jsonPathService;
+
+    /**
+     * Primary constructor for Spring dependency injection
+     * RestCallService and JsonPathService are optional and will use defaults if not provided
+     */
+    @Autowired
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
+                                   ConstantService constantService,
+                                   @Autowired(required = false) RestCallService restCallService,
+                                   @Autowired(required = false) JsonPathService jsonPathService) {
+        this.parser = Objects.requireNonNull(parser, "ASTRulesDSLParser cannot be null");
+        this.constantService = Objects.requireNonNull(constantService, "ConstantService cannot be null");
+        this.restCallService = restCallService != null ? restCallService : new RestCallServiceImpl();
+        this.jsonPathService = jsonPathService != null ? jsonPathService : new JsonPathServiceImpl();
+    }
+
+    /**
+     * Constructor with default REST and JSON services (for testing)
+     */
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser, ConstantService constantService) {
+        this.parser = Objects.requireNonNull(parser, "ASTRulesDSLParser cannot be null");
+        this.constantService = Objects.requireNonNull(constantService, "ConstantService cannot be null");
+        this.restCallService = new RestCallServiceImpl();
+        this.jsonPathService = new JsonPathServiceImpl();
+    }
     
     /**
      * Evaluate rules against the provided input data
      */
     public Mono<ASTRulesEvaluationResult> evaluateRulesReactive(String rulesDefinition, Map<String, Object> inputData) {
+        long startTime = System.currentTimeMillis();
         return parser.parseRulesReactive(rulesDefinition)
                 .flatMap(rulesDSL -> createEvaluationContextReactive(rulesDSL, inputData)
                         .map(context -> evaluateRules(rulesDSL, context)))
                 .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
                     JsonLogger.error(log, "Rules evaluation failed", error);
+                    String errorMessage = error.getMessage();
+                    if (errorMessage == null || errorMessage.trim().isEmpty()) {
+                        errorMessage = "Unknown error occurred during rule evaluation: " + error.getClass().getSimpleName();
+                    }
+                    JsonLogger.info(log, "Creating error result with message: " + errorMessage);
                     return Mono.just(ASTRulesEvaluationResult.builder()
                             .success(false)
-                            .error(error.getMessage())
+                            .error(errorMessage)
+                            .executionTimeMs(executionTime)
                             .build());
                 });
     }
@@ -73,13 +111,23 @@ public class ASTRulesEvaluationEngine {
      * Evaluate a parsed ASTRulesDSL against the provided input data
      */
     public Mono<ASTRulesEvaluationResult> evaluateRulesReactive(ASTRulesDSL rulesDSL, Map<String, Object> inputData) {
+        long startTime = System.currentTimeMillis();
         return createEvaluationContextReactive(rulesDSL, inputData)
                 .map(context -> evaluateRules(rulesDSL, context))
                 .onErrorResume(error -> {
+                    long executionTime = System.currentTimeMillis() - startTime;
                     JsonLogger.error(log, "Rules evaluation failed", error);
+
+                    String errorMessage = error.getMessage();
+                    if (errorMessage == null || errorMessage.trim().isEmpty()) {
+                        errorMessage = "Unknown error occurred during rule evaluation: " + error.getClass().getSimpleName();
+                    }
+                    JsonLogger.info(log, "Creating error result with message: " + errorMessage);
+
                     return Mono.just(ASTRulesEvaluationResult.builder()
                             .success(false)
-                            .error(error.getMessage())
+                            .error(errorMessage)
+                            .executionTimeMs(executionTime)
                             .build());
                 });
     }
@@ -89,7 +137,6 @@ public class ASTRulesEvaluationEngine {
      */
     private ASTRulesEvaluationResult evaluateRules(ASTRulesDSL rulesDSL, EvaluationContext context) {
         String operationId = context.getOperationId();
-        JsonLogger.info(log, operationId, "Starting AST-based rule evaluation: " + rulesDSL.getName());
 
         // Log input data
         JsonLogger.info(log, operationId, "Input data received: " + context.getInputVariables());
@@ -170,7 +217,7 @@ public class ASTRulesEvaluationEngine {
         for (int i = 0; i < conditions.size(); i++) {
             Condition condition = conditions.get(i);
             try {
-                ExpressionEvaluator evaluator = new ExpressionEvaluator(context);
+                ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService);
                 Object result = condition.accept(evaluator);
                 boolean boolResult = toBoolean(result);
 
@@ -208,7 +255,7 @@ public class ASTRulesEvaluationEngine {
                 JsonLogger.info(log, context.getOperationId(),
                     String.format("Executing action %d: %s", i + 1, action.toDebugString()));
 
-                ActionExecutor executor = new ActionExecutor(context);
+                ActionExecutor executor = new ActionExecutor(context, restCallService, jsonPathService);
                 action.accept(executor);
 
                 JsonLogger.info(log, context.getOperationId(),
@@ -253,6 +300,12 @@ public class ASTRulesEvaluationEngine {
                 JsonLogger.info(log, context.getOperationId(), "Sub-rule " + ruleName + " using complex conditions syntax");
                 ruleConditionMet = evaluateConditionalBlock(rule.getConditions(), context);
             }
+            // Handle rules with only then actions (no when conditions) - execute unconditionally
+            else if (rule.getThenActions() != null && !rule.getThenActions().isEmpty()) {
+                JsonLogger.info(log, context.getOperationId(), "Sub-rule " + ruleName + " has no conditions - executing THEN actions unconditionally");
+                executeActions(rule.getThenActions(), context);
+                ruleConditionMet = true; // Always true for unconditional actions
+            }
 
             JsonLogger.info(log, context.getOperationId(), "Sub-rule " + ruleName + " result: " + ruleConditionMet);
 
@@ -275,7 +328,7 @@ public class ASTRulesEvaluationEngine {
         
         try {
             // Evaluate the condition using AST
-            ExpressionEvaluator evaluator = new ExpressionEvaluator(context);
+            ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService);
             Object result = conditionalBlock.getIfCondition().accept(evaluator);
             boolean conditionResult = toBoolean(result);
             
@@ -323,13 +376,27 @@ public class ASTRulesEvaluationEngine {
      * Create evaluation context with AST support
      */
     private Mono<EvaluationContext> createEvaluationContextReactive(ASTRulesDSL rulesDSL, Map<String, Object> inputData) {
+        JsonLogger.info(log, "createEvaluationContextReactive called for rule: " + rulesDSL.getName());
         String operationId = UUID.randomUUID().toString();
         EvaluationContext context = new EvaluationContext(operationId, inputData != null ? inputData : new HashMap<>());
-        
-        // Load system constants
+
+        // Log the start of rule evaluation early so it appears even if constants loading fails
+        JsonLogger.info(log, operationId, "Starting AST-based rule evaluation: " + rulesDSL.getName());
+
+        // Load system constants and wait for completion
+        try {
+            java.nio.file.Files.write(java.nio.file.Paths.get("/tmp/debug.log"),
+                ("🔥 DEBUG: About to call loadSystemConstants\n").getBytes(),
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        } catch (Exception e) {}
         return loadSystemConstants(rulesDSL)
-                .doOnNext(constants -> constants.forEach(context::setConstant))
-                .thenReturn(context);
+                .map(constants -> {
+
+                    JsonLogger.info(log, "Setting " + constants.size() + " constants in evaluation context");
+                    constants.forEach(context::setConstant);
+                    return context;
+                })
+                .doOnError(error -> JsonLogger.error(log, "Error in loadSystemConstants", error));
     }
     
     /**
@@ -337,6 +404,8 @@ public class ASTRulesEvaluationEngine {
      * Automatically detects constants by scanning for UPPER_CASE variable references
      */
     private Mono<Map<String, Object>> loadSystemConstants(ASTRulesDSL rulesDSL) {
+
+        JsonLogger.info(log, "loadSystemConstants called for rule: " + rulesDSL.getName());
         Map<String, Object> constants = new HashMap<>();
 
         // Auto-detect constants by scanning the AST for UPPER_CASE variable references
@@ -355,18 +424,32 @@ public class ASTRulesEvaluationEngine {
 
             JsonLogger.info(log, "Loading constants from database: " + constantCodes);
 
-            return constantService.getConstantsByCodes(constantCodes)
+            try {
+                JsonLogger.info(log, "About to call constantService.getConstantsByCodes with: " + constantCodes);
+
+                return constantService.getConstantsByCodes(constantCodes)
+                    .doOnNext(constantDTO -> JsonLogger.info(log, "Found constant in DB: " + constantDTO.getCode()))
+                    .doOnComplete(() -> JsonLogger.info(log, "ConstantService flux completed"))
                     .collectList()
-                    .map(constantDTOs -> {
+                    .doOnNext(constantDTOs -> JsonLogger.info(log, "ConstantService returned " + constantDTOs.size() + " constants"))
+                    .flatMap(constantDTOs -> {
                         Map<String, Object> loadedConstants = new HashMap<>();
+                        Set<String> foundConstants = new HashSet<>();
 
                         // Map database constants to evaluation context
                         for (ConstantDTO constantDTO : constantDTOs) {
                             if (constantDTO.getCode() != null) {
                                 loadedConstants.put(constantDTO.getCode(), constantDTO.getCurrentValue());
+                                foundConstants.add(constantDTO.getCode());
                                 JsonLogger.info(log, "Loaded constant: " + constantDTO.getCode() + " = " + constantDTO.getCurrentValue());
                             }
                         }
+
+                        // Check for missing constants
+                        Set<String> missingConstants = new HashSet<>(detectedConstants);
+                        missingConstants.removeAll(foundConstants);
+                        JsonLogger.info(log, "Detected constants: " + detectedConstants + ", Found constants: " + foundConstants + ", Missing constants: " + missingConstants);
+
 
                         // Add default values for constants not found in database (if explicitly declared)
                         if (rulesDSL.getConstants() != null) {
@@ -375,26 +458,28 @@ public class ASTRulesEvaluationEngine {
                                     !loadedConstants.containsKey(constantDef.getCode()) &&
                                     constantDef.getDefaultValue() != null) {
                                     loadedConstants.put(constantDef.getCode(), constantDef.getDefaultValue());
+                                    missingConstants.remove(constantDef.getCode());
                                     JsonLogger.warn(log, "Using default value for constant: " + constantDef.getCode());
                                 }
                             }
                         }
 
-                        return loadedConstants;
-                    })
-                    .onErrorResume(error -> {
-                        JsonLogger.error(log, "Failed to load constants from database", error);
-                        // Fallback to default values if database loading fails (only for explicitly declared constants)
-                        Map<String, Object> fallbackConstants = new HashMap<>();
-                        if (rulesDSL.getConstants() != null) {
-                            for (ASTRulesDSL.ASTConstantDefinition constantDef : rulesDSL.getConstants()) {
-                                if (constantDef.getCode() != null && constantDef.getDefaultValue() != null) {
-                                    fallbackConstants.put(constantDef.getCode(), constantDef.getDefaultValue());
-                                }
-                            }
+                        // If there are still missing constants without default values, fail the evaluation
+                        if (!missingConstants.isEmpty()) {
+                            String missingConstantsList = String.join(", ", missingConstants);
+                            String errorMessage = "Required constants not found in database and no default values provided: " + missingConstantsList;
+
+                            IllegalArgumentException exception = new IllegalArgumentException(errorMessage);
+                            JsonLogger.error(log, errorMessage, exception);
+                            return Mono.error(exception);
                         }
-                        return Mono.just(fallbackConstants);
+
+                        return Mono.just(loadedConstants);
                     });
+            } catch (Exception e) {
+
+                throw e;
+            }
         }
 
         return Mono.just(constants);
@@ -442,10 +527,17 @@ public class ASTRulesEvaluationEngine {
             collectFromConditionalBlock(rulesDSL.getConditions(), collector);
         }
 
+        // Debug logging
+        Set<String> allVariables = collector.getVariableReferences();
+        JsonLogger.info(log, "All variable references found: " + allVariables);
+
         // Filter for UPPER_CASE constants only
-        return collector.getVariableReferences().stream()
+        Set<String> constants = collector.getVariableReferences().stream()
                 .filter(this::isConstantName)
                 .collect(Collectors.toSet());
+
+        JsonLogger.info(log, "Filtered constants (UPPER_CASE): " + constants);
+        return constants;
     }
 
     /**
@@ -650,6 +742,33 @@ public class ASTRulesEvaluationEngine {
         @Override
         public Void visitCircuitBreakerAction(com.firefly.rules.core.dsl.ast.action.CircuitBreakerAction node) {
             // Circuit breaker actions don't contain variable references
+            return null;
+        }
+
+        @Override
+        public Void visitJsonPathExpression(com.firefly.rules.core.dsl.ast.expression.JsonPathExpression node) {
+            // Visit the source expression to collect any variable references
+            if (node.getSourceExpression() != null) {
+                node.getSourceExpression().accept(this);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitRestCallExpression(com.firefly.rules.core.dsl.ast.expression.RestCallExpression node) {
+            // Visit all expressions to collect any variable references
+            if (node.getUrlExpression() != null) {
+                node.getUrlExpression().accept(this);
+            }
+            if (node.getBodyExpression() != null) {
+                node.getBodyExpression().accept(this);
+            }
+            if (node.getHeadersExpression() != null) {
+                node.getHeadersExpression().accept(this);
+            }
+            if (node.getTimeoutExpression() != null) {
+                node.getTimeoutExpression().accept(this);
+            }
             return null;
         }
     }

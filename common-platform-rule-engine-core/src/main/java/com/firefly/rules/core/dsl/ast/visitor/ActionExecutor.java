@@ -22,6 +22,8 @@ import com.firefly.rules.core.dsl.ast.condition.ComparisonCondition;
 import com.firefly.rules.core.dsl.ast.condition.ExpressionCondition;
 import com.firefly.rules.core.dsl.ast.condition.LogicalCondition;
 import com.firefly.rules.core.dsl.ast.expression.*;
+import com.firefly.rules.core.services.JsonPathService;
+import com.firefly.rules.core.services.RestCallService;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,13 +32,18 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ActionExecutor implements ASTVisitor<Void> {
-    
+
     private final EvaluationContext context;
     private final ExpressionEvaluator expressionEvaluator;
-    
+
     public ActionExecutor(EvaluationContext context) {
         this.context = context;
         this.expressionEvaluator = new ExpressionEvaluator(context);
+    }
+
+    public ActionExecutor(EvaluationContext context, RestCallService restCallService, JsonPathService jsonPathService) {
+        this.context = context;
+        this.expressionEvaluator = new ExpressionEvaluator(context, restCallService, jsonPathService);
     }
     
     // Action visitors
@@ -374,5 +381,17 @@ public class ActionExecutor implements ASTVisitor<Void> {
 
         // Create a circuit breaker exception to stop rule execution
         throw new RuntimeException("Circuit breaker: " + node.getMessage());
+    }
+
+    @Override
+    public Void visitJsonPathExpression(JsonPathExpression node) {
+        // Expressions don't execute actions, so return null
+        return null;
+    }
+
+    @Override
+    public Void visitRestCallExpression(RestCallExpression node) {
+        // Expressions don't execute actions, so return null
+        return null;
     }
 }
