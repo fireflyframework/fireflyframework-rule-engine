@@ -53,7 +53,7 @@ class ComprehensiveDSLTest {
         Mockito.when(constantService.getConstantsByCodes(Mockito.anyList()))
                .thenReturn(Flux.empty());
 
-        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService, null, null);
     }
 
     @Nested

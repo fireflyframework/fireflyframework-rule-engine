@@ -52,7 +52,7 @@ class ConstantServiceIntegrationTest {
         // Create dependencies
         DSLParser dslParser = new DSLParser();
         ASTRulesDSLParser parser = new ASTRulesDSLParser(dslParser);
-        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService, null, null);
 
         // Set up log capture
         rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);

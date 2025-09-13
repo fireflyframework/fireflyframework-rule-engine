@@ -33,7 +33,7 @@ public class LogicalOperatorDebugTest {
         // Create evaluation engine with mocked dependencies
         com.firefly.rules.core.dsl.ast.parser.DSLParser dslParser = new com.firefly.rules.core.dsl.ast.parser.DSLParser();
         com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser astParser = new com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser(dslParser);
-        evaluationEngine = new ASTRulesEvaluationEngine(astParser, constantService);
+        evaluationEngine = new ASTRulesEvaluationEngine(astParser, constantService, null, null);
     }
 
     @Test
