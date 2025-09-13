@@ -22,19 +22,23 @@ import com.firefly.rules.core.dsl.ast.action.Action;
 import com.firefly.rules.core.dsl.ast.condition.Condition;
 import com.firefly.rules.core.dsl.ast.exception.ASTException;
 import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
+import com.firefly.rules.core.services.CacheService;
 import com.firefly.rules.core.utils.JsonLogger;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Pure AST-based rules DSL parser that converts YAML directly to AST nodes.
  * This completely replaces the legacy parser with no dependencies on legacy models.
+ * Now includes high-performance caching for parsed AST models.
  */
 @Component
 @Slf4j
@@ -43,6 +47,9 @@ public class ASTRulesDSLParser {
     private final DSLParser dslParser;
     private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     private final ComplexConditionsParser complexConditionsParser;
+
+    @Autowired(required = false)
+    private CacheService cacheService;
 
     public ASTRulesDSLParser(DSLParser dslParser) {
         this.dslParser = dslParser;
@@ -56,24 +63,72 @@ public class ASTRulesDSLParser {
         return Mono.fromCallable(() -> parseRules(rulesDefinition))
                 .onErrorMap(e -> new ASTException("Failed to parse rules definition: " + e.getMessage()));
     }
-    
+
     /**
      * Parse rules definition from YAML string to AST model (synchronous)
+     * Uses caching to avoid re-parsing identical YAML content.
      */
     public ASTRulesDSL parseRules(String rulesDefinition) {
         try {
-            JsonLogger.info(log, "Parsing rules definition with AST parser");
-            
-            // Parse YAML to Map first
-            @SuppressWarnings("unchecked")
-            Map<String, Object> yamlMap = yamlMapper.readValue(rulesDefinition, Map.class);
-            
-            // Convert to AST model
-            return convertToASTModel(yamlMap);
-            
+            // Check cache first if caching is enabled
+            if (cacheService != null) {
+                String cacheKey = cacheService.generateCacheKey(rulesDefinition);
+                Optional<ASTRulesDSL> cachedAST = cacheService.getCachedAST(cacheKey);
+
+                if (cachedAST.isPresent()) {
+                    JsonLogger.info(log, "AST cache hit for rules definition");
+                    return cachedAST.get();
+                }
+
+                // Cache miss - parse and cache the result
+                JsonLogger.info(log, "AST cache miss - parsing rules definition with AST parser");
+                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
+                cacheService.cacheAST(cacheKey, parsedAST);
+                return parsedAST;
+            } else {
+                // No caching available - parse directly
+                JsonLogger.info(log, "Parsing rules definition with AST parser (no caching)");
+                return parseRulesInternal(rulesDefinition);
+            }
+
         } catch (Exception e) {
             JsonLogger.error(log, "Error parsing rules definition", e);
             throw new ASTException("Failed to parse rules definition: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Internal method to parse rules definition without caching logic
+     */
+    private ASTRulesDSL parseRulesInternal(String rulesDefinition) throws Exception {
+        // Parse YAML to Map first
+        @SuppressWarnings("unchecked")
+        Map<String, Object> yamlMap = yamlMapper.readValue(rulesDefinition, Map.class);
+
+        // Convert to AST model
+        return convertToASTModel(yamlMap);
+    }
+
+    /**
+     * Invalidate cached AST for specific YAML content.
+     * Useful when rule definitions are updated.
+     */
+    public void invalidateCache(String rulesDefinition) {
+        if (cacheService != null) {
+            String cacheKey = cacheService.generateCacheKey(rulesDefinition);
+            cacheService.invalidateAST(cacheKey);
+            JsonLogger.info(log, "Invalidated AST cache for rules definition");
+        }
+    }
+
+    /**
+     * Clear all cached AST models.
+     * Useful for cache management and testing.
+     */
+    public void clearCache() {
+        if (cacheService != null) {
+            cacheService.clearASTCache();
+            JsonLogger.info(log, "Cleared all AST cache entries");
         }
     }
     
