@@ -196,4 +196,4 @@ All documentation is generated from and validated against the actual codebase im
 
 ---
 
-*Last Updated: January 2025 | Version: 1.0.0*
+*Last Updated: September 2025 | Version: 1.0.0*

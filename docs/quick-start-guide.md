@@ -23,12 +23,13 @@ Let's create a simple credit approval rule:
 name: "Basic Credit Check"
 description: "Approve loans for customers with good credit"
 
-inputs: [creditScore, annualIncome]
-output: {decision: text, reason: text}
+inputs:
+  - creditScore
+  - annualIncome
 
 when:
-  - creditScore >= 650
-  - annualIncome > 40000
+  - creditScore at_least 650
+  - annualIncome greater_than 40000
 
 then:
   - set decision to "APPROVED"
@@ -37,6 +38,10 @@ then:
 else:
   - set decision to "DECLINED"
   - set reason to "Credit score or income too low"
+
+output:
+  decision: text
+  reason: text
 ```
 
 **That's it!** You've written your first rule. Let's break it down:
@@ -66,10 +71,10 @@ Choose **one** of these approaches:
 
 ```yaml
 when:
-  - creditScore >= 650        # Greater than or equal
-  - age < 65                  # Less than
-  - status == "ACTIVE"        # Equals
-  - type != "SUSPENDED"       # Not equals
+  - creditScore at_least 650        # Greater than or equal
+  - age less_than 65                # Less than
+  - status equals "ACTIVE"          # Equals
+  - type not_equals "SUSPENDED"     # Not equals
 ```
 
 ### 2. Setting Variables
@@ -110,12 +115,12 @@ when:
 name: "Age Verification"
 description: "Check if customer meets age requirements"
 
-inputs: [customerAge]
-output: {eligible: boolean, message: text}
+inputs:
+  - customerAge
 
 when:
-  - customerAge >= 18
-  - customerAge <= 65
+  - customerAge at_least 18
+  - customerAge at_most 65
 
 then:
   - set eligible to true
@@ -124,6 +129,10 @@ then:
 else:
   - set eligible to false
   - set message to "Must be between 18 and 65 years old"
+
+output:
+  eligible: boolean
+  message: text
 ```
 
 ### Example 2: Income-Based Pricing
@@ -132,24 +141,28 @@ else:
 name: "Pricing Tier Assignment"
 description: "Assign pricing tier based on annual income"
 
-inputs: [annualIncome]
-output: {tier: text, discount: number}
+inputs:
+  - annualIncome
 
 when:
-  - annualIncome > 0
+  - annualIncome greater_than 0
 
 then:
-  - if annualIncome >= 100000 then set tier to "PREMIUM"
-  - if annualIncome >= 50000 then set tier to "STANDARD"
-  - if annualIncome < 50000 then set tier to "BASIC"
-  
-  - if tier == "PREMIUM" then set discount to 15
-  - if tier == "STANDARD" then set discount to 10
-  - if tier == "BASIC" then set discount to 5
+  - if annualIncome at_least 100000 then set tier to "PREMIUM"
+  - if annualIncome at_least 50000 then set tier to "STANDARD"
+  - if annualIncome less_than 50000 then set tier to "BASIC"
+
+  - if tier equals "PREMIUM" then set discount to 15
+  - if tier equals "STANDARD" then set discount to 10
+  - if tier equals "BASIC" then set discount to 5
 
 else:
   - set tier to "INVALID"
   - set discount to 0
+
+output:
+  tier: text
+  discount: number
 ```
 
 ### Example 3: Multi-Factor Validation
@@ -158,8 +171,10 @@ else:
 name: "Account Validation"
 description: "Validate customer account information"
 
-inputs: [email, phone, creditScore]
-output: {valid: boolean, issues: list}
+inputs:
+  - email
+  - phone
+  - creditScore
 
 when:
   - email is_email
@@ -173,9 +188,13 @@ then:
 else:
   - set valid to false
   - set issues to []
-  - if email is_not_email then append "Invalid email format" to issues
-  - if phone is_not_phone then append "Invalid phone format" to issues
-  - if creditScore is_not_credit_score then append "Invalid credit score" to issues
+  - if not email is_email then append "Invalid email format" to issues
+  - if not phone is_phone then append "Invalid phone format" to issues
+  - if not creditScore is_credit_score then append "Invalid credit score" to issues
+
+output:
+  valid: boolean
+  issues: list
 ```
 
 ---

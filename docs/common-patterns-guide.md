@@ -36,12 +36,13 @@ This guide organizes patterns by complexity to help you:
 name: "Loan Pre-Approval"
 description: "Quick pre-approval based on credit score and income"
 
-inputs: [creditScore, annualIncome]
-output: {approved: boolean, message: text}
+inputs:
+  - creditScore
+  - annualIncome
 
 when:
-  - creditScore >= 650
-  - annualIncome >= 40000
+  - creditScore at_least 650
+  - annualIncome at_least 40000
 
 then:
   - set approved to true
@@ -50,6 +51,10 @@ then:
 else:
   - set approved to false
   - set message to "Does not meet minimum requirements"
+
+output:
+  approved: boolean
+  message: text
 ```
 
 **Why This Pattern**: Simple, readable, easy to modify thresholds.
@@ -62,30 +67,35 @@ else:
 name: "Customer Tier Assignment"
 description: "Assign customer tier based on account value"
 
-inputs: [accountBalance, yearsWithBank]
-output: {tier: text, benefits: list}
+inputs:
+  - accountBalance
+  - yearsWithBank
 
 when:
-  - accountBalance > 0
+  - accountBalance greater_than 0
 
 then:
   - set benefits to []
-  
+
   # Tier assignment with cascading logic
-  - if accountBalance >= 100000 then set tier to "PLATINUM"
-  - if accountBalance >= 50000 and accountBalance < 100000 then set tier to "GOLD"
-  - if accountBalance >= 10000 and accountBalance < 50000 then set tier to "SILVER"
-  - if accountBalance < 10000 then set tier to "BRONZE"
-  
+  - if accountBalance at_least 100000 then set tier to "PLATINUM"
+  - if accountBalance at_least 50000 and accountBalance less_than 100000 then set tier to "GOLD"
+  - if accountBalance at_least 10000 and accountBalance less_than 50000 then set tier to "SILVER"
+  - if accountBalance less_than 10000 then set tier to "BRONZE"
+
   # Benefits based on tier
-  - if tier == "PLATINUM" then append "Priority Support" to benefits
-  - if tier == "PLATINUM" then append "Fee Waivers" to benefits
+  - if tier equals "PLATINUM" then append "Priority Support" to benefits
+  - if tier equals "PLATINUM" then append "Fee Waivers" to benefits
   - if tier in_list ["PLATINUM", "GOLD"] then append "Investment Advice" to benefits
   - if tier in_list ["PLATINUM", "GOLD", "SILVER"] then append "Online Banking" to benefits
 
 else:
   - set tier to "INACTIVE"
   - set benefits to []
+
+output:
+  tier: text
+  benefits: list
 ```
 
 **Why This Pattern**: Clear tier logic, easy to add new tiers or benefits.
@@ -98,8 +108,11 @@ else:
 name: "Application Data Validation"
 description: "Validate customer application data"
 
-inputs: [email, phone, ssn, birthDate]
-output: {valid: boolean, errors: list}
+inputs:
+  - email
+  - phone
+  - ssn
+  - birthDate
 
 when:
   - exists email
@@ -108,20 +121,24 @@ when:
 then:
   - set errors to []
   - set valid to true
-  
+
   # Individual field validation
-  - if email is_not_email then append "Invalid email format" to errors
-  - if phone is_not_phone then append "Invalid phone number" to errors
-  - if ssn is_not_ssn then append "Invalid SSN format" to errors
-  - if birthDate is_not_date then append "Invalid birth date" to errors
-  
+  - if not email is_email then append "Invalid email format" to errors
+  - if not phone is_phone then append "Invalid phone number" to errors
+  - if not ssn is_ssn then append "Invalid SSN format" to errors
+  - if not birthDate is_date then append "Invalid birth date" to errors
+
   # Update validity based on errors
   - calculate error_count as size(errors)
-  - if error_count > 0 then set valid to false
+  - if error_count greater_than 0 then set valid to false
 
 else:
   - set valid to false
   - set errors to ["Missing required fields: email, phone"]
+
+output:
+  valid: boolean
+  errors: list
 ```
 
 **Why This Pattern**: Comprehensive validation, clear error reporting.
@@ -140,60 +157,73 @@ else:
 name: "Credit Risk Assessment"
 description: "Calculate risk score from multiple financial factors"
 
-inputs: [creditScore, annualIncome, existingDebt, employmentYears]
-output: {riskScore: number, riskLevel: text, factors: list}
+inputs:
+  - creditScore
+  - annualIncome
+  - existingDebt
+  - employmentYears
 
 when:
-  - creditScore > 0
-  - annualIncome > 0
+  - creditScore greater_than 0
+  - annualIncome greater_than 0
 
 then:
   - set factors to []
-  
+
   # Credit score component (40% weight)
-  - if creditScore >= 750 then set creditComponent to 40
-  - if creditScore >= 700 and creditScore < 750 then set creditComponent to 30
-  - if creditScore >= 650 and creditScore < 700 then set creditComponent to 20
-  - if creditScore < 650 then set creditComponent to 10
-  
+  - if creditScore at_least 750 then set creditComponent to 40
+  - if creditScore at_least 700 and creditScore less_than 750 then set creditComponent to 30
+  - if creditScore at_least 650 and creditScore less_than 700 then set creditComponent to 20
+  - if creditScore less_than 650 then set creditComponent to 10
+
   # Income component (30% weight)
-  - if annualIncome >= 100000 then set incomeComponent to 30
-  - if annualIncome >= 60000 and annualIncome < 100000 then set incomeComponent to 20
-  - if annualIncome >= 40000 and annualIncome < 60000 then set incomeComponent to 15
-  - if annualIncome < 40000 then set incomeComponent to 5
+  - if annualIncome at_least 100000 then set incomeComponent to 30
+  - if annualIncome at_least 60000 and annualIncome less_than 100000 then set incomeComponent to 20
+  - if annualIncome at_least 40000 and annualIncome less_than 60000 then set incomeComponent to 15
+  - if annualIncome less_than 40000 then set incomeComponent to 5
   
   # Debt ratio component (20% weight)
-  - calculate debtRatio as existingDebt / annualIncome
-  - if debtRatio <= 0.2 then set debtComponent to 20
-  - if debtRatio > 0.2 and debtRatio <= 0.4 then set debtComponent to 15
-  - if debtRatio > 0.4 and debtRatio <= 0.6 then set debtComponent to 10
-  - if debtRatio > 0.6 then set debtComponent to 5
-  
+  - calculate debt_ratio as existingDebt / annualIncome
+  - if debt_ratio at_most 0.2 then set debtComponent to 20
+  - if debt_ratio greater_than 0.2 and debt_ratio at_most 0.4 then set debtComponent to 15
+  - if debt_ratio greater_than 0.4 and debt_ratio at_most 0.6 then set debtComponent to 10
+  - if debt_ratio greater_than 0.6 then set debtComponent to 5
+
   # Employment stability (10% weight)
-  - if employmentYears >= 5 then set employmentComponent to 10
-  - if employmentYears >= 2 and employmentYears < 5 then set employmentComponent to 7
-  - if employmentYears >= 1 and employmentYears < 2 then set employmentComponent to 5
-  - if employmentYears < 1 then set employmentComponent to 2
-  
+  - if employmentYears at_least 5 then set employmentComponent to 10
+  - if employmentYears at_least 2 and employmentYears less_than 5 then set employmentComponent to 7
+  - if employmentYears at_least 1 and employmentYears less_than 2 then set employmentComponent to 5
+  - if employmentYears less_than 1 then set employmentComponent to 2
+
   # Calculate final score
-  - calculate riskScore as creditComponent + incomeComponent + debtComponent + employmentComponent
-  
+  - calculate risk_score as creditComponent + incomeComponent + debtComponent + employmentComponent
+
   # Determine risk level
-  - if riskScore >= 80 then set riskLevel to "LOW"
-  - if riskScore >= 60 and riskScore < 80 then set riskLevel to "MEDIUM"
-  - if riskScore >= 40 and riskScore < 60 then set riskLevel to "HIGH"
-  - if riskScore < 40 then set riskLevel to "VERY_HIGH"
-  
+  - if risk_score at_least 80 then set risk_level to "LOW"
+  - if risk_score at_least 60 and risk_score less_than 80 then set risk_level to "MEDIUM"
+  - if risk_score at_least 40 and risk_score less_than 60 then set risk_level to "HIGH"
+  - if risk_score less_than 40 then set risk_level to "VERY_HIGH"
+
   # Document contributing factors
-  - append "Credit Score: " + creditScore + " (Weight: " + creditComponent + ")" to factors
-  - append "Annual Income: " + annualIncome + " (Weight: " + incomeComponent + ")" to factors
-  - append "Debt Ratio: " + debtRatio + " (Weight: " + debtComponent + ")" to factors
-  - append "Employment Years: " + employmentYears + " (Weight: " + employmentComponent + ")" to factors
+  - calculate credit_factor as "Credit Score: " + tostring(creditScore) + " (Weight: " + tostring(creditComponent) + ")"
+  - calculate income_factor as "Annual Income: " + tostring(annualIncome) + " (Weight: " + tostring(incomeComponent) + ")"
+  - calculate debt_factor as "Debt Ratio: " + tostring(debt_ratio) + " (Weight: " + tostring(debtComponent) + ")"
+  - calculate employment_factor as "Employment Years: " + tostring(employmentYears) + " (Weight: " + tostring(employmentComponent) + ")"
+
+  - append credit_factor to factors
+  - append income_factor to factors
+  - append debt_factor to factors
+  - append employment_factor to factors
 
 else:
-  - set riskScore to 0
-  - set riskLevel to "INVALID"
+  - set risk_score to 0
+  - set risk_level to "INVALID"
   - set factors to ["Invalid input data"]
+
+output:
+  riskScore: risk_score
+  riskLevel: risk_level
+  factors: factors
 ```
 
 **Why This Pattern**: Transparent scoring, weighted factors, detailed audit trail.
@@ -206,27 +236,27 @@ else:
 name: "Loan Application Processing"
 description: "Multi-stage loan processing with dependencies"
 
-inputs: [applicantData, loanAmount, loanPurpose]
-output: {stage: text, decision: text, details: object}
+inputs:
+  - applicantData
+  - loanAmount
+  - loanPurpose
 
 rules:
   - name: "Initial Eligibility Check"
     when:
       - exists applicantData
-      - loanAmount > 0
-      - loanAmount <= 500000
+      - loanAmount greater_than 0
+      - loanAmount at_most 500000
     then:
-      - calculate applicantAge as json_get(applicantData, "age")
-      - calculate applicantIncome as json_get(applicantData, "annualIncome")
-      - calculate applicantCredit as json_get(applicantData, "creditScore")
-      
+      - calculate applicant_age as json_get(applicantData, "age")
+      - calculate applicant_income as json_get(applicantData, "annualIncome")
+      - calculate applicant_credit as json_get(applicantData, "creditScore")
+
       - set stage to "ELIGIBILITY_PASSED"
-      - set eligibilityDetails to {
-          "age": applicantAge,
-          "income": applicantIncome,
-          "creditScore": applicantCredit,
-          "requestedAmount": loanAmount
-        }
+      - set eligibility_age to applicant_age
+      - set eligibility_income to applicant_income
+      - set eligibility_credit_score to applicant_credit
+      - set eligibility_requested_amount to loanAmount
     else:
       - set stage to "ELIGIBILITY_FAILED"
       - set decision to "REJECTED"
@@ -234,48 +264,49 @@ rules:
 
   - name: "Risk Assessment"
     when:
-      - stage == "ELIGIBILITY_PASSED"
-      - applicantAge >= 18
-      - applicantIncome >= 30000
-      - applicantCredit >= 600
+      - stage equals "ELIGIBILITY_PASSED"
+      - applicant_age at_least 18
+      - applicant_income at_least 30000
+      - applicant_credit at_least 600
     then:
-      - calculate loanToIncomeRatio as loanAmount / applicantIncome
-      - calculate riskScore as (applicantCredit * 0.6) + ((applicantIncome / 1000) * 0.4)
-      
-      - if riskScore >= 500 and loanToIncomeRatio <= 5 then set riskLevel to "LOW"
-      - if riskScore >= 400 and loanToIncomeRatio <= 7 then set riskLevel to "MEDIUM"
-      - if riskScore >= 300 and loanToIncomeRatio <= 10 then set riskLevel to "HIGH"
-      - if riskScore < 300 or loanToIncomeRatio > 10 then set riskLevel to "UNACCEPTABLE"
-      
+      - calculate loan_to_income_ratio as loanAmount / applicant_income
+      - calculate risk_score as (applicant_credit * 0.6) + ((applicant_income / 1000) * 0.4)
+
+      - if risk_score at_least 500 and loan_to_income_ratio at_most 5 then set risk_level to "LOW"
+      - if risk_score at_least 400 and loan_to_income_ratio at_most 7 then set risk_level to "MEDIUM"
+      - if risk_score at_least 300 and loan_to_income_ratio at_most 10 then set risk_level to "HIGH"
+      - if risk_score less_than 300 or loan_to_income_ratio greater_than 10 then set risk_level to "UNACCEPTABLE"
+
       - set stage to "RISK_ASSESSED"
-      - set riskDetails to {
-          "riskScore": riskScore,
-          "riskLevel": riskLevel,
-          "loanToIncomeRatio": loanToIncomeRatio
-        }
+      - set risk_score_value to risk_score
+      - set risk_level_value to risk_level
+      - set loan_to_income_ratio_value to loan_to_income_ratio
     else:
       - set stage to "RISK_FAILED"
       - set decision to "REJECTED"
 
   - name: "Final Decision"
     when:
-      - stage == "RISK_ASSESSED"
-      - riskLevel in_list ["LOW", "MEDIUM", "HIGH"]
+      - stage equals "RISK_ASSESSED"
+      - risk_level in_list ["LOW", "MEDIUM", "HIGH"]
     then:
-      - if riskLevel == "LOW" then set decision to "APPROVED"
-      - if riskLevel == "MEDIUM" then set decision to "APPROVED_WITH_CONDITIONS"
-      - if riskLevel == "HIGH" then set decision to "MANUAL_REVIEW_REQUIRED"
-      
+      - if risk_level equals "LOW" then set decision to "APPROVED"
+      - if risk_level equals "MEDIUM" then set decision to "APPROVED_WITH_CONDITIONS"
+      - if risk_level equals "HIGH" then set decision to "MANUAL_REVIEW_REQUIRED"
+
       - set stage to "COMPLETED"
-      - set details to {
-          "eligibility": eligibilityDetails,
-          "risk": riskDetails,
-          "finalDecision": decision,
-          "processedAt": now()
-        }
+      - set final_decision_value to decision
+      - calculate processed_at as now()
+      - set processing_complete to true
     else:
       - set decision to "REJECTED"
       - set stage to "COMPLETED"
+
+output:
+  stage: text
+  decision: text
+  processing_complete: boolean
+  processed_at: text
 ```
 
 **Why This Pattern**: Clear stage progression, dependency management, comprehensive audit trail.
@@ -294,60 +325,73 @@ rules:
 name: "Customer Data Enrichment with Fallbacks"
 description: "Fetch customer data from multiple sources with fallback logic"
 
-inputs: [customerId, requireCreditCheck]
-output: {enrichedData: object, dataQuality: text, sources: list}
+inputs:
+  - customerId
+  - requireCreditCheck
 
 when:
-  - customerId is_not_null
-  - customerId is_not_empty
+  - exists customerId
+  - not customerId is_empty
 
 then:
   - set sources to []
-  - set enrichedData to {}
-  
+  - set enriched_personal_info to null
+  - set enriched_contact_info to null
+  - set enriched_credit_info to null
+
   # Primary data source - Customer API
-  - calculate customerApiResponse as rest_get("https://api.customer-service.com/customers/" + customerId)
-  - calculate customerApiSuccess as json_exists(customerApiResponse, "personalInfo")
-  
-  - if customerApiSuccess == true then append "CUSTOMER_API" to sources
-  - if customerApiSuccess == true then calculate personalInfo as json_get(customerApiResponse, "personalInfo")
-  - if customerApiSuccess == true then calculate contactInfo as json_get(customerApiResponse, "contactInfo")
+  - calculate customer_api_url as "https://api.customer-service.com/customers/" + tostring(customerId)
+  - calculate customer_api_response as rest_get(customer_api_url)
+  - calculate customer_api_success as json_exists(customer_api_response, "personalInfo")
+
+  - if customer_api_success equals true then append "CUSTOMER_API" to sources
+  - if customer_api_success equals true then calculate personal_info as json_get(customer_api_response, "personalInfo")
+  - if customer_api_success equals true then calculate contact_info as json_get(customer_api_response, "contactInfo")
   
   # Credit bureau integration (conditional)
-  - if requireCreditCheck == true then calculate creditResponse as rest_get("https://api.credit-bureau.com/reports/" + customerId)
-  - if requireCreditCheck == true then calculate creditSuccess as json_exists(creditResponse, "creditScore")
-  - if creditSuccess == true then append "CREDIT_BUREAU" to sources
-  - if creditSuccess == true then calculate creditInfo as json_get(creditResponse, "creditData")
-  
+  - if requireCreditCheck equals true then calculate credit_api_url as "https://api.credit-bureau.com/reports/" + tostring(customerId)
+  - if requireCreditCheck equals true then calculate credit_response as rest_get(credit_api_url)
+  - if requireCreditCheck equals true then calculate credit_success as json_exists(credit_response, "creditScore")
+  - if credit_success equals true then append "CREDIT_BUREAU" to sources
+  - if credit_success equals true then calculate credit_info as json_get(credit_response, "creditData")
+
   # Fallback to internal database if external APIs fail
-  - if customerApiSuccess == false then calculate internalData as rest_get("https://internal-api.company.com/customers/" + customerId)
-  - if customerApiSuccess == false then calculate internalSuccess as json_exists(internalData, "basicInfo")
-  - if internalSuccess == true then append "INTERNAL_DB" to sources
-  - if internalSuccess == true then calculate personalInfo as json_get(internalData, "basicInfo")
-  
-  # Assemble enriched data object
-  - if exists personalInfo then calculate enrichedData as json_set(enrichedData, "personal", personalInfo)
-  - if exists contactInfo then calculate enrichedData as json_set(enrichedData, "contact", contactInfo)
-  - if exists creditInfo then calculate enrichedData as json_set(enrichedData, "credit", creditInfo)
-  
+  - if customer_api_success equals false then calculate internal_api_url as "https://internal-api.company.com/customers/" + tostring(customerId)
+  - if customer_api_success equals false then calculate internal_data as rest_get(internal_api_url)
+  - if customer_api_success equals false then calculate internal_success as json_exists(internal_data, "basicInfo")
+  - if internal_success equals true then append "INTERNAL_DB" to sources
+  - if internal_success equals true then calculate personal_info as json_get(internal_data, "basicInfo")
+
+  # Store enriched data in separate variables
+  - if exists personal_info then set enriched_personal_info to personal_info
+  - if exists contact_info then set enriched_contact_info to contact_info
+  - if exists credit_info then set enriched_credit_info to credit_info
+
   # Determine data quality
-  - calculate sourceCount as size(sources)
-  - if sourceCount >= 2 then set dataQuality to "HIGH"
-  - if sourceCount == 1 then set dataQuality to "MEDIUM"
-  - if sourceCount == 0 then set dataQuality to "LOW"
-  
-  # Add metadata
-  - calculate enrichedData as json_set(enrichedData, "metadata", {
-      "sources": sources,
-      "quality": dataQuality,
-      "enrichedAt": now(),
-      "customerId": customerId
-    })
+  - calculate source_count as size(sources)
+  - if source_count at_least 2 then set data_quality to "HIGH"
+  - if source_count equals 1 then set data_quality to "MEDIUM"
+  - if source_count equals 0 then set data_quality to "LOW"
+
+  # Store metadata
+  - set enrichment_sources to sources
+  - set enrichment_quality to data_quality
+  - calculate enrichment_timestamp as now()
+  - set enrichment_customer_id to customerId
 
 else:
-  - set enrichedData to {}
-  - set dataQuality to "INVALID"
+  - set enriched_personal_info to null
+  - set enriched_contact_info to null
+  - set enriched_credit_info to null
+  - set data_quality to "INVALID"
   - set sources to []
+
+output:
+  enriched_personal_info: object
+  enriched_contact_info: object
+  enriched_credit_info: object
+  dataQuality: data_quality
+  sources: list
 ```
 
 **Why This Pattern**: Resilient data integration, multiple fallbacks, quality tracking.

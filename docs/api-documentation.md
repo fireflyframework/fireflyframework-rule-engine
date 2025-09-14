@@ -1,6 +1,22 @@
-# API Documentation
+# Firefly Rule Engine - API Documentation
 
-The Firefly Rule Engine provides a comprehensive REST API for rule evaluation and system management. This document covers all available endpoints, request/response schemas, and usage examples.
+**Complete REST API Reference for the Firefly Rule Engine**
+
+*Based on actual controller implementations and DTOs*
+
+---
+
+## 📚 Documentation Navigation
+
+**New to the API?** Check out our layered documentation:
+
+- **🚀 [Quick Start Guide](quick-start-guide.md)** - Learn the basics in 15 minutes
+- **🎯 [Common Patterns Guide](common-patterns-guide.md)** - Real-world usage examples
+- **🏛️ [Governance Guidelines](governance-guidelines.md)** - Team standards and best practices
+- **📖 [YAML DSL Reference](yaml-dsl-reference.md)** - Complete syntax documentation
+- **📋 This API Reference** - Complete REST API documentation (you are here)
+
+---
 
 ## Table of Contents
 
@@ -11,9 +27,11 @@ The Firefly Rule Engine provides a comprehensive REST API for rule evaluation an
   - [Evaluate Rules (Base64)](#evaluate-rules-base64)
   - [Evaluate Rules (Plain YAML)](#evaluate-rules-plain-yaml)
   - [Evaluate Stored Rule by Code](#evaluate-stored-rule-by-code)
+  - [Batch Rules Evaluation](#batch-rules-evaluation)
 - [Rule Definitions Management API](#rule-definitions-management-api)
 - [Constants Management API](#constants-management-api)
 - [Validation API](#validation-api)
+- [Audit Trail API](#audit-trail-api)
 - [Health and Monitoring](#health-and-monitoring)
 - [Examples](#examples)
 
@@ -37,9 +55,22 @@ Content-Type: application/json
 Accept: application/json
 ```
 
+### OpenAPI/Swagger Documentation
+Interactive API documentation is available at:
+```
+http://localhost:8080/swagger-ui.html
+```
+
+OpenAPI specification:
+```
+http://localhost:8080/v3/api-docs
+```
+
 ## Authentication
 
 The API currently operates without authentication. All endpoints are publicly accessible.
+
+> **Note**: In production environments, implement appropriate authentication and authorization mechanisms.
 
 ## Error Handling
 
@@ -105,8 +136,20 @@ The Rules Evaluation API provides endpoints for evaluating YAML DSL rules agains
 - **Direct evaluation** with base64-encoded YAML content
 - **Plain YAML evaluation** with unencoded YAML content
 - **Stored rule evaluation** by rule code
+- **Batch evaluation** for processing multiple rules concurrently
 - Real-time rule execution with comprehensive error handling
 - Support for all naming conventions and variable types
+- Comprehensive audit trail for all evaluations
+
+### Variable Naming Conventions
+
+The API enforces strict naming conventions:
+
+| Variable Type | Format | Example | Source |
+|---------------|--------|---------|---------|
+| **Input Variables** | `camelCase` | `creditScore`, `annualIncome` | From API request `inputData` |
+| **System Constants** | `UPPER_CASE_WITH_UNDERSCORES` | `MIN_CREDIT_SCORE` | From database constants |
+| **Computed Variables** | `snake_case` | `debt_ratio`, `is_eligible` | Created during rule execution |
 
 ### Evaluate Rules (Base64)
 
@@ -124,25 +167,18 @@ Evaluate a base64-encoded YAML rules definition against provided input data.
     "annualIncome": 75000,
     "employmentYears": 3,
     "existingDebt": 25000
-  },
-  "metadata": {
-    "request_id": "req-123",
-    "source_system": "loan_application"
-  },
-  "includeDetails": false,
-  "debugMode": false
+  }
 }
 ```
 
 #### Request Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `rulesDefinitionBase64` | string | Yes | Base64-encoded YAML rules definition (max 50,000 chars when decoded) |
-| `inputData` | object | Yes | Input variables for rule evaluation (max 1,000 entries) |
-| `metadata` | object | No | Optional metadata for the request (max 100 entries) |
-| `includeDetails` | boolean | No | Include detailed execution information |
-| `debugMode` | boolean | No | Enable debug mode for detailed logging |
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `rulesDefinitionBase64` | string | No* | Max 100,000 chars | Base64-encoded YAML rules definition |
+| `inputData` | object | Yes | Max 1,000 entries, camelCase keys | Input variables for rule evaluation |
+
+*Either `rulesDefinitionBase64` or stored rule code is required.
 
 #### Response Schema
 
@@ -151,12 +187,19 @@ Evaluate a base64-encoded YAML rules definition against provided input data.
   "success": true,
   "conditionResult": true,
   "outputData": {
-    "key": "value"
+    "is_eligible": true,
+    "approval_tier": "STANDARD",
+    "debt_ratio": 0.33,
+    "risk_score": 85
   },
-  "executionTimeMs": 150,
+  "executionTimeMs": 45,
   "circuitBreakerTriggered": false,
   "circuitBreakerMessage": null,
-  "error": null
+  "error": null,
+  "metadata": {
+    "rulesId": "rules-123",
+    "rulesName": "Credit Check"
+  }
 }
 ```
 
@@ -166,11 +209,12 @@ Evaluate a base64-encoded YAML rules definition against provided input data.
 |-------|------|-------------|
 | `success` | boolean | Whether the evaluation completed successfully |
 | `conditionResult` | boolean | Result of the rule conditions evaluation |
-| `outputData` | object | Output data generated by the rule |
+| `outputData` | object | Output data with computed variables in snake_case |
 | `executionTimeMs` | number | Execution time in milliseconds |
 | `circuitBreakerTriggered` | boolean | Whether circuit breaker was triggered |
 | `circuitBreakerMessage` | string | Circuit breaker message if triggered |
 | `error` | string | Error message if evaluation failed |
+| `metadata` | object | Additional metadata about the evaluation |
 
 #### Example Request
 
@@ -220,31 +264,22 @@ Evaluate a plain (non-base64) YAML rules definition against provided input data.
 
 ```json
 {
-  "yamlContent": "name: \"Credit Scoring Rule\"\ndescription: \"Basic credit assessment for loan applications\"\n\ninputs:\n  - creditScore\n  - annualIncome\n  - employmentYears\n  - existingDebt\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n  - annualIncome at_least 50000\n  - employmentYears at_least 2\n\nthen:\n  - calculate debt_to_income as existingDebt / annualIncome\n  - set is_eligible to true\n  - set approval_tier to \"STANDARD\"\n\nelse:\n  - set is_eligible to false\n  - set approval_tier to \"DECLINED\"\n\noutput:\n  is_eligible: is_eligible\n  approval_tier: approval_tier\n  debt_to_income: debt_to_income",
+  "yamlContent": "name: \"Credit Scoring Rule\"\ndescription: \"Basic credit assessment for loan applications\"\n\ninputs:\n  - creditScore\n  - annualIncome\n  - employmentYears\n  - existingDebt\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n  - annualIncome at_least 50000\n  - employmentYears at_least 2\n\nthen:\n  - calculate debt_to_income as existingDebt / annualIncome\n  - set is_eligible to true\n  - set approval_tier to \"STANDARD\"\n\nelse:\n  - set is_eligible to false\n  - set approval_tier to \"DECLINED\"\n\noutput:\n  is_eligible: boolean\n  approval_tier: text\n  debt_to_income: number",
   "inputData": {
     "creditScore": 780,
     "annualIncome": 75000,
     "employmentYears": 3,
     "existingDebt": 25000
-  },
-  "metadata": {
-    "request_id": "req-123",
-    "source_system": "loan_application"
-  },
-  "includeDetails": false,
-  "debugMode": false
+  }
 }
 ```
 
 #### Request Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `yamlContent` | string | Yes | Plain YAML DSL rules definition (not base64 encoded) |
-| `inputData` | object | Yes | Input data for rule evaluation (camelCase variables) |
-| `metadata` | object | No | Optional metadata for the request |
-| `includeDetails` | boolean | No | Include detailed execution information |
-| `debugMode` | boolean | No | Enable debug mode for detailed logging |
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `yamlContent` | string | Yes | 10-50,000 chars | Plain YAML DSL rules definition |
+| `inputData` | object | Yes | Max 1,000 entries, camelCase keys | Input data for rule evaluation |
 
 #### Example Request
 
@@ -270,15 +305,168 @@ curl -X POST http://localhost:8080/api/v1/rules/evaluate/plain \
 
 Same as the base64 evaluation response.
 
+### Evaluate Stored Rule by Code
+
+Evaluate a stored rule definition by its code against provided input data.
+
+**Endpoint:** `POST /api/v1/rules/evaluate/by-code`
+
+#### Request Schema
+
+```json
+{
+  "ruleDefinitionCode": "credit_scoring_v1",
+  "inputData": {
+    "creditScore": 720,
+    "annualIncome": 75000,
+    "employmentYears": 3,
+    "existingDebt": 25000
+  }
+}
+```
+
+#### Request Fields
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `ruleDefinitionCode` | string | Yes | Pattern: `^[a-zA-Z][a-zA-Z0-9_]*$` | Code of stored rule definition |
+| `inputData` | object | Yes | Max 1,000 entries, camelCase keys | Input data for rule evaluation |
+
+#### Response Schema
+
+Same as the standard rule evaluation response.
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Rules evaluated successfully |
+| `400` | Invalid input data or naming convention violations |
+| `404` | Rule definition not found or inactive |
+| `500` | Internal server error |
+
+### Batch Rules Evaluation
+
+Process multiple rule evaluations concurrently in a single request.
+
+**Endpoint:** `POST /api/v1/rules/batch/evaluate`
+
+#### Request Schema
+
+```json
+{
+  "evaluationRequests": [
+    {
+      "requestId": "req-001",
+      "ruleDefinitionCode": "credit_scoring_v1",
+      "inputData": {
+        "creditScore": 750,
+        "annualIncome": 80000
+      }
+    },
+    {
+      "requestId": "req-002",
+      "ruleDefinitionCode": "risk_assessment_v2",
+      "inputData": {
+        "amount": 50000,
+        "customerTier": "GOLD"
+      }
+    }
+  ],
+  "concurrencyLimit": 10,
+  "timeoutMs": 30000
+}
+```
+
+#### Request Fields
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `evaluationRequests` | array | Yes | 1-100 items | List of rule evaluation requests |
+| `concurrencyLimit` | integer | No | 1-50, default: 10 | Maximum concurrent evaluations |
+| `timeoutMs` | integer | No | 1000-300000, default: 30000 | Timeout per evaluation in milliseconds |
+
+#### Single Request Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `requestId` | string | No | Unique identifier for tracking |
+| `ruleDefinitionCode` | string | Yes | Code of stored rule definition |
+| `inputData` | object | Yes | Input data with camelCase variables |
+
+#### Response Schema
+
+```json
+{
+  "batchId": "batch-123e4567-e89b-12d3-a456-426614174000",
+  "summary": {
+    "totalRequests": 2,
+    "successfulEvaluations": 2,
+    "failedEvaluations": 0,
+    "totalExecutionTimeMs": 125,
+    "averageExecutionTimeMs": 62.5
+  },
+  "results": [
+    {
+      "requestId": "req-001",
+      "ruleDefinitionCode": "credit_scoring_v1",
+      "status": "SUCCESS",
+      "result": {
+        "success": true,
+        "conditionResult": true,
+        "outputData": {
+          "is_eligible": true,
+          "approval_tier": "PREMIUM"
+        },
+        "executionTimeMs": 45
+      }
+    },
+    {
+      "requestId": "req-002",
+      "ruleDefinitionCode": "risk_assessment_v2",
+      "status": "SUCCESS",
+      "result": {
+        "success": true,
+        "conditionResult": true,
+        "outputData": {
+          "risk_level": "LOW",
+          "approval_limit": 75000
+        },
+        "executionTimeMs": 80
+      }
+    }
+  ]
+}
+```
+
+#### Batch Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `batchId` | string | Unique identifier for the batch operation |
+| `summary` | object | Summary statistics for the batch |
+| `results` | array | Individual evaluation results |
+
+#### Evaluation Status Values
+
+| Status | Description |
+|--------|-------------|
+| `SUCCESS` | Evaluation completed successfully |
+| `FAILED` | Evaluation failed due to error |
+| `TIMEOUT` | Evaluation exceeded timeout limit |
+| `RULE_NOT_FOUND` | Rule definition not found |
+
 ## Rule Definitions Management API
 
 The Rule Definitions API allows you to store, manage, and evaluate YAML DSL rule definitions. This enables you to:
 
 - Store validated YAML DSL definitions in the database
-- Retrieve stored rule definitions by code
-- Update existing rule definitions
-- Evaluate stored rules without passing YAML content each time
-- Manage rule versioning and metadata
+- Retrieve stored rule definitions by ID or code
+- Update existing rule definitions with versioning
+- Delete rule definitions
+- Filter and paginate rule definitions
+- Validate YAML DSL content before storage
+- Manage rule metadata and lifecycle
 
 ### Create Rule Definition
 
@@ -294,27 +482,25 @@ Store a new YAML DSL rule definition in the database.
   "name": "Credit Scoring Rule v1",
   "description": "Basic credit scoring rule for loan applications",
   "yamlContent": "name: \"Credit Scoring\"\ndescription: \"Basic credit assessment\"\n\ninputs:\n  - creditScore\n  - annualIncome\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n  - annualIncome at_least MIN_ANNUAL_INCOME\n\nthen:\n  - set is_eligible to true\n  - set approval_tier to \"STANDARD\"\n\nelse:\n  - set is_eligible to false\n  - set approval_tier to \"DECLINED\"\n\noutput:\n  is_eligible: boolean\n  approval_tier: text",
-  "version": "1.0",
+  "version": "1.0.0",
   "isActive": true,
   "tags": "credit,scoring,loan",
-  "createdBy": "risk_team",
-  "updatedBy": "risk_team"
+  "createdBy": "risk_team"
 }
 ```
 
 #### Request Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `code` | string | Yes | Unique identifier for the rule definition (alphanumeric with underscores) |
-| `name` | string | Yes | Human-readable name for the rule definition |
-| `description` | string | No | Detailed description of what this rule does |
-| `yamlContent` | string | Yes | The YAML DSL content (validated before storage) |
-| `version` | string | No | Version identifier for tracking changes |
-| `isActive` | boolean | No | Whether this rule definition is active (default: true) |
-| `tags` | string | No | Comma-separated tags for categorization |
-| `createdBy` | string | No | User who created the rule definition |
-| `updatedBy` | string | No | User who last updated the rule definition |
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `code` | string | Yes | Pattern: `^[a-zA-Z][a-zA-Z0-9_]*$`, 3-100 chars | Unique identifier for the rule definition |
+| `name` | string | Yes | 2-255 chars | Human-readable name for the rule definition |
+| `description` | string | No | Max 1000 chars | Detailed description of what this rule does |
+| `yamlContent` | string | Yes | Max 100,000 chars | The YAML DSL content (validated before storage) |
+| `version` | string | No | Pattern: `^\d+\.\d+\.\d+$` | Semantic version identifier (e.g., "1.0.0") |
+| `isActive` | boolean | Yes | - | Whether this rule definition is active |
+| `tags` | string | No | Max 500 chars | Comma-separated tags for categorization |
+| `createdBy` | string | No | Max 255 chars | User who created the rule definition |
 
 #### Response Schema
 
@@ -325,7 +511,7 @@ Store a new YAML DSL rule definition in the database.
   "name": "Credit Scoring Rule v1",
   "description": "Basic credit scoring rule for loan applications",
   "yamlContent": "name: \"Credit Scoring\"...",
-  "version": "1.0",
+  "version": "1.0.0",
   "isActive": true,
   "tags": "credit,scoring,loan",
   "createdBy": "risk_team",
@@ -334,6 +520,16 @@ Store a new YAML DSL rule definition in the database.
   "updatedAt": "2025-01-12T10:30:00Z"
 }
 ```
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `201` | Rule definition created successfully |
+| `400` | Invalid rule definition data or naming convention violations |
+| `409` | Rule definition with the same code already exists |
+| `422` | YAML DSL validation failed |
+| `500` | Internal server error |
 
 #### Example Request
 
@@ -368,15 +564,39 @@ Update an existing rule definition.
 
 Same as Create Rule Definition.
 
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Rule definition updated successfully |
+| `400` | Invalid rule definition data |
+| `404` | Rule definition not found |
+| `422` | YAML DSL validation failed |
+| `500` | Internal server error |
+
 ### Get Rule Definition by ID
 
 Retrieve a specific rule definition by its UUID.
 
 **Endpoint:** `GET /api/v1/rules/definitions/{id}`
 
+#### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | UUID | Unique identifier of the rule definition |
+
 #### Response Schema
 
 Same as Create Rule Definition response.
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Rule definition retrieved successfully |
+| `404` | Rule definition not found |
+| `500` | Internal server error |
 
 ### Get Rule Definition by Code
 
@@ -390,16 +610,42 @@ Retrieve a rule definition by its unique code.
 |-----------|------|-------------|
 | `code` | string | Unique code of the rule definition |
 
+#### Response Schema
+
+Same as Create Rule Definition response.
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Rule definition retrieved successfully |
+| `404` | Rule definition not found |
+| `500` | Internal server error |
+
 ### Delete Rule Definition
 
 Delete a rule definition by ID.
 
 **Endpoint:** `DELETE /api/v1/rules/definitions/{id}`
 
+#### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | UUID | Unique identifier of the rule definition |
+
 #### Response
 
 - **Status:** `204 No Content`
 - **Body:** Empty
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `204` | Rule definition deleted successfully |
+| `404` | Rule definition not found |
+| `500` | Internal server error |
 
 ### Filter Rule Definitions
 
@@ -411,30 +657,49 @@ Retrieve rule definitions with filtering and pagination.
 
 ```json
 {
-  "filters": [
-    {
-      "field": "isActive",
-      "operator": "equals",
-      "value": true
-    },
-    {
-      "field": "tags",
-      "operator": "contains",
-      "value": "credit"
+  "filters": {
+    "isActive": true,
+    "tags": "credit",
+    "name": "Credit Scoring"
+  },
+  "rangeFilters": {
+    "ranges": {
+      "createdAt": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      }
     }
-  ],
-  "sorts": [
-    {
-      "field": "createdAt",
-      "direction": "DESC"
-    }
-  ],
+  },
   "pagination": {
-    "page": 0,
-    "size": 20
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sortBy": "createdAt",
+    "sortDirection": "DESC"
+  },
+  "options": {
+    "caseInsensitiveStrings": true,
+    "includeInheritedFields": false
   }
 }
 ```
+
+#### Request Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `filters` | object | No | Field-based filters using RuleDefinitionDTO structure |
+| `rangeFilters` | object | No | Range filters for date/numeric fields |
+| `pagination` | object | Yes | Pagination parameters |
+| `options` | object | No | Filter behavior options |
+
+#### Pagination Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pageNumber` | integer | 0 | Zero-based page number |
+| `pageSize` | integer | 10 | Number of items per page |
+| `sortBy` | string | "createdAt" | Field to sort by |
+| `sortDirection` | string | "DESC" | Sort direction (ASC/DESC) |
 
 #### Response Schema
 
@@ -442,16 +707,16 @@ Retrieve rule definitions with filtering and pagination.
 {
   "content": [
     {
-      "id": "uuid",
-      "code": "string",
-      "name": "string",
-      "description": "string",
-      "yamlContent": "string",
-      "version": "string",
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "code": "credit_scoring_v1",
+      "name": "Credit Scoring Rule v1",
+      "description": "Basic credit scoring rule for loan applications",
+      "yamlContent": "name: \"Credit Scoring\"...",
+      "version": "1.0.0",
       "isActive": true,
-      "tags": "string",
-      "createdBy": "string",
-      "updatedBy": "string",
+      "tags": "credit,scoring,loan",
+      "createdBy": "risk_team",
+      "updatedBy": "risk_team",
       "createdAt": "2025-01-12T10:30:00Z",
       "updatedAt": "2025-01-12T10:30:00Z"
     }
@@ -461,36 +726,10 @@ Retrieve rule definitions with filtering and pagination.
   "size": 20,
   "number": 0,
   "first": true,
-  "last": false
+  "last": false,
+  "empty": false
 }
 ```
-
-### Evaluate Stored Rule by Code
-
-Evaluate a stored rule definition by its code.
-
-**Endpoint:** `POST /api/v1/rules/evaluate/by-code`
-
-#### Request Schema
-
-```json
-{
-  "ruleDefinitionCode": "credit_scoring_v1",
-  "inputData": {
-    "creditScore": 720,
-    "annualIncome": 75000
-  },
-  "metadata": {
-    "requestId": "req-001"
-  },
-  "includeDetails": false,
-  "debugMode": false
-}
-```
-
-#### Response Schema
-
-Same as the standard rule evaluation response.
 
 ### Validate Rule Definition
 
@@ -502,6 +741,23 @@ Validate YAML DSL content without storing it.
 
 Raw YAML content as string in request body.
 
+```yaml
+name: "Test Rule"
+description: "Test validation"
+
+inputs:
+  - creditScore
+
+when:
+  - creditScore at_least MIN_CREDIT_SCORE
+
+then:
+  - set is_eligible to true
+
+output:
+  is_eligible: boolean
+```
+
 #### Response Schema
 
 ```json
@@ -509,27 +765,21 @@ Raw YAML content as string in request body.
   "status": "VALID",
   "isValid": true,
   "errors": [],
-  "warnings": [],
-  "summary": {
-    "totalIssues": 0,
-    "criticalIssues": 0,
-    "warningIssues": 0,
-    "qualityScore": 100
-  },
-  "issues": {
-    "syntax": [],
-    "naming": [],
-    "dependencies": [],
-    "logic": [],
-    "performance": [],
-    "bestPractices": []
-  }
+  "warnings": []
 }
 ```
 
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Validation completed successfully |
+| `400` | Invalid YAML content |
+| `500` | Internal server error |
+
 ## Validation API
 
-The Validation API provides comprehensive YAML DSL validation capabilities.
+The Validation API provides comprehensive YAML DSL validation capabilities with detailed feedback and suggestions.
 
 ### Validate YAML DSL
 
@@ -541,32 +791,86 @@ Comprehensive validation of YAML DSL content with detailed feedback.
 
 ```json
 {
-  "yamlContent": "name: \"Test Rule\"\ndescription: \"Test\"\n\ninputs:\n  - creditScore\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n\nthen:\n  - set is_eligible to true\n  - set approval_tier to \"APPROVED\"\n\noutput:\n  is_eligible: boolean\n  approval_tier: text",
-  "validationOptions": {
-    "checkNaming": true,
-    "checkDependencies": true,
-    "checkLogic": true,
-    "checkPerformance": true,
-    "checkBestPractices": true
+  "yamlContent": "name: \"Test Rule\"\ndescription: \"Test\"\n\ninputs:\n  - creditScore\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n\nthen:\n  - set is_eligible to true\n\noutput:\n  is_eligible: boolean",
+  "categories": ["SYNTAX", "NAMING", "LOGIC"],
+  "minSeverity": "WARNING",
+  "includeSuggestions": true,
+  "includeMetrics": false
+}
+```
+
+#### Request Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `yamlContent` | string | Yes | YAML DSL content to validate (max 100KB) |
+| `categories` | array | No | Validation categories to run |
+| `minSeverity` | string | No | Minimum severity level (INFO, WARNING, ERROR, CRITICAL) |
+| `includeSuggestions` | boolean | No | Include improvement suggestions (default: true) |
+| `includeMetrics` | boolean | No | Include performance metrics (default: false) |
+
+#### Validation Categories
+
+| Category | Description |
+|----------|-------------|
+| `SYNTAX` | YAML syntax and DSL structure |
+| `NAMING` | Variable naming conventions |
+| `DEPENDENCIES` | Variable dependencies and order |
+| `LOGIC` | Business logic and rule semantics |
+| `PERFORMANCE` | Performance optimization suggestions |
+| `BEST_PRACTICES` | Code quality and maintainability |
+
+#### Response Schema
+
+```json
+{
+  "status": "WARNING",
+  "summary": {
+    "totalIssues": 2,
+    "criticalErrors": 0,
+    "errors": 0,
+    "warnings": 2,
+    "suggestions": 1,
+    "qualityScore": 85.5
+  },
+  "issues": {
+    "syntax": [],
+    "naming": [
+      {
+        "code": "NAMING_001",
+        "severity": "WARNING",
+        "message": "Variable name should use camelCase",
+        "location": {
+          "line": 5,
+          "column": 3,
+          "path": "inputs[0]"
+        },
+        "suggestion": "Use 'creditScore' instead of 'credit_score'"
+      }
+    ],
+    "logic": [],
+    "performance": [],
+    "bestPractices": []
+  },
+  "suggestions": [
+    {
+      "category": "PERFORMANCE",
+      "message": "Consider adding circuit breaker for external calls",
+      "priority": "LOW"
+    }
+  ],
+  "metadata": {
+    "validatorVersion": "2.1.0",
+    "validatedAt": "2025-01-15T10:30:00Z",
+    "validationTimeMs": 125,
+    "ruleName": "Test Rule"
   }
 }
 ```
 
-### Quick Syntax Check
-
-Quick syntax validation for YAML content.
-
-**Endpoint:** `GET /api/v1/validation/syntax?yaml={encoded_yaml}`
-
-#### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `yaml` | string | URL-encoded YAML content (max 50KB) |
-
 ## Constants Management API
 
-The Constants API allows management of system constants used in rule expressions.
+The Constants API allows management of system constants used in rule expressions. Constants follow `UPPER_CASE_WITH_UNDERSCORES` naming convention and are automatically available in YAML DSL rules.
 
 ### Filter Constants
 
@@ -578,22 +882,24 @@ Retrieve constants with filtering and pagination.
 
 ```json
 {
-  "filters": [
-    {
-      "field": "string",
-      "operator": "string",
-      "value": "any"
+  "filters": {
+    "valueType": "NUMBER",
+    "required": true,
+    "code": "MIN_"
+  },
+  "rangeFilters": {
+    "ranges": {
+      "createdAt": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-12-31T23:59:59Z"
+      }
     }
-  ],
-  "sorts": [
-    {
-      "field": "string",
-      "direction": "ASC|DESC"
-    }
-  ],
+  },
   "pagination": {
-    "page": 0,
-    "size": 20
+    "pageNumber": 0,
+    "pageSize": 20,
+    "sortBy": "code",
+    "sortDirection": "ASC"
   }
 }
 ```
@@ -604,23 +910,25 @@ Retrieve constants with filtering and pagination.
 {
   "content": [
     {
-      "id": "uuid",
-      "code": "string",
-      "name": "string",
-      "valueType": "STRING|NUMBER|BOOLEAN|DATE|OBJECT",
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "code": "MIN_CREDIT_SCORE",
+      "value": "650",
+      "valueType": "NUMBER",
+      "description": "Minimum credit score for loan approval",
       "required": true,
-      "description": "string",
-      "currentValue": "any",
+      "createdBy": "system_admin",
+      "updatedBy": "system_admin",
       "createdAt": "2025-01-12T10:30:00Z",
       "updatedAt": "2025-01-12T10:30:00Z"
     }
   ],
-  "totalElements": 100,
-  "totalPages": 5,
+  "totalElements": 50,
+  "totalPages": 3,
   "size": 20,
   "number": 0,
   "first": true,
-  "last": false
+  "last": false,
+  "empty": false
 }
 ```
 
@@ -635,13 +943,24 @@ Create a new system constant.
 ```json
 {
   "code": "MIN_CREDIT_SCORE",
-  "name": "Minimum Credit Score",
+  "value": "650",
   "valueType": "NUMBER",
-  "required": true,
   "description": "Minimum credit score required for loan approval",
-  "currentValue": 650
+  "required": true,
+  "createdBy": "system_admin"
 }
 ```
+
+#### Request Fields
+
+| Field | Type | Required | Validation | Description |
+|-------|------|----------|------------|-------------|
+| `code` | string | Yes | Pattern: `^[A-Z][A-Z0-9_]*$`, 3-100 chars | Unique constant identifier |
+| `value` | string | Yes | Max 1000 chars | String representation of the value |
+| `valueType` | string | Yes | Enum: STRING, NUMBER, BOOLEAN, DATE, OBJECT | Data type of the constant |
+| `description` | string | No | Max 500 chars | Description of the constant's purpose |
+| `required` | boolean | Yes | - | Whether this constant is required for rules |
+| `createdBy` | string | No | Max 255 chars | User who created the constant |
 
 #### Response Schema
 
@@ -711,6 +1030,110 @@ Retrieve a constant by its unique code.
 #### Response Schema
 
 Same as Create Constant response.
+
+## Audit Trail API
+
+The Audit Trail API provides comprehensive tracking and querying capabilities for all rule engine operations including rule evaluations, definition changes, and system events.
+
+### Query Audit Trail
+
+Retrieve audit trail records with filtering and pagination.
+
+**Endpoint:** `POST /api/v1/audit-trail/filter`
+
+#### Request Schema
+
+```json
+{
+  "filters": {
+    "operationType": "RULE_EVALUATION",
+    "entityType": "RULE_DEFINITION",
+    "userId": "system_admin",
+    "success": true
+  },
+  "rangeFilters": {
+    "ranges": {
+      "timestamp": {
+        "from": "2025-01-01T00:00:00Z",
+        "to": "2025-01-15T23:59:59Z"
+      }
+    }
+  },
+  "pagination": {
+    "pageNumber": 0,
+    "pageSize": 50,
+    "sortBy": "timestamp",
+    "sortDirection": "DESC"
+  }
+}
+```
+
+#### Request Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filters` | object | Field-based filters for audit records |
+| `rangeFilters` | object | Date/time range filters |
+| `pagination` | object | Pagination and sorting parameters |
+
+#### Operation Types
+
+| Type | Description |
+|------|-------------|
+| `RULE_EVALUATION` | Rule execution and evaluation |
+| `RULE_DEFINITION_CREATE` | Rule definition creation |
+| `RULE_DEFINITION_UPDATE` | Rule definition modification |
+| `RULE_DEFINITION_DELETE` | Rule definition deletion |
+| `CONSTANT_CREATE` | System constant creation |
+| `CONSTANT_UPDATE` | System constant modification |
+| `VALIDATION` | YAML DSL validation operations |
+
+#### Response Schema
+
+```json
+{
+  "content": [
+    {
+      "id": "audit-123e4567-e89b-12d3-a456-426614174000",
+      "operationType": "RULE_EVALUATION",
+      "entityType": "RULE_DEFINITION",
+      "entityId": "rule-456",
+      "userId": "system_user",
+      "timestamp": "2025-01-15T10:30:00Z",
+      "requestData": {
+        "ruleCode": "credit_scoring_v1",
+        "inputData": {"creditScore": 750}
+      },
+      "responseData": {
+        "success": true,
+        "outputData": {"is_eligible": true}
+      },
+      "executionTimeMs": 45,
+      "success": true,
+      "errorMessage": null,
+      "metadata": {
+        "ipAddress": "192.168.1.100",
+        "userAgent": "RuleEngine-Client/1.0",
+        "sessionId": "session-789"
+      }
+    }
+  ],
+  "totalElements": 1250,
+  "totalPages": 25,
+  "size": 50,
+  "number": 0,
+  "first": true,
+  "last": false
+}
+```
+
+#### HTTP Status Codes
+
+| Status | Description |
+|--------|-------------|
+| `200` | Audit trail retrieved successfully |
+| `400` | Invalid filter parameters |
+| `500` | Internal server error |
 
 ## Health and Monitoring
 

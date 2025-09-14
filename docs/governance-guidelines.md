@@ -69,7 +69,7 @@ These features should be used by teams at any maturity level:
 
 ```yaml
 # ✅ Always Appropriate
-- Basic comparisons (>=, <=, ==, !=)
+- Basic comparisons (at_least, at_most, equals, not_equals)
 - Simple set operations
 - Basic calculations
 - Input/output definitions
@@ -79,8 +79,8 @@ These features should be used by teams at any maturity level:
 **Example - Always Safe:**
 ```yaml
 when:
-  - creditScore >= 650
-  - annualIncome > 40000
+  - creditScore at_least 650
+  - annualIncome greater_than 40000
 then:
   - set approved to true
   - calculate monthly_income as annualIncome / 12

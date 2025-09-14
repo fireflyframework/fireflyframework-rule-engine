@@ -6,6 +6,17 @@
 
 ---
 
+## 📚 Documentation Navigation
+
+**New to the Rule Engine?** Start with our layered documentation approach:
+
+- **🚀 [Quick Start Guide](quick-start-guide.md)** - Get started in 15 minutes with essential syntax
+- **🎯 [Common Patterns Guide](common-patterns-guide.md)** - Real-world examples organized by complexity
+- **🏛️ [Governance Guidelines](governance-guidelines.md)** - Team standards and feature selection guidance
+- **📖 This Reference** - Complete syntax documentation (you are here)
+
+---
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -26,12 +37,21 @@
 
 The Firefly Rule Engine uses a powerful YAML-based Domain Specific Language (DSL) that is parsed using an Abstract Syntax Tree (AST) approach. This guide documents the **actual implementation** based on comprehensive codebase analysis, ensuring accuracy and completeness.
 
+> **💡 First Time Here?** This is a comprehensive reference. For a gentler introduction, start with the [Quick Start Guide](quick-start-guide.md) or browse [Common Patterns](common-patterns-guide.md) for real-world examples.
+
 ### Key Principles
 
 - **AST-Based Parsing**: All syntax is parsed into strongly-typed AST nodes
 - **Expression-Driven**: Actions and conditions support complex expressions
 - **Type-Safe**: Variables have strict naming conventions for automatic type resolution
 - **Extensible**: Support for REST API calls, JSON manipulation, and custom functions
+
+### How to Use This Reference
+
+- **🔍 Find Specific Syntax**: Use the table of contents or search for keywords
+- **📋 Copy Examples**: All code examples are tested and ready to use
+- **🎯 Choose Complexity**: See [Governance Guidelines](governance-guidelines.md) for feature selection advice
+- **🚀 Get Started**: Try examples from [Quick Start Guide](quick-start-guide.md) first
 
 ---
 
@@ -1442,6 +1462,21 @@ output:
 - Multi-line expressions with proper parentheses grouping
 - Validation operators in conditional expressions
 - Mixed validation and comparison operators in complex conditions
+
+---
+
+---
+
+## 🎓 Learning Path
+
+Ready to put this knowledge into practice?
+
+1. **🚀 Start Simple**: Try examples from [Quick Start Guide](quick-start-guide.md)
+2. **🎯 Find Patterns**: Browse [Common Patterns Guide](common-patterns-guide.md) for your use case
+3. **🏛️ Set Standards**: Review [Governance Guidelines](governance-guidelines.md) for team practices
+4. **💡 Practice**: Work through [B2B Credit Scoring Tutorial](b2b-credit-scoring-tutorial.md)
+5. **🏗️ Understand Architecture**: Read [Architecture Guide](architecture.md)
+6. **⚡ Optimize**: Check [Performance Optimization](performance-optimization.md)
 
 ---
 
