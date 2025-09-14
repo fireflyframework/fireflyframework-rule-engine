@@ -14,6 +14,7 @@ This comprehensive guide provides an exhaustive exploration of the Firefly Rule 
 - [Validation System](#validation-system)
 - [Error Handling](#error-handling)
 - [Performance Optimizations](#performance-optimizations)
+- [Functions vs Operators: Architecture and Implementation](#functions-vs-operators-architecture-and-implementation)
 - [Extending the AST System](#extending-the-ast-system)
 - [Best Practices](#best-practices)
 
@@ -2315,6 +2316,760 @@ private void recordPerformanceMetrics(EvaluationContext context, long startTime)
     context.getExecutionMetrics().put("actions_executed", actionCount);
 }
 ```
+
+## Functions vs Operators: Architecture and Implementation
+
+This section provides a comprehensive understanding of the architectural distinction between functions and operators in the Firefly Rule Engine, along with practical tutorials for implementing both.
+
+### 🧠 **Fundamental Architectural Distinction**
+
+The Firefly Rule Engine makes a clear architectural distinction between **operators** and **functions** based on their purpose, complexity, and implementation requirements.
+
+#### **🔧 Operators: Core Language Constructs**
+
+**Operators** are fundamental language constructs that form the backbone of the DSL grammar. They are:
+
+- **Purpose**: Core comparisons and logical operations
+- **Syntax**: Infix notation (`creditScore greater_than 650`)
+- **Implementation**: Defined in lexer tokens and handled by specialized parsers
+- **Characteristics**:
+  - Fixed arity (usually binary: left operator right)
+  - Simple, predictable behavior
+  - Core to the DSL grammar structure
+  - Optimized for performance
+  - Type-safe at parse time
+
+**Examples of Operators:**
+```yaml
+# Comparison operators
+- creditScore greater_than 650
+- income less_than_or_equal 100000
+- status equals "ACTIVE"
+
+# Logical operators
+- isActive and isVerified
+- creditScore greater_than 650 or income greater_than 50000
+
+# Validation operators
+- email is_email
+- phoneNumber is_phone
+- creditScore is_credit_score
+```
+
+#### **⚡ Functions: Complex Operations with Side Effects**
+
+**Functions** are complex operations that may have side effects, variable parameters, or require external services. They are:
+
+- **Purpose**: Complex operations, calculations, and external integrations
+- **Syntax**: Function call notation (`rest_get(url, headers, timeout)`)
+- **Implementation**: Handled in the ExpressionEvaluator visitor
+- **Characteristics**:
+  - Variable arity (0 to many parameters)
+  - May have side effects (REST calls, logging, database access)
+  - Can access injected services
+  - Extensible without changing core grammar
+  - Runtime parameter validation
+
+**Examples of Functions:**
+```yaml
+# REST API calls
+- calculate api_data as rest_get("https://api.example.com/credit", headers, 30)
+- calculate user_info as rest_post("https://api.example.com/users", requestBody)
+
+# JSON operations
+- calculate user_name as json_get(api_data, "user.name")
+- calculate credit_history as json_get(api_data, "credit.history[0]")
+
+# Mathematical functions
+- calculate max_score as max(score1, score2, score3)
+- calculate loan_payment as calculate_loan_payment(principal, rate, term)
+
+# String functions
+- calculate formatted_amount as format_currency(amount)
+- calculate full_name as concat(firstName, " ", lastName)
+```
+
+### 🏗️ **Why This Architecture Matters**
+
+#### **1. Separation of Concerns**
+
+```java
+// Operators: Handled in lexer and parser
+public enum TokenType {
+    GREATER_THAN("greater_than", TokenCategory.OPERATOR),
+    IS_EMAIL("is_email", TokenCategory.OPERATOR),
+    BETWEEN("between", TokenCategory.OPERATOR)
+}
+
+// Functions: Handled in expression evaluator
+@Override
+public Object visitFunctionCallExpression(FunctionCallExpression node) {
+    return switch (node.getFunctionName()) {
+        case "rest_get" -> restGet(node.getArguments());
+        case "json_get" -> jsonGet(node.getArguments());
+        case "max" -> max(node.getArguments());
+        default -> throw new EvaluationException("Unknown function: " + node.getFunctionName());
+    };
+}
+```
+
+#### **2. Parameter Flexibility**
+
+**Operators** have fixed parameter patterns:
+```yaml
+# Binary operators: left operator right
+creditScore greater_than 650
+income between 30000 and 80000
+
+# Unary operators: operand operator
+email is_email
+```
+
+**Functions** support variable parameters:
+```yaml
+# Variable number of parameters
+- calculate max_value as max(score1)                    # 1 parameter
+- calculate max_value as max(score1, score2)            # 2 parameters
+- calculate max_value as max(score1, score2, score3)    # 3 parameters
+
+# Optional parameters with defaults
+- calculate api_data as rest_get(url)                   # Uses default timeout
+- calculate api_data as rest_get(url, headers)          # Uses default timeout
+- calculate api_data as rest_get(url, headers, 30)      # Custom timeout
+```
+
+#### **3. Service Integration**
+
+**Functions** can access injected Spring services:
+```java
+@Component
+public class ExpressionEvaluator implements ASTVisitor<Object> {
+
+    @Autowired
+    private RestCallService restCallService;
+
+    @Autowired
+    private JsonPathService jsonPathService;
+
+    @Autowired
+    private ConstantService constantService;
+
+    private Object restGet(Object[] args) {
+        // Access to injected services for complex operations
+        if (restCallService == null) {
+            return createErrorResponse("RestCallService not available");
+        }
+
+        try {
+            String url = (String) args[0];
+            Map<String, String> headers = args.length > 1 ? (Map<String, String>) args[1] : null;
+            Integer timeout = args.length > 2 ? (Integer) args[2] : 30;
+
+            return restCallService.get(url, headers, timeout).block();
+        } catch (Exception e) {
+            log.error("REST GET failed for URL: {}", args[0], e);
+            return createErrorResponse("REST GET failed: " + e.getMessage());
+        }
+    }
+}
+```
+
+### 📚 **Tutorial: Creating a New Function**
+
+Let's walk through creating a new function called `calculate_credit_risk` that combines multiple credit factors.
+
+#### **Step 1: Define the Function Logic**
+
+Add the function to the `ExpressionEvaluator` class:
+
+```java
+@Override
+public Object visitFunctionCallExpression(FunctionCallExpression node) {
+    String functionName = node.getFunctionName();
+    Object[] args = evaluateArguments(node.getArguments());
+
+    return switch (functionName) {
+        // Existing functions...
+        case "calculate_credit_risk" -> calculateCreditRisk(args);
+        default -> throw new EvaluationException("Unknown function: " + functionName);
+    };
+}
+
+private Object calculateCreditRisk(Object[] args) {
+    // Validate parameters
+    if (args.length < 3) {
+        log.warn("calculate_credit_risk requires at least 3 arguments: creditScore, income, debtToIncomeRatio");
+        return null;
+    }
+
+    try {
+        // Extract and validate parameters
+        Number creditScore = convertToNumber(args[0]);
+        Number income = convertToNumber(args[1]);
+        Number debtToIncomeRatio = convertToNumber(args[2]);
+
+        if (creditScore == null || income == null || debtToIncomeRatio == null) {
+            return createErrorResponse("All parameters must be numeric");
+        }
+
+        // Optional parameters with defaults
+        Number employmentYears = args.length > 3 ? convertToNumber(args[3]) : 2.0;
+        Boolean hasCollateral = args.length > 4 ? convertToBoolean(args[4]) : false;
+
+        // Calculate risk score (0-100, lower is better)
+        double riskScore = calculateRiskScore(
+            creditScore.doubleValue(),
+            income.doubleValue(),
+            debtToIncomeRatio.doubleValue(),
+            employmentYears.doubleValue(),
+            hasCollateral
+        );
+
+        // Return structured result
+        Map<String, Object> result = new HashMap<>();
+        result.put("riskScore", riskScore);
+        result.put("riskLevel", getRiskLevel(riskScore));
+        result.put("recommendation", getRecommendation(riskScore));
+
+        return result;
+
+    } catch (Exception e) {
+        log.error("Error calculating credit risk", e);
+        return createErrorResponse("Credit risk calculation failed: " + e.getMessage());
+    }
+}
+
+private double calculateRiskScore(double creditScore, double income, double debtToIncomeRatio,
+                                 double employmentYears, boolean hasCollateral) {
+    // Credit score factor (0-40 points, lower credit score = higher risk)
+    double creditFactor = Math.max(0, (850 - creditScore) / 850 * 40);
+
+    // Income factor (0-20 points, lower income = higher risk)
+    double incomeFactor = income < 30000 ? 20 :
+                         income < 50000 ? 15 :
+                         income < 75000 ? 10 : 5;
+
+    // Debt-to-income factor (0-25 points)
+    double debtFactor = debtToIncomeRatio > 0.5 ? 25 :
+                       debtToIncomeRatio > 0.4 ? 20 :
+                       debtToIncomeRatio > 0.3 ? 15 :
+                       debtToIncomeRatio > 0.2 ? 10 : 5;
+
+    // Employment factor (0-10 points)
+    double employmentFactor = employmentYears < 1 ? 10 :
+                             employmentYears < 2 ? 7 :
+                             employmentYears < 5 ? 5 : 2;
+
+    // Collateral factor (-5 points if has collateral)
+    double collateralFactor = hasCollateral ? -5 : 0;
+
+    return Math.max(0, Math.min(100, creditFactor + incomeFactor + debtFactor + employmentFactor + collateralFactor));
+}
+
+private String getRiskLevel(double riskScore) {
+    if (riskScore <= 20) return "LOW";
+    if (riskScore <= 40) return "MODERATE";
+    if (riskScore <= 60) return "HIGH";
+    return "VERY_HIGH";
+}
+
+private String getRecommendation(double riskScore) {
+    if (riskScore <= 20) return "APPROVE";
+    if (riskScore <= 40) return "APPROVE_WITH_CONDITIONS";
+    if (riskScore <= 60) return "MANUAL_REVIEW";
+    return "DECLINE";
+}
+```
+
+#### **Step 2: Add Function Documentation**
+
+Update the YAML DSL reference to document the new function:
+
+```yaml
+# In docs/yaml-dsl-reference.md
+
+## Mathematical and Financial Functions
+
+### calculate_credit_risk
+Calculates a comprehensive credit risk score based on multiple financial factors.
+
+**Syntax:**
+```yaml
+calculate_credit_risk(creditScore, income, debtToIncomeRatio [, employmentYears] [, hasCollateral])
+```
+
+**Parameters:**
+- `creditScore` (required): Credit score (300-850)
+- `income` (required): Annual income in dollars
+- `debtToIncomeRatio` (required): Debt-to-income ratio (0.0-1.0)
+- `employmentYears` (optional): Years of employment, defaults to 2.0
+- `hasCollateral` (optional): Whether loan has collateral, defaults to false
+
+**Returns:**
+Object with properties:
+- `riskScore`: Numeric risk score (0-100, lower is better)
+- `riskLevel`: String risk level (LOW, MODERATE, HIGH, VERY_HIGH)
+- `recommendation`: String recommendation (APPROVE, APPROVE_WITH_CONDITIONS, MANUAL_REVIEW, DECLINE)
+
+**Examples:**
+```yaml
+# Basic usage
+- calculate risk_assessment as calculate_credit_risk(creditScore, income, debtRatio)
+
+# With optional parameters
+- calculate risk_assessment as calculate_credit_risk(creditScore, income, debtRatio, employmentYears, true)
+
+# Using the result
+- set approved to risk_assessment.recommendation equals "APPROVE"
+- set risk_level to risk_assessment.riskLevel
+```
+```
+
+#### **Step 3: Add Comprehensive Tests**
+
+Create tests for the new function:
+
+```java
+@Test
+void testCalculateCreditRiskFunction() {
+    // Test basic functionality
+    String yaml = """
+        name: "Credit Risk Test"
+        inputs: [creditScore, income, debtRatio]
+        then:
+          - calculate risk_result as calculate_credit_risk(creditScore, income, debtRatio)
+          - set risk_score to risk_result.riskScore
+          - set risk_level to risk_result.riskLevel
+          - set recommendation to risk_result.recommendation
+        """;
+
+    Map<String, Object> inputs = Map.of(
+        "creditScore", 750,
+        "income", 60000,
+        "debtRatio", 0.3
+    );
+
+    EvaluationResult result = evaluateRule(yaml, inputs);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getOutputs()).containsKey("risk_score");
+    assertThat(result.getOutputs()).containsKey("risk_level");
+    assertThat(result.getOutputs()).containsKey("recommendation");
+
+    // Verify reasonable risk score for good credit profile
+    Double riskScore = (Double) result.getOutputs().get("risk_score");
+    assertThat(riskScore).isBetween(0.0, 30.0); // Should be low risk
+}
+
+@Test
+void testCalculateCreditRiskWithOptionalParameters() {
+    String yaml = """
+        name: "Credit Risk with Optional Params"
+        inputs: [creditScore, income, debtRatio, employmentYears, hasCollateral]
+        then:
+          - calculate risk_result as calculate_credit_risk(creditScore, income, debtRatio, employmentYears, hasCollateral)
+          - set final_score to risk_result.riskScore
+        """;
+
+    Map<String, Object> inputs = Map.of(
+        "creditScore", 650,
+        "income", 45000,
+        "debtRatio", 0.45,
+        "employmentYears", 5,
+        "hasCollateral", true
+    );
+
+    EvaluationResult result = evaluateRule(yaml, inputs);
+
+    assertThat(result.isSuccess()).isTrue();
+    Double riskScore = (Double) result.getOutputs().get("final_score");
+    assertThat(riskScore).isNotNull();
+    assertThat(riskScore).isBetween(0.0, 100.0);
+}
+
+@Test
+void testCalculateCreditRiskErrorHandling() {
+    String yaml = """
+        name: "Credit Risk Error Test"
+        inputs: [creditScore]
+        then:
+          - calculate risk_result as calculate_credit_risk(creditScore)
+        """;
+
+    Map<String, Object> inputs = Map.of("creditScore", 750);
+
+    EvaluationResult result = evaluateRule(yaml, inputs);
+
+    // Should handle missing parameters gracefully
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getOutputs().get("risk_result")).isNull();
+}
+```
+
+#### **Step 4: Usage Examples**
+
+Here's how the new function would be used in real rules:
+
+```yaml
+name: "Loan Application Assessment"
+inputs: [creditScore, annualIncome, monthlyDebt, employmentYears, hasCollateral]
+
+constants:
+  MIN_CREDIT_SCORE: 600
+  MAX_DEBT_RATIO: 0.5
+
+then:
+  # Calculate debt-to-income ratio
+  - calculate monthly_income as annualIncome / 12
+  - calculate debt_to_income_ratio as monthlyDebt / monthly_income
+
+  # Calculate comprehensive risk assessment
+  - calculate risk_assessment as calculate_credit_risk(
+      creditScore,
+      annualIncome,
+      debt_to_income_ratio,
+      employmentYears,
+      hasCollateral
+    )
+
+  # Extract risk components
+  - set risk_score to risk_assessment.riskScore
+  - set risk_level to risk_assessment.riskLevel
+  - set recommendation to risk_assessment.recommendation
+
+  # Make approval decision
+  - set approved to recommendation equals "APPROVE"
+  - set conditional_approval to recommendation equals "APPROVE_WITH_CONDITIONS"
+  - set requires_review to recommendation equals "MANUAL_REVIEW"
+
+  # Set loan terms based on risk
+  - if risk_level equals "LOW" then
+      - set interest_rate to 3.5
+      - set loan_term_months to 360
+  - if risk_level equals "MODERATE" then
+      - set interest_rate to 4.2
+      - set loan_term_months to 300
+  - if risk_level equals "HIGH" then
+      - set interest_rate to 5.8
+      - set loan_term_months to 240
+```
+
+### 📚 **Tutorial: Creating a New Operator**
+
+Now let's create a new operator called `credit_score_range` that checks if a credit score falls within a specific range category.
+
+#### **Step 1: Add Token Type**
+
+Add the new operator to the `TokenType` enum:
+
+```java
+public enum TokenType {
+    // ... existing tokens ...
+
+    // Credit scoring operators
+    CREDIT_SCORE_RANGE("credit_score_range", TokenCategory.OPERATOR),
+
+    // ... rest of tokens ...
+}
+```
+
+#### **Step 2: Add Lexer Recognition**
+
+Update the lexer to recognize the new operator:
+
+```java
+private boolean isMultiWordToken(String firstWord) {
+    return switch (firstWord) {
+        case "credit" -> checkForCreditOperators();
+        // ... existing cases ...
+        default -> false;
+    };
+}
+
+private boolean checkForCreditOperators() {
+    int savedPosition = current;
+
+    if (match('_') && matchWord("score") && match('_') && matchWord("range")) {
+        addToken(TokenType.CREDIT_SCORE_RANGE);
+        return true;
+    }
+
+    // Backtrack if pattern doesn't match
+    current = savedPosition;
+    return false;
+}
+```
+
+#### **Step 3: Add Comparison Operator**
+
+Add the operator to the `ComparisonOperator` enum:
+
+```java
+public enum ComparisonOperator {
+    // ... existing operators ...
+
+    CREDIT_SCORE_RANGE("credit_score_range"),
+
+    // ... rest of operators ...
+}
+```
+
+#### **Step 4: Add Parser Support**
+
+Update the condition parser to handle the new operator:
+
+```java
+private Condition comparison() {
+    Expression left = expressionParser.parseExpressionWithoutLogical();
+
+    if (match(TokenType.CREDIT_SCORE_RANGE)) {
+        String range = consume(TokenType.STRING, "Expected credit score range").getLexeme();
+        return new ComparisonCondition(null, left, ComparisonOperator.CREDIT_SCORE_RANGE,
+                                     new LiteralExpression(null, range), null);
+    }
+
+    // ... handle other operators ...
+}
+```
+
+#### **Step 5: Add Evaluation Logic**
+
+Add the evaluation logic to the condition evaluator:
+
+```java
+@Override
+public Object visitComparisonCondition(ComparisonCondition node) {
+    Object leftValue = node.getLeft().accept(this);
+
+    return switch (node.getOperator()) {
+        case CREDIT_SCORE_RANGE -> evaluateCreditScoreRange(leftValue, node.getRight());
+        // ... other operators ...
+    };
+}
+
+private Boolean evaluateCreditScoreRange(Object creditScoreObj, Expression rangeExpr) {
+    try {
+        Number creditScore = convertToNumber(creditScoreObj);
+        if (creditScore == null) {
+            log.warn("Credit score must be numeric for credit_score_range operator");
+            return false;
+        }
+
+        String range = (String) rangeExpr.accept(this);
+        if (range == null) {
+            log.warn("Credit score range must be specified");
+            return false;
+        }
+
+        int score = creditScore.intValue();
+
+        return switch (range.toLowerCase()) {
+            case "poor" -> score >= 300 && score <= 579;
+            case "fair" -> score >= 580 && score <= 669;
+            case "good" -> score >= 670 && score <= 739;
+            case "very_good" -> score >= 740 && score <= 799;
+            case "excellent" -> score >= 800 && score <= 850;
+            default -> {
+                log.warn("Unknown credit score range: {}. Valid ranges: poor, fair, good, very_good, excellent", range);
+                yield false;
+            }
+        };
+
+    } catch (Exception e) {
+        log.error("Error evaluating credit score range", e);
+        return false;
+    }
+}
+```
+
+#### **Step 6: Add Documentation and Tests**
+
+Document the new operator:
+
+```yaml
+## Credit Score Operators
+
+### credit_score_range
+Checks if a credit score falls within a standard credit score range category.
+
+**Syntax:**
+```yaml
+creditScore credit_score_range "range_name"
+```
+
+**Valid Ranges:**
+- `"poor"`: 300-579
+- `"fair"`: 580-669
+- `"good"`: 670-739
+- `"very_good"`: 740-799
+- `"excellent"`: 800-850
+
+**Examples:**
+```yaml
+when:
+  - creditScore credit_score_range "good"
+  - applicantScore credit_score_range "excellent"
+```
+```
+
+Add comprehensive tests:
+
+```java
+@Test
+void testCreditScoreRangeOperator() {
+    String yaml = """
+        name: "Credit Score Range Test"
+        inputs: [creditScore]
+        when:
+          - creditScore credit_score_range "good"
+        then:
+          - set qualified to true
+        """;
+
+    // Test good credit score
+    Map<String, Object> inputs = Map.of("creditScore", 720);
+    EvaluationResult result = evaluateRule(yaml, inputs);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getOutputs().get("qualified")).isEqualTo(true);
+
+    // Test poor credit score
+    inputs = Map.of("creditScore", 550);
+    result = evaluateRule(yaml, inputs);
+
+    assertThat(result.isSuccess()).isTrue();
+    assertThat(result.getOutputs()).doesNotContainKey("qualified"); // Condition failed
+}
+
+@Test
+void testAllCreditScoreRanges() {
+    Map<String, Integer> testCases = Map.of(
+        "poor", 500,
+        "fair", 620,
+        "good", 700,
+        "very_good", 760,
+        "excellent", 820
+    );
+
+    for (Map.Entry<String, Integer> testCase : testCases.entrySet()) {
+        String yaml = String.format("""
+            name: "Credit Range Test"
+            inputs: [score]
+            when:
+              - score credit_score_range "%s"
+            then:
+              - set range_matched to true
+            """, testCase.getKey());
+
+        Map<String, Object> inputs = Map.of("score", testCase.getValue());
+        EvaluationResult result = evaluateRule(yaml, inputs);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getOutputs().get("range_matched"))
+            .as("Score %d should match range %s", testCase.getValue(), testCase.getKey())
+            .isEqualTo(true);
+    }
+}
+```
+
+### 🎯 **When to Choose Functions vs Operators**
+
+#### **Choose Functions When:**
+
+1. **Variable Parameters**: Need 0 to many parameters
+   ```yaml
+   # Functions can handle variable parameters elegantly
+   - calculate max_value as max(score1, score2, score3, score4)
+   - calculate api_data as rest_get(url, headers, timeout)
+   ```
+
+2. **Side Effects**: Operation involves external systems
+   ```yaml
+   # REST calls, database access, logging
+   - calculate credit_report as rest_get("https://credit-api.com/report", headers)
+   - calculate audit_log as log_event("CREDIT_CHECK", userId, timestamp)
+   ```
+
+3. **Complex Logic**: Multi-step calculations or business logic
+   ```yaml
+   # Complex financial calculations
+   - calculate loan_payment as calculate_loan_payment(principal, rate, term, type)
+   - calculate risk_score as calculate_credit_risk(score, income, debt, employment)
+   ```
+
+4. **Service Integration**: Need access to Spring services
+   ```java
+   // Functions can access injected services
+   @Autowired private RestCallService restCallService;
+   @Autowired private DatabaseService databaseService;
+   ```
+
+#### **Choose Operators When:**
+
+1. **Core Language Constructs**: Fundamental comparisons and logic
+   ```yaml
+   # Basic comparisons that are core to the language
+   - creditScore greater_than 650
+   - status equals "ACTIVE"
+   - income between 30000 and 80000
+   ```
+
+2. **Fixed Arity**: Always the same number of operands
+   ```yaml
+   # Binary operators: left operator right
+   - value1 greater_than value2
+   - text contains "substring"
+   ```
+
+3. **High Performance**: Need optimized evaluation
+   ```java
+   // Operators are optimized in the parser and evaluator
+   // No function call overhead
+   ```
+
+4. **Grammar Integration**: Part of the core DSL syntax
+   ```yaml
+   # Operators integrate naturally with the grammar
+   when:
+     - condition1 and condition2 or condition3
+   ```
+
+### 🚀 **Best Practices**
+
+#### **For Functions:**
+
+1. **Parameter Validation**: Always validate parameters
+   ```java
+   private Object myFunction(Object[] args) {
+       if (args.length < 2) {
+           log.warn("myFunction requires at least 2 arguments");
+           return null;
+       }
+       // ... validation logic
+   }
+   ```
+
+2. **Error Handling**: Graceful error handling with logging
+   ```java
+   try {
+       // Function logic
+   } catch (Exception e) {
+       log.error("Function failed", e);
+       return createErrorResponse("Function failed: " + e.getMessage());
+   }
+   ```
+
+3. **Documentation**: Comprehensive documentation with examples
+4. **Testing**: Test all parameter combinations and error cases
+
+#### **For Operators:**
+
+1. **Precedence**: Carefully consider operator precedence
+2. **Type Safety**: Ensure type compatibility at parse time
+3. **Performance**: Optimize for high-frequency evaluation
+4. **Consistency**: Follow existing operator patterns
+
+This comprehensive guide provides everything needed to understand and extend the function and operator systems in the Firefly Rule Engine. The clear architectural separation enables both powerful functionality and maintainable code.
 
 ## Extending the AST System
 
