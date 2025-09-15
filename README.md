@@ -55,6 +55,13 @@ Built specifically for financial services, the Firefly Rule Engine excels at:
 - **Extensible Design** - Easy to extend with custom operators, functions, and validation rules
 - **SDK Support** - Client SDK for easy integration
 
+### 🐍 **Python Code Generation**
+- **DSL to Python Compilation** - Compile YAML DSL rules to standalone Python code
+- **Complete Runtime Library** - 100+ built-in functions for financial calculations, validation, and data processing
+- **Interactive Execution** - Generated Python code includes interactive input collection and execution
+- **Production Ready** - Compiled Python code can run independently without the Java engine
+- **Full DSL Support** - 100% feature parity with Java AST evaluation including all operators and functions
+
 ## 🏛️ Architecture Overview
 
 The Firefly Rule Engine follows a modern **AST-based modular architecture** with clean separation of concerns and a sophisticated processing pipeline:
@@ -545,6 +552,94 @@ private boolean isConstantName(String name) {
 // Computed variables: Created explicitly with calculate/set actions
 context.setComputedVariable("debt_to_income", calculatedValue);
 ```
+
+## 🐍 Python Code Generation
+
+The Firefly Rule Engine can compile YAML DSL rules into standalone Python code, enabling rule execution without the Java runtime. This feature is perfect for:
+
+- **Standalone Applications** - Deploy rules as independent Python scripts
+- **Edge Computing** - Run rules on lightweight Python environments
+- **Data Science Integration** - Integrate business rules into ML/AI pipelines
+- **Cross-Platform Deployment** - Execute rules on any Python-supported platform
+
+### Compiling Rules to Python
+
+```java
+// Using the Python Compilation Service
+@Autowired
+private PythonCompilationService pythonCompiler;
+
+// Compile a single rule
+String pythonCode = pythonCompiler.compileRule("my_rule", yamlDsl);
+
+// Batch compile multiple rules
+Map<String, String> compiledRules = pythonCompiler.compileRules(ruleMap);
+```
+
+### Generated Python Code Features
+
+- **Complete Runtime Integration** - Imports the `firefly_runtime` library with 100+ functions
+- **Interactive Execution** - Built-in input collection and result display
+- **Constants Management** - Database-backed constants with interactive configuration
+- **Error Handling** - Comprehensive error handling and validation
+- **Professional Headers** - Copyright notices and compilation metadata
+
+### Example Generated Code
+
+```python
+#!/usr/bin/env python3
+from firefly_runtime import *
+
+def credit_scoring_rule(context):
+    """
+    Rule: Credit Scoring Rule
+    Evaluate creditworthiness based on multiple factors
+    """
+    constants = {}
+    constants['MIN_CREDIT_SCORE'] = 650  # Default value
+
+    if firefly_is_positive(context.get('credit_score', 0)):
+        if context.get('credit_score', 0) >= constants['MIN_CREDIT_SCORE']:
+            context['decision'] = 'APPROVED'
+        else:
+            context['decision'] = 'DENIED'
+
+    return {'decision': context.get('decision')}
+
+if __name__ == "__main__":
+    # Interactive execution with input collection
+    print_firefly_header("Credit Scoring Rule", "Evaluate creditworthiness", "1.0")
+    context = collect_inputs({'credit_score': 'number'})
+    result = credit_scoring_rule(context)
+    print_execution_results(result)
+```
+
+### Python Runtime Installation
+
+```bash
+# Install the Firefly Runtime globally (macOS)
+cd python-runtime
+pip3 install --break-system-packages -e .
+
+# Verify installation
+python3 -c "import firefly_runtime; print('Runtime installed successfully!')"
+```
+
+### Supported Features
+
+The Python compiler supports **100% of the YAML DSL specification**:
+
+- ✅ All 26+ comparison operators
+- ✅ Complex logical expressions (AND, OR, NOT)
+- ✅ 100+ built-in functions (financial, validation, string, date/time)
+- ✅ Constants management with database integration
+- ✅ Variable assignments and calculations
+- ✅ Conditional logic (if/then/else)
+- ✅ REST API calls and JSON processing
+- ✅ Security functions (encryption, masking)
+- ✅ Interactive execution mode
+
+For complete documentation, see the [Python Compilation Complete Guide](docs/python-compilation-complete-guide.md).
 
 ## 📚 Documentation
 
