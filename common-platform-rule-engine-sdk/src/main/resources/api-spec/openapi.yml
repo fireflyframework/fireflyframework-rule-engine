@@ -12,6 +12,8 @@ servers:
   - url: /
     description: Local Development Environment
 tags:
+  - name: Python Compilation
+    description: Compile DSL rules to Python code
   - name: YAML DSL Validation
     description: Static code analysis and validation for YAML DSL rules
   - name: Batch Rules Evaluation
@@ -638,6 +640,164 @@ paths:
             '*/*':
               schema:
                 $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+  /api/v1/python/compile:
+    post:
+      tags:
+        - Python Compilation
+      summary: Compile DSL rule to Python
+      description: Compiles a YAML DSL rule definition to executable Python code
+      operationId: compileRule
+      parameters:
+        - name: ruleName
+          in: query
+          description: Optional rule name
+          required: false
+          schema:
+            type: string
+        - name: useCache
+          in: query
+          description: Whether to use compilation cache
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+              description: YAML DSL rule definition
+        required: true
+      responses:
+        '200':
+          description: Rule compiled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PythonCompiledRule'
+        '400':
+          description: Invalid DSL or compilation error
+          content:
+            application/json: {}
+        '500':
+          description: Internal server error
+          content:
+            application/json: {}
+  /api/v1/python/compile/batch:
+    post:
+      tags:
+        - Python Compilation
+      summary: Batch compile multiple DSL rules
+      description: Compiles multiple YAML DSL rules to Python code in parallel
+      operationId: compileRules
+      parameters:
+        - name: useCache
+          in: query
+          description: Whether to use compilation cache
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+              description: Map of rule names to YAML DSL definitions
+        required: true
+      responses:
+        '200':
+          description: Batch compilation completed
+          content:
+            application/json: {}
+        '400':
+          description: Invalid request or compilation errors
+          content:
+            application/json: {}
+  /api/v1/python/cache/get:
+    post:
+      tags:
+        - Python Compilation
+      summary: Get cached compiled rule
+      description: Retrieves a compiled rule from cache if it exists
+      operationId: getCachedRule
+      parameters:
+        - name: ruleName
+          in: query
+          description: Optional rule name
+          required: false
+          schema:
+            type: string
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+              description: YAML DSL rule definition
+        required: true
+      responses:
+        '200':
+          description: Cached rule found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PythonCompiledRule'
+        '404':
+          description: Rule not found in cache
+          content:
+            application/json: {}
+  /api/v1/python/cache/check:
+    post:
+      tags:
+        - Python Compilation
+      summary: Check if rule is cached
+      description: Checks if a specific rule is already compiled and cached
+      operationId: checkCache
+      parameters:
+        - name: ruleName
+          in: query
+          description: Optional rule name
+          required: false
+          schema:
+            type: string
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+              description: YAML DSL rule definition
+        required: true
+      responses:
+        '200':
+          description: Cache status retrieved
+          content:
+            application/json: {}
   /api/v1/constants:
     post:
       tags:
@@ -851,6 +1011,18 @@ paths:
             '*/*':
               schema:
                 $ref: '#/components/schemas/BatchRulesEvaluationResponseDTO'
+  /api/v1/python/stats:
+    get:
+      tags:
+        - Python Compilation
+      summary: Get compilation statistics
+      description: Retrieves compilation statistics including success rate and cache performance
+      operationId: getCompilationStats
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json: {}
   /api/v1/constants/code/{code}:
     get:
       tags:
@@ -1087,6 +1259,37 @@ paths:
                 type: object
                 additionalProperties:
                   type: object
+  /api/v1/python/cache:
+    delete:
+      tags:
+        - Python Compilation
+      summary: Clear compilation cache
+      description: Clears all cached compiled rules
+      operationId: clearCache
+      responses:
+        '200':
+          description: Cache cleared successfully
+          content:
+            application/json: {}
+  /api/v1/python/cache/rule:
+    delete:
+      tags:
+        - Python Compilation
+      summary: Remove rule from cache
+      description: Removes a specific compiled rule from the cache using rule name or cache key
+      operationId: removeCachedRule
+      parameters:
+        - name: ruleName
+          in: query
+          description: Rule name or cache key to remove
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule removed from cache
+          content:
+            application/json: {}
   /api/v1/audit/trails/cleanup:
     delete:
       tags:
@@ -2050,6 +2253,64 @@ components:
           description: Priority of this evaluation request
           format: int32
       description: Individual rule evaluation result within a batch
+    CompilationMetadata:
+      type: object
+      properties:
+        compilerVersion:
+          type: string
+        compilationTimeMs:
+          type: integer
+          format: int64
+        astNodeCount:
+          type: integer
+          format: int32
+        warnings:
+          type: array
+          items:
+            type: string
+        optimizations:
+          type: object
+          additionalProperties:
+            type: object
+    PythonCompiledRule:
+      type: object
+      properties:
+        ruleName:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        pythonCode:
+          type: string
+        inputVariables:
+          type: array
+          items:
+            type: string
+        outputVariables:
+          type: object
+          additionalProperties:
+            type: string
+        compiledAt:
+          type: string
+          format: date-time
+        sourceHash:
+          type: string
+        functionName:
+          type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        metadata:
+          $ref: '#/components/schemas/CompilationMetadata'
+        valid:
+          type: boolean
+        codeSize:
+          type: integer
+          format: int32
+        mainFunctionName:
+          type: string
     FilterRequestConstantDTO:
       required:
         - pagination
