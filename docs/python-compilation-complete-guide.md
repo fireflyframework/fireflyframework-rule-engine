@@ -39,7 +39,7 @@ graph TD
 
 ## 🎯 Quick Start
 
-### 1. Compile a Simple Rule
+### 1. Compile a Rule from YAML
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/python/compile \
@@ -61,7 +61,32 @@ else:
   - set approved = false'
 ```
 
-### 2. Install Python Runtime
+### 2. Compile a Rule from Database
+
+If you have rules already stored in the database, you can compile them directly:
+
+**By Rule ID:**
+```bash
+# Get the rule ID from the database first
+curl "http://localhost:8080/api/v1/rules/definitions" | jq '.content[0].id'
+
+# Compile using the ID
+curl -X POST "http://localhost:8080/api/v1/python/compile/rule/123e4567-e89b-12d3-a456-426614174000"
+```
+
+**By Rule Code:**
+```bash
+# Compile using the rule's unique code (easier to remember)
+curl -X POST "http://localhost:8080/api/v1/python/compile/rule/code/credit_scoring_v1"
+```
+
+**Advantages of Database Compilation:**
+- ✅ **No YAML needed** - Rules are already validated and stored
+- ✅ **Version control** - Compile specific versions by ID
+- ✅ **Production ready** - Use rules that passed all validations
+- ✅ **Audit trail** - Full traceability of compiled rules
+
+### 3. Install Python Runtime
 
 ```bash
 # Install globally (macOS)
@@ -72,7 +97,7 @@ pip3 install --break-system-packages -e .
 python3 -c "import firefly_runtime; print('Runtime installed successfully!')"
 ```
 
-### 3. Execute Generated Code
+### 4. Execute Generated Code
 
 ```python
 # The generated Python file includes interactive execution
@@ -252,7 +277,7 @@ if method == 'DELETE' and body is not None:
 
 ## 🌐 REST API Reference
 
-### Compile Single Rule
+### Compile Single Rule from YAML
 
 **POST** `/api/v1/python/compile`
 
@@ -263,6 +288,44 @@ if method == 'DELETE' and body is not None:
 **Request Body:** YAML DSL rule definition (text/plain)
 
 **Response:** PythonCompiledRule object
+
+### Compile Rule from Database by ID
+
+**POST** `/api/v1/python/compile/rule/{ruleId}`
+
+Compiles a rule definition stored in the database using the rule's UUID.
+
+**Path Parameters:**
+- `ruleId` (required): UUID of the rule definition in the database
+
+**Query Parameters:**
+- `useCache` (default: true): Whether to use compilation cache
+
+**Response:** PythonCompiledRule object
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/python/compile/rule/123e4567-e89b-12d3-a456-426614174000?useCache=true"
+```
+
+### Compile Rule from Database by Code
+
+**POST** `/api/v1/python/compile/rule/code/{ruleCode}`
+
+Compiles a rule definition stored in the database using the rule's unique code identifier.
+
+**Path Parameters:**
+- `ruleCode` (required): Unique code of the rule definition (e.g., "credit_scoring_v1")
+
+**Query Parameters:**
+- `useCache` (default: true): Whether to use compilation cache
+
+**Response:** PythonCompiledRule object
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8080/api/v1/python/compile/rule/code/credit_scoring_v1?useCache=true"
+```
 
 ### Batch Compile Rules
 
@@ -279,6 +342,80 @@ if method == 'DELETE' and body is not None:
 - **DELETE** `/api/v1/python/cache/rule?ruleName=name` - Remove specific rule from cache
 
 **Note**: The DELETE endpoint uses query parameters instead of request body to follow HTTP best practices.
+
+### API Response Format
+
+All compilation endpoints return a `PythonCompiledRule` object:
+
+```json
+{
+  "ruleName": "credit_scoring_v1",
+  "description": "Advanced credit scoring rule",
+  "version": "1.0.0",
+  "pythonCode": "#!/usr/bin/env python3\n# Generated Python code...",
+  "functionName": "credit_scoring_v1",
+  "inputVariables": ["creditScore", "income", "debtRatio"],
+  "outputVariables": {
+    "approved": "boolean",
+    "maxLoanAmount": "number",
+    "interestRate": "number"
+  },
+  "compiledAt": "2025-09-15T14:30:00Z",
+  "sourceHash": "abc123def456"
+}
+```
+
+### Error Responses
+
+**404 Not Found** - Rule not found in database:
+```json
+{
+  "error": "Rule definition not found",
+  "message": "No rule definition found with ID: 123e4567-e89b-12d3-a456-426614174000",
+  "ruleId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+**400 Bad Request** - Compilation error:
+```json
+{
+  "error": "Compilation failed",
+  "message": "Invalid DSL syntax: Missing 'when' clause",
+  "ruleId": "123e4567-e89b-12d3-a456-426614174000",
+  "ruleName": "credit_scoring_v1"
+}
+```
+
+### Use Cases for Database Compilation
+
+**1. Production Deployment**
+- Compile rules that are already validated and stored in production database
+- Ensure consistency between stored rules and compiled Python code
+- Leverage existing rule management workflows
+
+**2. CI/CD Integration**
+```bash
+# Compile all active rules for deployment
+curl -X POST "http://localhost:8080/api/v1/python/compile/rule/code/credit_scoring_v1" \
+  -o credit_scoring_v1.py
+
+# Deploy compiled Python files to production environment
+```
+
+**3. Rule Versioning**
+- Compile specific versions of rules by ID
+- Maintain multiple compiled versions for A/B testing
+- Rollback to previous rule versions quickly
+
+**4. Automated Workflows**
+```bash
+# Get all rule definitions and compile them
+rules=$(curl "http://localhost:8080/api/v1/rules/definitions")
+for rule_id in $(echo $rules | jq -r '.content[].id'); do
+  curl -X POST "http://localhost:8080/api/v1/python/compile/rule/$rule_id" \
+    -o "compiled_rule_$rule_id.py"
+done
+```
 
 ## 🧪 Testing
 
@@ -331,30 +468,156 @@ The compiler supports all DSL features:
 - Include comprehensive input/output type definitions
 - Add meaningful descriptions for generated documentation
 
-### 2. Performance
+### 2. Compilation Strategy
+- **Use database compilation** for production deployments
+- **Use YAML compilation** for development and testing
+- **Enable caching** for frequently compiled rules
+- **Use rule codes** instead of IDs for better readability
+
+### 3. Database Integration
+- Store rules in database after thorough validation
+- Use semantic versioning for rule versions
+- Maintain active/inactive status for rule lifecycle management
+- Tag rules appropriately for easy discovery
+
+### 4. Performance
 - Enable caching for frequently compiled rules
 - Use batch compilation for multiple rules
 - Monitor compilation statistics for optimization
+- Compile rules during deployment, not at runtime
 
-### 3. Testing
+### 5. Testing
 - Test both Java and Python execution for equivalence
 - Validate edge cases and error conditions
 - Use comprehensive test data sets
+- Test compilation from both YAML and database sources
 
-### 4. Deployment
+### 6. Deployment
 - Install Python runtime dependencies in target environment
 - Use virtual environments for isolation
 - Monitor Python execution performance
+- Automate rule compilation in CI/CD pipelines
+
+### 7. API Usage
+```bash
+# Good: Use rule codes for readability
+curl -X POST "/api/v1/python/compile/rule/code/credit_scoring_v1"
+
+# Good: Enable caching for production
+curl -X POST "/api/v1/python/compile/rule/code/credit_scoring_v1?useCache=true"
+
+# Good: Handle errors gracefully
+response=$(curl -s -w "%{http_code}" -X POST "/api/v1/python/compile/rule/code/invalid_rule")
+if [[ "${response: -3}" != "200" ]]; then
+  echo "Compilation failed"
+fi
+```
+
+## 🔗 Integration with Existing Systems
+
+### Rule Management Workflow
+
+```mermaid
+graph TD
+    A[Create Rule in UI] --> B[Store in Database]
+    B --> C[Validate DSL]
+    C --> D[Activate Rule]
+    D --> E[Compile to Python]
+    E --> F[Deploy to Production]
+    F --> G[Monitor Execution]
+    G --> H[Update if Needed]
+    H --> B
+```
+
+### CI/CD Pipeline Integration
+
+```yaml
+# .github/workflows/compile-rules.yml
+name: Compile Rules to Python
+on:
+  push:
+    branches: [main]
+
+jobs:
+  compile-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Active Rules
+        run: |
+          curl "${{ secrets.RULE_ENGINE_URL }}/api/v1/rules/definitions?isActive=true" \
+            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
+            -o rules.json
+
+      - name: Compile Rules
+        run: |
+          for rule_code in $(jq -r '.content[].code' rules.json); do
+            curl -X POST "${{ secrets.RULE_ENGINE_URL }}/api/v1/python/compile/rule/code/$rule_code" \
+              -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
+              -o "compiled_rules/${rule_code}.py"
+          done
+
+      - name: Deploy to Production
+        run: |
+          # Deploy compiled Python files to your production environment
+          rsync -av compiled_rules/ production:/opt/rules/
+```
+
+### Microservices Architecture
+
+```python
+# rule_compiler_service.py
+import requests
+import os
+
+class RuleCompilerService:
+    def __init__(self, rule_engine_url, api_token):
+        self.base_url = rule_engine_url
+        self.headers = {"Authorization": f"Bearer {api_token}"}
+
+    def compile_rule_by_code(self, rule_code, use_cache=True):
+        """Compile a rule from database by code"""
+        url = f"{self.base_url}/api/v1/python/compile/rule/code/{rule_code}"
+        params = {"useCache": use_cache}
+
+        response = requests.post(url, headers=self.headers, params=params)
+        response.raise_for_status()
+
+        return response.json()
+
+    def deploy_compiled_rule(self, rule_code, target_dir="/opt/rules"):
+        """Compile and deploy a rule"""
+        compiled_rule = self.compile_rule_by_code(rule_code)
+
+        # Save compiled Python code
+        file_path = os.path.join(target_dir, f"{rule_code}.py")
+        with open(file_path, 'w') as f:
+            f.write(compiled_rule['pythonCode'])
+
+        return file_path
+
+# Usage
+compiler = RuleCompilerService("http://rule-engine:8080", "your-api-token")
+compiler.deploy_compiled_rule("credit_scoring_v1")
+```
 
 ## 🔮 Migration Guide
 
 ### From Java Execution to Python
 
-1. **Compile existing rules** using the Python compilation API
-2. **Test equivalence** between Java and Python execution
-3. **Deploy Python runtime** in target environment
-4. **Update applications** to use compiled Python functions
-5. **Monitor performance** and optimize as needed
+1. **Identify rules** to migrate using the database endpoints
+2. **Compile existing rules** using `/api/v1/python/compile/rule/code/{code}`
+3. **Test equivalence** between Java and Python execution
+4. **Deploy Python runtime** in target environment
+5. **Update applications** to use compiled Python functions
+6. **Monitor performance** and optimize as needed
+
+### From YAML to Database Compilation
+
+1. **Store rules** in database using `/api/v1/rules/definitions`
+2. **Validate rules** using the validation endpoint
+3. **Switch compilation** from YAML endpoints to database endpoints
+4. **Update CI/CD** to use rule codes instead of YAML files
+5. **Leverage rule management** features (versioning, activation, tags)
 
 ### Compatibility
 
@@ -362,6 +625,7 @@ The compiler supports all DSL features:
 - Function behavior is identical between Java and Python
 - Error handling maintains the same semantics
 - Performance characteristics may vary between platforms
+- Database compilation provides additional metadata and traceability
 
 ## 📞 Support
 
