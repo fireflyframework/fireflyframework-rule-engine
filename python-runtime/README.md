@@ -4,18 +4,40 @@ The Firefly Rule Engine Python Runtime provides all the built-in functions and u
 
 ## 🚀 Installation
 
-### Option 1: Install from Source (Development)
+### Option 1: Global Installation (macOS - Recommended for Development)
+
+For macOS systems, you can install the runtime globally:
+
+```bash
+# Install dependencies globally
+pip3 install --break-system-packages requests cryptography urllib3
+
+# Navigate to the runtime directory
+cd python-runtime
+
+# Install firefly_runtime globally
+pip3 install --break-system-packages -e .
+
+# Verify installation
+python3 -c "import firefly_runtime; print(f'Firefly Runtime v{firefly_runtime.__version__} installed successfully!')"
+```
+
+### Option 2: Install from Source (Development with Virtual Environment)
 
 ```bash
 # Clone the repository
 git clone https://github.com/firefly-oss/common-platform-rule-engine.git
 cd common-platform-rule-engine/python-runtime
 
+# Create virtual environment
+python3 -m venv firefly-env
+source firefly-env/bin/activate
+
 # Install in development mode
 pip install -e .
 ```
 
-### Option 2: Install from Package (Production)
+### Option 3: Install from Package (Production)
 
 ```bash
 # Install from PyPI (when published)
@@ -25,7 +47,7 @@ pip install firefly-rule-engine-runtime
 pip install firefly_rule_engine_runtime-1.0.0-py3-none-any.whl
 ```
 
-### Option 3: Install Dependencies Only
+### Option 4: Install Dependencies Only
 
 If you want to include the runtime files directly in your project:
 
@@ -34,15 +56,49 @@ If you want to include the runtime files directly in your project:
 pip install -r requirements.txt
 ```
 
+### Option 5: Build and Install from Source
+
+```bash
+# Clone and build
+git clone https://github.com/firefly-oss/common-platform-rule-engine.git
+cd common-platform-rule-engine/python-runtime
+
+# Build wheel
+python setup.py bdist_wheel
+
+# Install the built wheel
+pip install dist/firefly_runtime-1.0.0-py3-none-any.whl
+```
+
+### Verify Installation
+
+```bash
+# Check if firefly_runtime is installed
+python -c "import firefly_runtime; print(f'Firefly Runtime v{firefly_runtime.__version__} installed successfully!')"
+
+# Test basic functionality
+python -c "from firefly_runtime import *; print('All functions imported successfully!')"
+```
+
 ## 📦 Dependencies
 
 The runtime requires the following Python packages:
 
-- `requests` - For REST API functions
-- `cryptography` - For security/encryption functions
-- `python-dateutil` - For date/time utilities
+- `requests>=2.31.0` - For REST API functions
+- `cryptography>=41.0.0` - For security/encryption functions
+- `urllib3>=2.0.0` - Enhanced HTTP client with retry capabilities
 
 ## 🔧 Usage
+
+### Import Statement
+
+All compiled Python rules from the Firefly Rule Engine start with:
+
+```python
+from firefly_runtime import *
+```
+
+This imports all the necessary functions, constants, and utilities needed for rule execution.
 
 ### Basic Usage
 
