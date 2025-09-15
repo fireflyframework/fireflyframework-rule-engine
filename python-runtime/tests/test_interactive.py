@@ -173,8 +173,8 @@ class TestInteractiveFunctions(unittest.TestCase):
         execute_rule_interactively(
             rule_function=mock_rule,
             rule_name="Test Rule",
-            rule_description="Test Description",
-            rule_version="1.0",
+            description="Test Description",
+            version="1.0",
             input_definitions={'input1': 'text'}
         )
         

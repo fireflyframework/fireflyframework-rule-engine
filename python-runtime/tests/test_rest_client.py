@@ -27,10 +27,11 @@ class TestRestClientFunctions(unittest.TestCase):
         mock_response.status_code = 200
         mock_response.headers = {'content-type': 'application/json'}
         mock_response.text = '{"message": "success"}'
+        mock_response.json.return_value = {"message": "success"}
         mock_session.get.return_value = mock_response
-        
+
         result = firefly_rest_get("https://api.example.com/test")
-        
+
         self.assertEqual(result['status_code'], 200)
         self.assertTrue(result['success'])
         self.assertEqual(result['data'], {"message": "success"})
@@ -44,10 +45,11 @@ class TestRestClientFunctions(unittest.TestCase):
         mock_response.status_code = 201
         mock_response.headers = {'content-type': 'application/json'}
         mock_response.text = '{"id": 123}'
+        mock_response.json.return_value = {"id": 123}
         mock_session.post.return_value = mock_response
-        
+
         result = firefly_rest_post("https://api.example.com/create", {"name": "test"})
-        
+
         self.assertEqual(result['status_code'], 201)
         self.assertTrue(result['success'])
         self.assertEqual(result['data'], {"id": 123})
