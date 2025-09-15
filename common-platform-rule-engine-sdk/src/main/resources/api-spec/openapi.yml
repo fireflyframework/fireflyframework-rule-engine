@@ -689,6 +689,99 @@ paths:
           description: Internal server error
           content:
             application/json: {}
+  /api/v1/python/compile/rule/{ruleId}:
+    post:
+      tags:
+        - Python Compilation
+      summary: Compile rule from database by ID
+      description: Compiles a rule definition stored in the database to Python code using the rule ID
+      operationId: compileRuleById
+      parameters:
+        - name: ruleId
+          in: path
+          description: Rule definition ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: useCache
+          in: query
+          description: Whether to use compilation cache
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule compiled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PythonCompiledRule'
+        '400':
+          description: Invalid rule ID or compilation error
+          content:
+            application/json: {}
+        '404':
+          description: Rule definition not found
+          content:
+            application/json: {}
+        '500':
+          description: Internal server error
+          content:
+            application/json: {}
+  /api/v1/python/compile/rule/code/{ruleCode}:
+    post:
+      tags:
+        - Python Compilation
+      summary: Compile rule from database by code
+      description: Compiles a rule definition stored in the database to Python code using the rule code
+      operationId: compileRuleByCode
+      parameters:
+        - name: ruleCode
+          in: path
+          description: Rule definition code
+          required: true
+          schema:
+            type: string
+        - name: useCache
+          in: query
+          description: Whether to use compilation cache
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - name: X-Idempotency-Key
+          in: header
+          description: Unique key for idempotent requests. If provided, ensures that identical requests with the same key will only be processed once.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rule compiled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PythonCompiledRule'
+        '400':
+          description: Invalid rule code or compilation error
+          content:
+            application/json: {}
+        '404':
+          description: Rule definition not found
+          content:
+            application/json: {}
+        '500':
+          description: Internal server error
+          content:
+            application/json: {}
   /api/v1/python/compile/batch:
     post:
       tags:
