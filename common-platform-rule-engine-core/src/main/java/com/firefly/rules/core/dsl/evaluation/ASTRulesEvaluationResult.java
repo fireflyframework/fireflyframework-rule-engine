@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.evaluation;
+package com.firefly.rules.core.dsl.evaluation;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

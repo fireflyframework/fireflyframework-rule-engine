@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.lexer;
+package com.firefly.rules.core.dsl.lexer;
 
 import java.util.HashMap;
 import java.util.Map;

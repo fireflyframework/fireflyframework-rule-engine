@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.action;
+package com.firefly.rules.core.dsl.action;
 
 /**
  * Enumeration of assignment operators.

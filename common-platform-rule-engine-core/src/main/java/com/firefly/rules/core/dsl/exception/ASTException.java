@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.exception;
+package com.firefly.rules.core.dsl.exception;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.SourceLocation;
 import lombok.Getter;
 
 import java.util.List;

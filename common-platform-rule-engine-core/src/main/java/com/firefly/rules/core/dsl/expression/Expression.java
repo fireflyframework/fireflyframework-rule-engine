@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.expression;
+package com.firefly.rules.core.dsl.expression;
 
-import com.firefly.rules.core.dsl.ast.ASTNode;
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.ASTNode;
+import com.firefly.rules.core.dsl.SourceLocation;
 
 /**
  * Base class for all expression AST nodes.

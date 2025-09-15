@@ -16,17 +16,18 @@
 
 package com.firefly.rules.core.validation;
 
-import com.firefly.rules.core.dsl.ast.ASTVisitor;
-import com.firefly.rules.core.dsl.ast.action.*;
-import com.firefly.rules.core.dsl.ast.condition.ComparisonCondition;
-import com.firefly.rules.core.dsl.ast.condition.ExpressionCondition;
-import com.firefly.rules.core.dsl.ast.condition.LogicalCondition;
-import com.firefly.rules.core.dsl.ast.expression.*;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.visitor.ValidationError;
-import com.firefly.rules.core.dsl.ast.visitor.ValidationVisitor;
+import com.firefly.rules.core.dsl.ASTVisitor;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.action.*;
+import com.firefly.rules.core.dsl.condition.ComparisonCondition;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.condition.ExpressionCondition;
+import com.firefly.rules.core.dsl.condition.LogicalCondition;
+import com.firefly.rules.core.dsl.expression.*;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.visitor.ValidationError;
+import com.firefly.rules.core.dsl.visitor.ValidationVisitor;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -457,21 +458,21 @@ public class YamlDslValidator {
     /**
      * Extract variables created by actions (set, calculate, etc.)
      */
-    private Set<String> extractVariablesFromActions(List<com.firefly.rules.core.dsl.ast.action.Action> actions) {
+    private Set<String> extractVariablesFromActions(List<Action> actions) {
         Set<String> variables = new HashSet<>();
 
-        for (com.firefly.rules.core.dsl.ast.action.Action action : actions) {
-            if (action instanceof com.firefly.rules.core.dsl.ast.action.SetAction setAction) {
+        for (Action action : actions) {
+            if (action instanceof SetAction setAction) {
                 variables.add(setAction.getVariableName());
-            } else if (action instanceof com.firefly.rules.core.dsl.ast.action.CalculateAction calculateAction) {
+            } else if (action instanceof CalculateAction calculateAction) {
                 variables.add(calculateAction.getResultVariable());
-            } else if (action instanceof com.firefly.rules.core.dsl.ast.action.ListAction listAction) {
+            } else if (action instanceof ListAction listAction) {
                 // List actions like append, prepend, remove also create/modify variables
                 variables.add(listAction.getListVariable());
-            } else if (action instanceof com.firefly.rules.core.dsl.ast.action.ArithmeticAction arithmeticAction) {
+            } else if (action instanceof ArithmeticAction arithmeticAction) {
                 // Arithmetic actions modify existing variables
                 variables.add(arithmeticAction.getVariableName());
-            } else if (action instanceof com.firefly.rules.core.dsl.ast.action.FunctionCallAction functionCallAction) {
+            } else if (action instanceof FunctionCallAction functionCallAction) {
                 // Function calls can optionally store results in variables
                 if (functionCallAction.getResultVariable() != null) {
                     variables.add(functionCallAction.getResultVariable());
@@ -1214,7 +1215,7 @@ public class YamlDslValidator {
      * Validate operators in a condition
      */
     private List<ValidationResult.ValidationIssue> validateOperatorsInCondition(
-            com.firefly.rules.core.dsl.ast.condition.Condition condition, Set<String> validOperators) {
+            Condition condition, Set<String> validOperators) {
         List<ValidationResult.ValidationIssue> issues = new ArrayList<>();
 
         // This would need to be implemented based on the specific condition structure
@@ -1227,7 +1228,7 @@ public class YamlDslValidator {
      * Validate functions in an action
      */
     private List<ValidationResult.ValidationIssue> validateFunctionsInAction(
-            com.firefly.rules.core.dsl.ast.action.Action action, Set<String> validFunctions) {
+            Action action, Set<String> validFunctions) {
         List<ValidationResult.ValidationIssue> issues = new ArrayList<>();
 
         // This would need to be implemented based on the specific action structure

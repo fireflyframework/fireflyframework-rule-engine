@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.visitor;
+package com.firefly.rules.core.dsl.visitor;
 
-import com.firefly.rules.core.dsl.ast.ASTVisitor;
-import com.firefly.rules.core.dsl.ast.action.*;
-import com.firefly.rules.core.dsl.ast.condition.ComparisonCondition;
-import com.firefly.rules.core.dsl.ast.condition.ExpressionCondition;
-import com.firefly.rules.core.dsl.ast.condition.LogicalCondition;
-import com.firefly.rules.core.dsl.ast.expression.*;
+import com.firefly.rules.core.dsl.ASTVisitor;
+import com.firefly.rules.core.dsl.action.*;
+import com.firefly.rules.core.dsl.condition.ComparisonCondition;
+import com.firefly.rules.core.dsl.condition.ExpressionCondition;
+import com.firefly.rules.core.dsl.condition.LogicalCondition;
+import com.firefly.rules.core.dsl.expression.*;
 import com.firefly.rules.core.services.JsonPathService;
 import com.firefly.rules.core.services.RestCallService;
 import lombok.extern.slf4j.Slf4j;
@@ -289,10 +289,10 @@ public class ActionExecutor implements ASTVisitor<Void> {
                  "time_hour", "is_valid", "in_range" -> {
                 // These functions are handled by the expression evaluator
                 yield expressionEvaluator.visitFunctionCallExpression(
-                    new com.firefly.rules.core.dsl.ast.expression.FunctionCallExpression(
+                    new FunctionCallExpression(
                         null, functionName,
                         java.util.Arrays.stream(args)
-                            .map(arg -> new com.firefly.rules.core.dsl.ast.expression.LiteralExpression(null, arg))
+                            .map(arg -> new LiteralExpression(null, arg))
                             .collect(java.util.stream.Collectors.toList())
                     )
                 );

@@ -16,14 +16,14 @@
 
 package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.action.Action;
-import com.firefly.rules.core.dsl.ast.condition.Condition;
-import com.firefly.rules.core.dsl.ast.exception.ASTException;
-import com.firefly.rules.core.dsl.ast.expression.Expression;
-import com.firefly.rules.core.dsl.ast.parser.DSLParser;
-import com.firefly.rules.core.dsl.ast.visitor.ActionExecutor;
-import com.firefly.rules.core.dsl.ast.visitor.EvaluationContext;
-import com.firefly.rules.core.dsl.ast.visitor.ExpressionEvaluator;
+import com.firefly.rules.core.dsl.action.Action;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.exception.ASTException;
+import com.firefly.rules.core.dsl.expression.Expression;
+import com.firefly.rules.core.dsl.parser.DSLParser;
+import com.firefly.rules.core.dsl.visitor.ActionExecutor;
+import com.firefly.rules.core.dsl.visitor.EvaluationContext;
+import com.firefly.rules.core.dsl.visitor.ExpressionEvaluator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.condition.*;
-import com.firefly.rules.core.dsl.ast.expression.Expression;
-import com.firefly.rules.core.dsl.ast.expression.LiteralExpression;
-import com.firefly.rules.core.dsl.ast.expression.VariableExpression;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.condition.*;
+import com.firefly.rules.core.dsl.expression.Expression;
+import com.firefly.rules.core.dsl.expression.LiteralExpression;
+import com.firefly.rules.core.dsl.expression.VariableExpression;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
-import com.firefly.rules.core.dsl.ast.action.Action;
-import com.firefly.rules.core.dsl.ast.condition.Condition;
-import com.firefly.rules.core.dsl.ast.expression.Expression;
-import com.firefly.rules.core.dsl.ast.lexer.Lexer;
-import com.firefly.rules.core.dsl.ast.lexer.LexerException;
-import com.firefly.rules.core.dsl.ast.lexer.Token;
+import com.firefly.rules.core.dsl.action.Action;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.expression.Expression;
+import com.firefly.rules.core.dsl.lexer.Lexer;
+import com.firefly.rules.core.dsl.lexer.LexerException;
+import com.firefly.rules.core.dsl.lexer.Token;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast;
+package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.action.*;
-import com.firefly.rules.core.dsl.ast.condition.ComparisonCondition;
-import com.firefly.rules.core.dsl.ast.condition.ExpressionCondition;
-import com.firefly.rules.core.dsl.ast.condition.LogicalCondition;
-import com.firefly.rules.core.dsl.ast.expression.*;
+import com.firefly.rules.core.dsl.action.*;
+import com.firefly.rules.core.dsl.condition.ComparisonCondition;
+import com.firefly.rules.core.dsl.condition.ExpressionCondition;
+import com.firefly.rules.core.dsl.condition.LogicalCondition;
+import com.firefly.rules.core.dsl.expression.*;
 
 /**
  * Visitor interface for traversing and operating on AST nodes.

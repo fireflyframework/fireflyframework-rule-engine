@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.expression;
+package com.firefly.rules.core.dsl.expression;
 
-import com.firefly.rules.core.dsl.ast.ASTVisitor;
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.ASTVisitor;
+import com.firefly.rules.core.dsl.SourceLocation;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-
-import java.util.List;
-import java.util.Map;
 
 /**
  * Represents a REST API call expression.

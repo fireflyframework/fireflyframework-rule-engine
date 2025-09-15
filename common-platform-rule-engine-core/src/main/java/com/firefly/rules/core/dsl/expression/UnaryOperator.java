@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.expression;
+package com.firefly.rules.core.dsl.expression;
+
+import com.firefly.rules.core.dsl.lexer.TokenType;
 
 /**
  * Enumeration of unary operators.
@@ -94,7 +96,7 @@ public enum UnaryOperator {
     /**
      * Create UnaryOperator from TokenType
      */
-    public static UnaryOperator fromToken(com.firefly.rules.core.dsl.ast.lexer.TokenType tokenType) {
+    public static UnaryOperator fromToken(TokenType tokenType) {
         return switch (tokenType) {
             case MINUS -> NEGATE;
             case PLUS -> POSITIVE;

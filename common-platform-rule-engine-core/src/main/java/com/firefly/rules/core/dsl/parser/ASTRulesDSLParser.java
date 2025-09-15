@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.firefly.rules.core.dsl.ast.action.Action;
-import com.firefly.rules.core.dsl.ast.condition.Condition;
-import com.firefly.rules.core.dsl.ast.exception.ASTException;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.action.Action;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.exception.ASTException;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.firefly.rules.core.services.CacheService;
 import com.firefly.rules.core.utils.JsonLogger;
 import lombok.extern.slf4j.Slf4j;

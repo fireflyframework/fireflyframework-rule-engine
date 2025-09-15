@@ -16,10 +16,10 @@
 
 package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.parser.DSLParser;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
 import com.firefly.rules.core.services.ConstantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

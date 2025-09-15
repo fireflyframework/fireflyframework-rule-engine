@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.expression.*;
-import com.firefly.rules.core.dsl.ast.lexer.Token;
-import com.firefly.rules.core.dsl.ast.lexer.TokenType;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.expression.*;
+import com.firefly.rules.core.dsl.lexer.Token;
+import com.firefly.rules.core.dsl.lexer.TokenType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;

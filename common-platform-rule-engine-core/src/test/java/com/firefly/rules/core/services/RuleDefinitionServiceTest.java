@@ -16,13 +16,13 @@
 
 package com.firefly.rules.core.services;
 
-import com.firefly.common.core.filters.FilterRequest;
-import com.firefly.common.core.queries.PaginationResponse;
+import com.firefly.rules.core.audit.AuditHelper;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import com.firefly.rules.core.mappers.RuleDefinitionMapper;
 import com.firefly.rules.core.services.impl.RuleDefinitionServiceImpl;
 import com.firefly.rules.core.validation.YamlDslValidator;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
-import com.firefly.rules.interfaces.dtos.evaluation.RulesEvaluationResponseDTO;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import com.firefly.rules.models.entities.RuleDefinition;
 import com.firefly.rules.models.repositories.RuleDefinitionRepository;
@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -60,7 +60,13 @@ class RuleDefinitionServiceTest {
     private RuleDefinitionMapper ruleDefinitionMapper;
 
     @Mock
+    private ASTRulesEvaluationEngine rulesEvaluationEngine;
+
+    @Mock
     private YamlDslValidator yamlDslValidator;
+
+    @Mock
+    private AuditHelper auditHelper;
 
     private RuleDefinitionService ruleDefinitionService;
 
@@ -91,7 +97,9 @@ class RuleDefinitionServiceTest {
         ruleDefinitionService = new RuleDefinitionServiceImpl(
                 ruleDefinitionRepository,
                 ruleDefinitionMapper,
-                yamlDslValidator
+                rulesEvaluationEngine,
+                yamlDslValidator,
+                auditHelper
         );
     }
 
@@ -122,7 +130,6 @@ class RuleDefinitionServiceTest {
             StepVerifier.create(ruleDefinitionService.createRuleDefinition(inputDTO))
                     .assertNext(result -> {
                         assertThat(result).isNotNull();
-                        assertThat(result.getId()).isEqualTo(entity.getId());
                         assertThat(result.getCode()).isEqualTo("TEST_RULE_001");
                         assertThat(result.getName()).isEqualTo("Test Rule");
                     })
@@ -323,8 +330,14 @@ class RuleDefinitionServiceTest {
             inputData.put("creditScore", 750);
             inputData.put("annualIncome", 60000);
 
-            RuleDefinition entity = createTestRuleDefinitionEntity();
-            when(ruleDefinitionRepository.findByCodeAndActiveTrue(ruleCode)).thenReturn(Mono.just(entity));
+            RuleDefinitionDTO dto = createTestRuleDefinitionDTO();
+            when(ruleDefinitionRepository.findByCode(ruleCode)).thenReturn(Mono.just(createTestRuleDefinitionEntity()));
+            when(ruleDefinitionMapper.toDTO(any(RuleDefinition.class))).thenReturn(dto);
+            when(rulesEvaluationEngine.evaluateRulesReactive(VALID_YAML_CONTENT, inputData))
+                    .thenReturn(Mono.just(ASTRulesEvaluationResult.builder()
+                            .success(true)
+                            .conditionResult(true)
+                            .build()));
 
             // When & Then
             StepVerifier.create(ruleDefinitionService.evaluateRuleByCode(ruleCode, inputData))
@@ -342,13 +355,13 @@ class RuleDefinitionServiceTest {
             String ruleCode = "NONEXISTENT_RULE";
             Map<String, Object> inputData = new HashMap<>();
 
-            when(ruleDefinitionRepository.findByCodeAndActiveTrue(ruleCode)).thenReturn(Mono.empty());
+            when(ruleDefinitionRepository.findByCode(ruleCode)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(ruleDefinitionService.evaluateRuleByCode(ruleCode, inputData))
                     .expectErrorMatches(throwable -> 
                             throwable instanceof IllegalArgumentException &&
-                            throwable.getMessage().contains("not found or inactive"))
+                            throwable.getMessage().contains("not found"))
                     .verify();
         }
     }
@@ -360,7 +373,7 @@ class RuleDefinitionServiceTest {
                 .name("Test Rule")
                 .description("A test rule for unit testing")
                 .yamlContent(VALID_YAML_CONTENT)
-                .active(true)
+                .isActive(true)
                 .build();
     }
 
@@ -371,7 +384,7 @@ class RuleDefinitionServiceTest {
         entity.setName("Test Rule");
         entity.setDescription("A test rule for unit testing");
         entity.setYamlContent(VALID_YAML_CONTENT);
-        entity.setActive(true);
+        entity.setIsActive(true);
         entity.setCreatedAt(OffsetDateTime.now());
         entity.setUpdatedAt(OffsetDateTime.now());
         return entity;

@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.exception;
+package com.firefly.rules.core.dsl.exception;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.visitor.ValidationError;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.visitor.ValidationError;
 
 import java.util.List;
 import java.util.stream.Collectors;

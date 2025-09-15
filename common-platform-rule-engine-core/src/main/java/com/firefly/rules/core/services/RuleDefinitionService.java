@@ -18,6 +18,7 @@ package com.firefly.rules.core.services;
 
 import com.firefly.common.core.filters.FilterRequest;
 import com.firefly.common.core.queries.PaginationResponse;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -99,7 +100,7 @@ public interface RuleDefinitionService {
      * @param inputData The input data for evaluation
      * @return Mono containing the evaluation result
      */
-    Mono<com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData);
+    Mono<ASTRulesEvaluationResult> evaluateRuleByCode(String code, java.util.Map<String, Object> inputData);
 
     // Audit-aware methods for controllers
 

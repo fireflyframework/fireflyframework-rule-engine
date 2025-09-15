@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.condition;
+package com.firefly.rules.core.dsl.condition;
 
-import com.firefly.rules.core.dsl.ast.ASTNode;
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.ASTNode;
+import com.firefly.rules.core.dsl.SourceLocation;
 
 /**
  * Base class for all condition AST nodes.

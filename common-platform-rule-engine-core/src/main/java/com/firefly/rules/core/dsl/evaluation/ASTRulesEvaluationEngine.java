@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.evaluation;
+package com.firefly.rules.core.dsl.evaluation;
 
-import com.firefly.rules.core.dsl.ast.action.Action;
-import com.firefly.rules.core.dsl.ast.condition.Condition;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.visitor.ActionExecutor;
-import com.firefly.rules.core.dsl.ast.visitor.EvaluationContext;
-import com.firefly.rules.core.dsl.ast.visitor.ExpressionEvaluator;
+import com.firefly.rules.core.dsl.ASTVisitor;
+import com.firefly.rules.core.dsl.action.*;
+import com.firefly.rules.core.dsl.condition.ComparisonCondition;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.condition.ExpressionCondition;
+import com.firefly.rules.core.dsl.condition.LogicalCondition;
+import com.firefly.rules.core.dsl.expression.*;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.visitor.ActionExecutor;
+import com.firefly.rules.core.dsl.visitor.EvaluationContext;
+import com.firefly.rules.core.dsl.visitor.ExpressionEvaluator;
 import com.firefly.rules.core.services.ConstantService;
 import com.firefly.rules.core.services.JsonPathService;
 import com.firefly.rules.core.services.RestCallService;
@@ -609,7 +614,7 @@ public class ASTRulesEvaluationEngine {
     /**
      * Visitor class to collect all variable references from AST nodes
      */
-    private static class VariableReferenceCollector implements com.firefly.rules.core.dsl.ast.ASTVisitor<Void> {
+    private static class VariableReferenceCollector implements ASTVisitor<Void> {
         private final Set<String> variableReferences = new HashSet<>();
 
         public Set<String> getVariableReferences() {
@@ -617,13 +622,13 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitVariableExpression(com.firefly.rules.core.dsl.ast.expression.VariableExpression node) {
+        public Void visitVariableExpression(VariableExpression node) {
             variableReferences.add(node.getVariableName());
             return null;
         }
 
         @Override
-        public Void visitComparisonCondition(com.firefly.rules.core.dsl.ast.condition.ComparisonCondition node) {
+        public Void visitComparisonCondition(ComparisonCondition node) {
             node.getLeft().accept(this);
             if (node.getRight() != null) {
                 node.getRight().accept(this);
@@ -635,7 +640,7 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitLogicalCondition(com.firefly.rules.core.dsl.ast.condition.LogicalCondition node) {
+        public Void visitLogicalCondition(LogicalCondition node) {
             if (node.getOperands() != null) {
                 node.getOperands().forEach(operand -> operand.accept(this));
             }
@@ -643,31 +648,31 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitExpressionCondition(com.firefly.rules.core.dsl.ast.condition.ExpressionCondition node) {
+        public Void visitExpressionCondition(ExpressionCondition node) {
             node.getExpression().accept(this);
             return null;
         }
 
         @Override
-        public Void visitAssignmentAction(com.firefly.rules.core.dsl.ast.action.AssignmentAction node) {
+        public Void visitAssignmentAction(AssignmentAction node) {
             node.getValue().accept(this);
             return null;
         }
 
         @Override
-        public Void visitCalculateAction(com.firefly.rules.core.dsl.ast.action.CalculateAction node) {
+        public Void visitCalculateAction(CalculateAction node) {
             node.getExpression().accept(this);
             return null;
         }
 
         @Override
-        public Void visitSetAction(com.firefly.rules.core.dsl.ast.action.SetAction node) {
+        public Void visitSetAction(SetAction node) {
             node.getValue().accept(this);
             return null;
         }
 
         @Override
-        public Void visitFunctionCallAction(com.firefly.rules.core.dsl.ast.action.FunctionCallAction node) {
+        public Void visitFunctionCallAction(FunctionCallAction node) {
             if (node.getArguments() != null) {
                 node.getArguments().forEach(arg -> arg.accept(this));
             }
@@ -675,7 +680,7 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitConditionalAction(com.firefly.rules.core.dsl.ast.action.ConditionalAction node) {
+        public Void visitConditionalAction(ConditionalAction node) {
             node.getCondition().accept(this);
             if (node.getThenActions() != null) {
                 node.getThenActions().forEach(action -> action.accept(this));
@@ -687,26 +692,26 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitBinaryExpression(com.firefly.rules.core.dsl.ast.expression.BinaryExpression node) {
+        public Void visitBinaryExpression(BinaryExpression node) {
             node.getLeft().accept(this);
             node.getRight().accept(this);
             return null;
         }
 
         @Override
-        public Void visitUnaryExpression(com.firefly.rules.core.dsl.ast.expression.UnaryExpression node) {
+        public Void visitUnaryExpression(UnaryExpression node) {
             node.getOperand().accept(this);
             return null;
         }
 
         @Override
-        public Void visitLiteralExpression(com.firefly.rules.core.dsl.ast.expression.LiteralExpression node) {
+        public Void visitLiteralExpression(LiteralExpression node) {
             // Literals don't contain variable references
             return null;
         }
 
         @Override
-        public Void visitFunctionCallExpression(com.firefly.rules.core.dsl.ast.expression.FunctionCallExpression node) {
+        public Void visitFunctionCallExpression(FunctionCallExpression node) {
             if (node.getArguments() != null) {
                 node.getArguments().forEach(arg -> arg.accept(this));
             }
@@ -714,7 +719,7 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitArithmeticExpression(com.firefly.rules.core.dsl.ast.expression.ArithmeticExpression node) {
+        public Void visitArithmeticExpression(ArithmeticExpression node) {
             if (node.getOperands() != null) {
                 node.getOperands().forEach(operand -> operand.accept(this));
             }
@@ -724,7 +729,7 @@ public class ASTRulesEvaluationEngine {
 
 
         @Override
-        public Void visitArithmeticAction(com.firefly.rules.core.dsl.ast.action.ArithmeticAction node) {
+        public Void visitArithmeticAction(ArithmeticAction node) {
             if (node.getValue() != null) {
                 node.getValue().accept(this);
             }
@@ -732,7 +737,7 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitListAction(com.firefly.rules.core.dsl.ast.action.ListAction node) {
+        public Void visitListAction(ListAction node) {
             if (node.getValue() != null) {
                 node.getValue().accept(this);
             }
@@ -740,13 +745,13 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitCircuitBreakerAction(com.firefly.rules.core.dsl.ast.action.CircuitBreakerAction node) {
+        public Void visitCircuitBreakerAction(CircuitBreakerAction node) {
             // Circuit breaker actions don't contain variable references
             return null;
         }
 
         @Override
-        public Void visitJsonPathExpression(com.firefly.rules.core.dsl.ast.expression.JsonPathExpression node) {
+        public Void visitJsonPathExpression(JsonPathExpression node) {
             // Visit the source expression to collect any variable references
             if (node.getSourceExpression() != null) {
                 node.getSourceExpression().accept(this);
@@ -755,7 +760,7 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitRestCallExpression(com.firefly.rules.core.dsl.ast.expression.RestCallExpression node) {
+        public Void visitRestCallExpression(RestCallExpression node) {
             // Visit all expressions to collect any variable references
             if (node.getUrlExpression() != null) {
                 node.getUrlExpression().accept(this);

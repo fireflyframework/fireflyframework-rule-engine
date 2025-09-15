@@ -1,7 +1,7 @@
 package com.firefly.rules.core.validation;
 
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.parser.DSLParser;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

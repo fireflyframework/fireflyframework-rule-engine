@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
-import com.firefly.rules.core.dsl.ast.lexer.Token;
-import com.firefly.rules.core.dsl.ast.lexer.TokenType;
+import com.firefly.rules.core.dsl.lexer.Token;
+import com.firefly.rules.core.dsl.lexer.TokenType;
 
 import java.util.List;
 

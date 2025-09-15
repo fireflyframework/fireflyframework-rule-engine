@@ -16,8 +16,8 @@
 
 package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

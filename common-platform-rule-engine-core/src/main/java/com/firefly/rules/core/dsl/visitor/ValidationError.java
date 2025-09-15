@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.visitor;
+package com.firefly.rules.core.dsl.visitor;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.SourceLocation;
 import lombok.Data;
 
 /**

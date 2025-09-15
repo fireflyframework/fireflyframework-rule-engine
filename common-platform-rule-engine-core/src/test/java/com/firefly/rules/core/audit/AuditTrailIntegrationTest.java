@@ -21,12 +21,12 @@ import com.firefly.rules.core.services.impl.AuditTrailServiceImpl;
 import com.firefly.rules.interfaces.dtos.audit.AuditEventType;
 import com.firefly.rules.interfaces.dtos.audit.AuditTrailDTO;
 import com.firefly.rules.interfaces.dtos.audit.AuditTrailFilterDTO;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.test.StepVerifier;
-import org.junit.jupiter.api.Disabled;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;

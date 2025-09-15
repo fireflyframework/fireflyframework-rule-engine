@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.condition;
+package com.firefly.rules.core.dsl.condition;
 
-import com.firefly.rules.core.dsl.ast.ASTVisitor;
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.expression.Expression;
+import com.firefly.rules.core.dsl.ASTVisitor;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.expression.Expression;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

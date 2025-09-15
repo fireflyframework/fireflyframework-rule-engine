@@ -17,7 +17,7 @@
 package com.firefly.rules.core.services;
 
 import com.firefly.rules.core.cache.CacheProvider;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;

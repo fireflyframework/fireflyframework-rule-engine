@@ -1,13 +1,12 @@
 package com.firefly.rules.core.validation;
 
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.parser.DSLParser;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;

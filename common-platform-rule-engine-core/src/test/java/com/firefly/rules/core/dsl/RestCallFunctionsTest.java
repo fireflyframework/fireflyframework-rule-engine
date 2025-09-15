@@ -16,30 +16,23 @@
 
 package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
-import com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser;
-import com.firefly.rules.core.dsl.ast.parser.DSLParser;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
 import com.firefly.rules.core.services.ConstantService;
-import com.firefly.rules.core.services.JsonPathService;
-import com.firefly.rules.core.services.RestCallService;
-import com.firefly.rules.core.services.impl.JsonPathServiceImpl;
-import com.firefly.rules.core.services.impl.RestCallServiceImpl;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 

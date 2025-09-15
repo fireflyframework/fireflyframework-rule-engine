@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.lexer;
+package com.firefly.rules.core.dsl.lexer;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
+import com.firefly.rules.core.dsl.SourceLocation;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

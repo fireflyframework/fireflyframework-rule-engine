@@ -1,7 +1,14 @@
 package com.firefly.rules.core.dsl;
 
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationEngine;
-import com.firefly.rules.core.dsl.ast.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.condition.Condition;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
+import com.firefly.rules.core.dsl.lexer.Lexer;
+import com.firefly.rules.core.dsl.lexer.Token;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
+import com.firefly.rules.core.dsl.visitor.EvaluationContext;
+import com.firefly.rules.core.dsl.visitor.ExpressionEvaluator;
 import com.firefly.rules.core.services.ConstantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,8 +38,8 @@ public class LogicalOperatorDebugTest {
                 .thenReturn(Flux.empty());
 
         // Create evaluation engine with mocked dependencies
-        com.firefly.rules.core.dsl.ast.parser.DSLParser dslParser = new com.firefly.rules.core.dsl.ast.parser.DSLParser();
-        com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser astParser = new com.firefly.rules.core.dsl.ast.parser.ASTRulesDSLParser(dslParser);
+        DSLParser dslParser = new DSLParser();
+        ASTRulesDSLParser astParser = new ASTRulesDSLParser(dslParser);
         evaluationEngine = new ASTRulesEvaluationEngine(astParser, constantService, null, null);
     }
 
@@ -73,10 +80,10 @@ public class LogicalOperatorDebugTest {
         System.out.println("Tokenizing: " + conditionString);
 
         try {
-            com.firefly.rules.core.dsl.ast.lexer.Lexer lexer = new com.firefly.rules.core.dsl.ast.lexer.Lexer(conditionString);
-            java.util.List<com.firefly.rules.core.dsl.ast.lexer.Token> tokens = lexer.tokenize();
+            Lexer lexer = new Lexer(conditionString);
+            java.util.List<Token> tokens = lexer.tokenize();
             System.out.println("Tokens:");
-            for (com.firefly.rules.core.dsl.ast.lexer.Token token : tokens) {
+            for (Token token : tokens) {
                 System.out.println("  " + token.getType() + ": '" + token.getLexeme() + "'");
             }
         } catch (Exception e) {
@@ -85,22 +92,22 @@ public class LogicalOperatorDebugTest {
         }
 
         // Test just the condition parsing directly
-        com.firefly.rules.core.dsl.ast.parser.DSLParser dslParser = new com.firefly.rules.core.dsl.ast.parser.DSLParser();
+        DSLParser dslParser = new DSLParser();
 
         System.out.println("Parsing condition: " + conditionString);
 
-        com.firefly.rules.core.dsl.ast.condition.Condition condition = dslParser.parseCondition(conditionString);
+        Condition condition = dslParser.parseCondition(conditionString);
         System.out.println("Parsed condition type: " + condition.getClass().getSimpleName());
         System.out.println("Condition debug string: " + condition.toDebugString());
 
         // Test evaluation
-        com.firefly.rules.core.dsl.ast.visitor.EvaluationContext testContext =
-            new com.firefly.rules.core.dsl.ast.visitor.EvaluationContext("test-op");
+        EvaluationContext testContext =
+            new EvaluationContext("test-op");
         testContext.setVariable("a", 0);
         testContext.setVariable("b", 2);
 
-        com.firefly.rules.core.dsl.ast.visitor.ExpressionEvaluator evaluator =
-            new com.firefly.rules.core.dsl.ast.visitor.ExpressionEvaluator(testContext);
+        ExpressionEvaluator evaluator =
+            new ExpressionEvaluator(testContext);
 
         Object result = condition.accept(evaluator);
         System.out.println("Condition evaluation result: " + result);
@@ -146,10 +153,10 @@ public class LogicalOperatorDebugTest {
         System.out.println("Tokenizing: " + conditionString);
 
         try {
-            com.firefly.rules.core.dsl.ast.lexer.Lexer lexer = new com.firefly.rules.core.dsl.ast.lexer.Lexer(conditionString);
-            java.util.List<com.firefly.rules.core.dsl.ast.lexer.Token> tokens = lexer.tokenize();
+            Lexer lexer = new Lexer(conditionString);
+            java.util.List<Token> tokens = lexer.tokenize();
             System.out.println("Tokens:");
-            for (com.firefly.rules.core.dsl.ast.lexer.Token token : tokens) {
+            for (Token token : tokens) {
                 System.out.println("  " + token.getType() + ": '" + token.getLexeme() + "'");
             }
         } catch (Exception e) {
@@ -184,10 +191,10 @@ public class LogicalOperatorDebugTest {
         System.out.println("Tokenizing: " + conditionString);
 
         try {
-            com.firefly.rules.core.dsl.ast.lexer.Lexer lexer = new com.firefly.rules.core.dsl.ast.lexer.Lexer(conditionString);
-            java.util.List<com.firefly.rules.core.dsl.ast.lexer.Token> tokens = lexer.tokenize();
+            Lexer lexer = new Lexer(conditionString);
+            java.util.List<Token> tokens = lexer.tokenize();
             System.out.println("Tokens:");
-            for (com.firefly.rules.core.dsl.ast.lexer.Token token : tokens) {
+            for (Token token : tokens) {
                 System.out.println("  " + token.getType() + ": '" + token.getLexeme() + "'");
             }
         } catch (Exception e) {

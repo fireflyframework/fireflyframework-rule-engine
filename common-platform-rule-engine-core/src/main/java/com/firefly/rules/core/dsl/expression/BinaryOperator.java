@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.expression;
+package com.firefly.rules.core.dsl.expression;
 
 /**
  * Enumeration of binary operators.

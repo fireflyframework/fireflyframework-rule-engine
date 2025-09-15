@@ -17,7 +17,7 @@
 package com.firefly.rules.core.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +36,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 

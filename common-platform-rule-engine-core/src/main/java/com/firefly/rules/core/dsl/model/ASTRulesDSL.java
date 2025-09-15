@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.model;
+package com.firefly.rules.core.dsl.model;
 
-import com.firefly.rules.core.dsl.ast.action.Action;
-import com.firefly.rules.core.dsl.ast.condition.Condition;
+import com.firefly.rules.core.dsl.action.Action;
+import com.firefly.rules.core.dsl.condition.Condition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

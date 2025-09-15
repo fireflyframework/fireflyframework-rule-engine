@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.parser;
+package com.firefly.rules.core.dsl.parser;
 
-import com.firefly.rules.core.dsl.ast.SourceLocation;
-import com.firefly.rules.core.dsl.ast.exception.ASTException;
-import com.firefly.rules.core.dsl.ast.lexer.Token;
+import com.firefly.rules.core.dsl.SourceLocation;
+import com.firefly.rules.core.dsl.exception.ASTException;
+import com.firefly.rules.core.dsl.lexer.Token;
 
 import java.util.List;
 

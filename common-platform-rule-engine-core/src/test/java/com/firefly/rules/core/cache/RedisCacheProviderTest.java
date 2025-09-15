@@ -17,12 +17,11 @@
 package com.firefly.rules.core.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.firefly.rules.core.dsl.ast.model.ASTRulesDSL;
+import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializationContext;

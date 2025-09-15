@@ -16,22 +16,19 @@
 
 package com.firefly.rules.core.services;
 
-import com.firefly.common.core.filters.FilterRequest;
-import com.firefly.common.core.queries.PaginationResponse;
 import com.firefly.rules.core.mappers.ConstantMapper;
 import com.firefly.rules.core.services.impl.ConstantServiceImpl;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
 import com.firefly.rules.interfaces.enums.ValueType;
 import com.firefly.rules.models.entities.Constant;
 import com.firefly.rules.models.repositories.ConstantRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -42,7 +39,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
@@ -54,20 +51,13 @@ import static org.mockito.Mockito.when;
 class ConstantServiceTest {
 
     @Mock
-    private ConstantRepository constantRepository;
+    private ConstantRepository repository;
 
     @Mock
-    private ConstantMapper constantMapper;
+    private ConstantMapper mapper;
 
-    private ConstantService constantService;
-
-    @BeforeEach
-    void setUp() {
-        constantService = new ConstantServiceImpl();
-        // Use reflection to inject mocks since we're testing the implementation directly
-        ((ConstantServiceImpl) constantService).repository = constantRepository;
-        ((ConstantServiceImpl) constantService).mapper = constantMapper;
-    }
+    @InjectMocks
+    private ConstantServiceImpl constantService;
 
     @Nested
     @DisplayName("Create Constant Tests")
@@ -82,9 +72,9 @@ class ConstantServiceTest {
             ConstantDTO outputDTO = createTestConstantDTO();
             outputDTO.setId(entity.getId());
 
-            when(constantMapper.toEntity(inputDTO)).thenReturn(entity);
-            when(constantRepository.save(entity)).thenReturn(Mono.just(entity));
-            when(constantMapper.toDTO(entity)).thenReturn(outputDTO);
+            when(mapper.toEntity(inputDTO)).thenReturn(entity);
+            when(repository.save(entity)).thenReturn(Mono.just(entity));
+            when(mapper.toDTO(entity)).thenReturn(outputDTO);
 
             // When & Then
             StepVerifier.create(constantService.createConstant(inputDTO))
@@ -104,8 +94,8 @@ class ConstantServiceTest {
             ConstantDTO inputDTO = createTestConstantDTO();
             Constant entity = createTestConstantEntity();
 
-            when(constantMapper.toEntity(inputDTO)).thenReturn(entity);
-            when(constantRepository.save(entity)).thenReturn(Mono.error(new RuntimeException("Database error")));
+            when(mapper.toEntity(inputDTO)).thenReturn(entity);
+            when(repository.save(entity)).thenReturn(Mono.error(new RuntimeException("Database error")));
 
             // When & Then
             StepVerifier.create(constantService.createConstant(inputDTO))
@@ -139,10 +129,10 @@ class ConstantServiceTest {
             outputDTO.setId(constantId);
             outputDTO.setCurrentValue(new BigDecimal("750"));
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.just(existingEntity));
-            when(constantMapper.toEntity(any(ConstantDTO.class))).thenReturn(updatedEntity);
-            when(constantRepository.save(any(Constant.class))).thenReturn(Mono.just(updatedEntity));
-            when(constantMapper.toDTO(updatedEntity)).thenReturn(outputDTO);
+            when(repository.findById(constantId)).thenReturn(Mono.just(existingEntity));
+            when(mapper.toEntity(any(ConstantDTO.class))).thenReturn(updatedEntity);
+            when(repository.save(any(Constant.class))).thenReturn(Mono.just(updatedEntity));
+            when(mapper.toDTO(updatedEntity)).thenReturn(outputDTO);
 
             // When & Then
             StepVerifier.create(constantService.updateConstant(constantId, inputDTO))
@@ -161,7 +151,7 @@ class ConstantServiceTest {
             UUID constantId = UUID.randomUUID();
             ConstantDTO inputDTO = createTestConstantDTO();
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.empty());
+            when(repository.findById(constantId)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(constantService.updateConstant(constantId, inputDTO))
@@ -184,8 +174,8 @@ class ConstantServiceTest {
             Constant entity = createTestConstantEntity();
             entity.setId(constantId);
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.just(entity));
-            when(constantRepository.deleteById(constantId)).thenReturn(Mono.empty());
+            when(repository.findById(constantId)).thenReturn(Mono.just(entity));
+            when(repository.deleteById(constantId)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(constantService.deleteConstant(constantId))
@@ -198,7 +188,7 @@ class ConstantServiceTest {
             // Given
             UUID constantId = UUID.randomUUID();
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.empty());
+            when(repository.findById(constantId)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(constantService.deleteConstant(constantId))
@@ -223,8 +213,8 @@ class ConstantServiceTest {
             ConstantDTO dto = createTestConstantDTO();
             dto.setId(constantId);
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.just(entity));
-            when(constantMapper.toDTO(entity)).thenReturn(dto);
+            when(repository.findById(constantId)).thenReturn(Mono.just(entity));
+            when(mapper.toDTO(entity)).thenReturn(dto);
 
             // When & Then
             StepVerifier.create(constantService.getConstantById(constantId))
@@ -242,7 +232,7 @@ class ConstantServiceTest {
             // Given
             UUID constantId = UUID.randomUUID();
 
-            when(constantRepository.findById(constantId)).thenReturn(Mono.empty());
+            when(repository.findById(constantId)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(constantService.getConstantById(constantId))
@@ -260,8 +250,8 @@ class ConstantServiceTest {
             Constant entity = createTestConstantEntity();
             ConstantDTO dto = createTestConstantDTO();
 
-            when(constantRepository.findByCode(code)).thenReturn(Mono.just(entity));
-            when(constantMapper.toDTO(entity)).thenReturn(dto);
+            when(repository.findByCode(code)).thenReturn(Mono.just(entity));
+            when(mapper.toDTO(entity)).thenReturn(dto);
 
             // When & Then
             StepVerifier.create(constantService.getConstantByCode(code))
@@ -278,7 +268,7 @@ class ConstantServiceTest {
             // Given
             String code = "NONEXISTENT_CONSTANT";
 
-            when(constantRepository.findByCode(code)).thenReturn(Mono.empty());
+            when(repository.findByCode(code)).thenReturn(Mono.empty());
 
             // When & Then
             StepVerifier.create(constantService.getConstantByCode(code))
@@ -313,10 +303,10 @@ class ConstantServiceTest {
             dto2.setCode("MAX_LOAN_AMOUNT");
             dto2.setCurrentValue(new BigDecimal("1000000"));
 
-            when(constantRepository.findByCode("MIN_CREDIT_SCORE")).thenReturn(Mono.just(entity1));
-            when(constantRepository.findByCode("MAX_LOAN_AMOUNT")).thenReturn(Mono.just(entity2));
-            when(constantMapper.toDTO(entity1)).thenReturn(dto1);
-            when(constantMapper.toDTO(entity2)).thenReturn(dto2);
+            when(repository.findByCode("MIN_CREDIT_SCORE")).thenReturn(Mono.just(entity1));
+            when(repository.findByCode("MAX_LOAN_AMOUNT")).thenReturn(Mono.just(entity2));
+            when(mapper.toDTO(entity1)).thenReturn(dto1);
+            when(mapper.toDTO(entity2)).thenReturn(dto2);
 
             // When & Then
             StepVerifier.create(constantService.getConstantsByCodes(codes))
@@ -361,9 +351,9 @@ class ConstantServiceTest {
             ConstantDTO existingDTO = createTestConstantDTO();
             existingDTO.setCode("EXISTING_CONSTANT");
 
-            when(constantRepository.findByCode("EXISTING_CONSTANT")).thenReturn(Mono.just(existingEntity));
-            when(constantRepository.findByCode("MISSING_CONSTANT")).thenReturn(Mono.empty());
-            when(constantMapper.toDTO(existingEntity)).thenReturn(existingDTO);
+            when(repository.findByCode("EXISTING_CONSTANT")).thenReturn(Mono.just(existingEntity));
+            when(repository.findByCode("MISSING_CONSTANT")).thenReturn(Mono.empty());
+            when(mapper.toDTO(existingEntity)).thenReturn(existingDTO);
 
             // When & Then
             StepVerifier.create(constantService.getConstantsByCodes(codes))
@@ -379,7 +369,7 @@ class ConstantServiceTest {
             // Given
             List<String> codes = Arrays.asList("ERROR_CONSTANT");
 
-            when(constantRepository.findByCode("ERROR_CONSTANT"))
+            when(repository.findByCode("ERROR_CONSTANT"))
                     .thenReturn(Mono.error(new RuntimeException("Database error")));
 
             // When & Then

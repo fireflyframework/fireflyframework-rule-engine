@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.firefly.rules.core.dsl.ast.condition;
+package com.firefly.rules.core.dsl.condition;
 
 /**
  * Enumeration of comparison operators.
