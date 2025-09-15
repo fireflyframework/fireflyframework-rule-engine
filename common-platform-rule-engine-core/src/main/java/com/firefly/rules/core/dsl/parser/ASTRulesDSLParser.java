@@ -69,6 +69,7 @@ public class ASTRulesDSLParser {
      * Uses caching to avoid re-parsing identical YAML content.
      */
     public ASTRulesDSL parseRules(String rulesDefinition) {
+        long startTime = System.currentTimeMillis();
         try {
             // Check cache first if caching is enabled
             if (cacheService != null) {
@@ -88,12 +89,15 @@ public class ASTRulesDSLParser {
             } else {
                 // No caching available - parse directly
                 JsonLogger.info(log, "Parsing rules definition with AST parser (no caching)");
-                return parseRulesInternal(rulesDefinition);
+                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
+                return parsedAST;
             }
 
         } catch (Exception e) {
             JsonLogger.error(log, "Error parsing rules definition", e);
             throw new ASTException("Failed to parse rules definition: " + e.getMessage());
+        } finally {
+            long parseTime = System.currentTimeMillis() - startTime;
         }
     }
 
@@ -152,22 +156,44 @@ public class ASTRulesDSLParser {
         }
         
         // Input/Output definitions
-        // Handle both 'input' (legacy map format) and 'inputs' (new list format)
+        // Handle both 'input' and 'inputs' (both can be map format)
         if (yamlMap.containsKey("input")) {
             builder.input((Map<String, String>) yamlMap.get("input"));
         } else if (yamlMap.containsKey("inputs")) {
-            // Convert inputs list to input map (inputs are just variable names, no types)
-            List<String> inputsList = convertToStringList(yamlMap.get("inputs"));
-            Map<String, String> inputsMap = inputsList.stream()
-                    .collect(Collectors.toMap(
-                            inputName -> inputName,
-                            inputName -> "Object" // Default type since inputs list doesn't specify types
-                    ));
-            builder.input(inputsMap);
+            Object inputsObj = yamlMap.get("inputs");
+            if (inputsObj instanceof Map) {
+                // inputs is a map format: inputs: {income: "number", debt: "number"}
+                builder.input((Map<String, String>) inputsObj);
+            } else {
+                // inputs is a list format: inputs: [income, debt, age]
+                List<String> inputsList = convertToStringList(inputsObj);
+                Map<String, String> inputsMap = inputsList.stream()
+                        .collect(Collectors.toMap(
+                                inputName -> inputName,
+                                inputName -> "Object" // Default type since inputs list doesn't specify types
+                        ));
+                builder.input(inputsMap);
+            }
         }
 
+        // Handle both 'output' and 'outputs' (both can be map format)
         if (yamlMap.containsKey("output")) {
             builder.output((Map<String, String>) yamlMap.get("output"));
+        } else if (yamlMap.containsKey("outputs")) {
+            Object outputsObj = yamlMap.get("outputs");
+            if (outputsObj instanceof Map) {
+                // outputs is a map format: outputs: {result: "string", score: "number"}
+                builder.output((Map<String, String>) outputsObj);
+            } else {
+                // outputs is a list format: outputs: [result, score]
+                List<String> outputsList = convertToStringList(outputsObj);
+                Map<String, String> outputsMap = outputsList.stream()
+                        .collect(Collectors.toMap(
+                                outputName -> outputName,
+                                outputName -> "Object" // Default type since outputs list doesn't specify types
+                        ));
+                builder.output(outputsMap);
+            }
         }
         
         // Constants

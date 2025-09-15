@@ -400,18 +400,16 @@ public class Lexer {
      * Check if a character is a digit
      */
     private boolean isDigit(char c) {
-        return c >= '0' && c <= '9';
+        return Character.isDigit(c);
     }
-    
+
     /**
      * Check if a character is alphabetic
      */
     private boolean isAlpha(char c) {
-        return (c >= 'a' && c <= 'z') ||
-               (c >= 'A' && c <= 'Z') ||
-               c == '_';
+        return Character.isLetter(c) || c == '_';
     }
-    
+
     /**
      * Check if a character is alphanumeric
      */
