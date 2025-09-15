@@ -1,0 +1,20 @@
+# Firefly Rule Engine Python Runtime Dependencies
+
+# HTTP client library
+requests>=2.31.0
+
+# Cryptography for security functions
+cryptography>=41.0.0
+
+# Enhanced HTTP client with retry capabilities
+urllib3>=2.0.0
+
+# Optional: JSON path library for more advanced JSONPath support
+# jsonpath-ng>=1.6.0
+
+# Development dependencies (optional)
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.0.0
