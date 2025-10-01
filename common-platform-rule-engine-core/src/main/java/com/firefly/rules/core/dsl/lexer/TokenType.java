@@ -118,6 +118,7 @@ public enum TokenType {
     SET("set", TokenCategory.KEYWORD),
     TO("to", TokenCategory.KEYWORD),
     CALCULATE("calculate", TokenCategory.KEYWORD),
+    RUN("run", TokenCategory.KEYWORD),
     AS("as", TokenCategory.KEYWORD),
     CALL("call", TokenCategory.KEYWORD),
     WITH("with", TokenCategory.KEYWORD),

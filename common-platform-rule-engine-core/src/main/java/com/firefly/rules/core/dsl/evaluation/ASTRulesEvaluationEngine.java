@@ -666,6 +666,12 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
+        public Void visitRunAction(RunAction node) {
+            node.getExpression().accept(this);
+            return null;
+        }
+
+        @Override
         public Void visitSetAction(SetAction node) {
             node.getValue().accept(this);
             return null;

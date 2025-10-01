@@ -44,11 +44,12 @@ public class ActionParser extends BaseParser {
     
     /**
      * Parse an action statement
-     * 
+     *
      * Action grammar:
-     * action         → setAction | calculateAction | callAction | conditionalAction
+     * action         → setAction | calculateAction | runAction | callAction | conditionalAction
      * setAction      → "set" IDENTIFIER "to" expression
      * calculateAction → "calculate" IDENTIFIER "as" expression
+     * runAction      → "run" IDENTIFIER "as" expression
      * callAction     → "call" IDENTIFIER "with" "[" expressionList? "]"
      * conditionalAction → "if" condition "then" actionList ( "else" actionList )?
      * actionList     → action ( "," action )*
@@ -61,6 +62,10 @@ public class ActionParser extends BaseParser {
 
         if (match(TokenType.CALCULATE)) {
             return parseCalculateAction();
+        }
+
+        if (match(TokenType.RUN)) {
+            return parseRunAction();
         }
 
         if (match(TokenType.CALL)) {
@@ -114,7 +119,7 @@ public class ActionParser extends BaseParser {
         throw error(
             "Expected action statement",
             "PARSE_002",
-            List.of("Use 'set', 'calculate', 'call', 'if', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
+            List.of("Use 'set', 'calculate', 'run', 'call', 'if', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
         );
     }
     
@@ -164,7 +169,7 @@ public class ActionParser extends BaseParser {
      */
     private Action parseCalculateAction() {
         Token calculateToken = previous();
-        
+
         if (!check(TokenType.IDENTIFIER)) {
             throw error(
                 "Expected variable name after 'calculate'",
@@ -172,19 +177,45 @@ public class ActionParser extends BaseParser {
                 List.of("Add a variable name after 'calculate'")
             );
         }
-        
+
         Token variable = advance();
-        
+
         consume(TokenType.AS, "Expected 'as' after variable name in calculate action");
-        
+
         // Parse the expression
         this.expressionParser.setCurrentPosition(this.current);
         Expression expression = this.expressionParser.parseExpression();
         this.current = this.expressionParser.getCurrentPosition();
-        
+
         return new CalculateAction(calculateToken.getLocation(), variable.getLexeme(), expression);
     }
-    
+
+    /**
+     * Parse run action: "run variable as expression"
+     */
+    private Action parseRunAction() {
+        Token runToken = previous();
+
+        if (!check(TokenType.IDENTIFIER)) {
+            throw error(
+                "Expected variable name after 'run'",
+                "PARSE_006",
+                List.of("Add a variable name after 'run'")
+            );
+        }
+
+        Token variable = advance();
+
+        consume(TokenType.AS, "Expected 'as' after variable name in run action");
+
+        // Parse the expression
+        this.expressionParser.setCurrentPosition(this.current);
+        Expression expression = this.expressionParser.parseExpression();
+        this.current = this.expressionParser.getCurrentPosition();
+
+        return new RunAction(runToken.getLocation(), variable.getLexeme(), expression);
+    }
+
     /**
      * Parse call action: "call function with [arguments]"
      */

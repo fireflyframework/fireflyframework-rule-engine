@@ -686,6 +686,13 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
     }
 
     @Override
+    public String visitRunAction(RunAction node) {
+        String expression = node.getExpression().accept(this);
+        String resultVar = node.getResultVariable();
+        return String.format("%s['%s'] = %s", CONTEXT_VAR, resultVar, expression);
+    }
+
+    @Override
     public String visitSetAction(SetAction node) {
         String value = node.getValue().accept(this);
         String varName = node.getVariableName();

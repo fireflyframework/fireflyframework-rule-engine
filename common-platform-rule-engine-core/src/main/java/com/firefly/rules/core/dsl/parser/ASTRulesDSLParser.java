@@ -450,6 +450,19 @@ public class ASTRulesDSLParser {
                 log.warn("Failed to parse complex calculate action: {}", actionMap, e);
                 return null;
             }
+        } else if (actionMap.containsKey("run")) {
+            Map<String, Object> runMap = (Map<String, Object>) actionMap.get("run");
+            String variable = (String) runMap.get("variable");
+            String expression = (String) runMap.get("expression");
+
+            // Convert to simple syntax and parse
+            String simpleSyntax = "run " + variable + " as " + expression;
+            try {
+                return dslParser.parseAction(simpleSyntax);
+            } catch (Exception e) {
+                log.warn("Failed to parse complex run action: {}", actionMap, e);
+                return null;
+            }
         } else if (actionMap.containsKey("call")) {
             Map<String, Object> callMap = (Map<String, Object>) actionMap.get("call");
             String function = (String) callMap.get("function");
