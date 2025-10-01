@@ -309,8 +309,8 @@ rules:
 
       # Cash flow analysis
       - calculate cash_flow_coverage as avgMonthlyDeposits / monthlyDebtPayments
-      - calculate account_stability_score as min(100, accountAgeMonths * 2)
-      - calculate banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
+      - run account_stability_score as min(100, accountAgeMonths * 2)
+      - run banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
 
       # Loan-specific calculations
       - calculate loan_to_revenue_ratio as requestedAmount / verifiedAnnualRevenue
@@ -319,8 +319,8 @@ rules:
       - calculate debt_service_coverage as (monthly_revenue_verified - monthlyExpenses) / new_debt_service
 
       # Risk indicators
-      - calculate revenue_stability_score as max(0, 100 - (revenue_variance * 100))
-      - calculate cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
+      - run revenue_stability_score as max(0, 100 - (revenue_variance * 100))
+      - run cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
 
       - set financial_analysis_complete to true
     else:
@@ -333,9 +333,9 @@ rules:
       - financial_analysis_complete equals true
     then:
       # Business maturity scoring
-      - calculate business_maturity_score as min(100, yearsInBusiness * 10)
-      - calculate owner_experience_score as min(100, ownerYearsExperience * 8)
-      - calculate employee_stability_score as min(100, numberOfEmployees * 5)
+      - run business_maturity_score as min(100, yearsInBusiness * 10)
+      - run owner_experience_score as min(100, ownerYearsExperience * 8)
+      - run employee_stability_score as min(100, numberOfEmployees * 5)
 
       # Industry risk assessment (using NAICS industry codes)
       - calculate industry_risk_multiplier as 1.0  # Default neutral
@@ -398,7 +398,7 @@ rules:
       - if revenue_variance greater_than 0.2 then subtract 20 from adjusted_credit_score
 
       # Ensure score stays within bounds
-      - calculate final_credit_score as max(300, min(850, adjusted_credit_score))
+      - run final_credit_score as max(300, min(850, adjusted_credit_score))
 
       - set credit_assessment_complete to true
 
@@ -444,7 +444,7 @@ rules:
 
       # Calculate final loan terms
       - calculate approved_amount as requestedAmount  # Could be modified based on risk
-      - if risk_level equals "HIGH" AND approval_status equals "APPROVED" then calculate approved_amount as min(requestedAmount, verifiedAnnualRevenue * 0.25)
+      - if risk_level equals "HIGH" AND approval_status equals "APPROVED" then run approved_amount as min(requestedAmount, verifiedAnnualRevenue * 0.25)
 
       # Set rejection reasons if declined
       - if NOT meets_credit_requirements then set rejection_reason to "Credit score below minimum requirements"
@@ -556,7 +556,7 @@ when:
 ```yaml
 # Complex financial calculations
 - calculate debt_to_income_ratio as monthlyDebtPayments / monthly_revenue_verified
-- calculate final_credit_score as max(300, min(850, adjusted_credit_score))
+- run final_credit_score as max(300, min(850, adjusted_credit_score))
 - calculate weighted_score as (creditScore * 0.6) + (incomeScore * 0.4)
 ```
 
@@ -744,7 +744,7 @@ To test this rule, you would send a POST request to the rule evaluation endpoint
 3. **Use Bounds Checking**
    ```yaml
    # ✅ Good: Keep values in valid ranges
-   - calculate final_score as max(300, min(850, calculated_score))
+   - run final_score as max(300, min(850, calculated_score))
    ```
 
 ---

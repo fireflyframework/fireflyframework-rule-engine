@@ -2373,19 +2373,19 @@ The Firefly Rule Engine makes a clear architectural distinction between **operat
 **Examples of Functions:**
 ```yaml
 # REST API calls
-- calculate api_data as rest_get("https://api.example.com/credit", headers, 30)
-- calculate user_info as rest_post("https://api.example.com/users", requestBody)
+- run api_data as rest_get("https://api.example.com/credit", headers, 30)
+- run user_info as rest_post("https://api.example.com/users", requestBody)
 
 # JSON operations
-- calculate user_name as json_get(api_data, "user.name")
-- calculate credit_history as json_get(api_data, "credit.history[0]")
+- run user_name as json_get(api_data, "user.name")
+- run credit_history as json_get(api_data, "credit.history[0]")
 
 # Mathematical functions
-- calculate max_score as max(score1, score2, score3)
+- run max_score as max(score1, score2, score3)
 - calculate loan_payment as calculate_loan_payment(principal, rate, term)
 
 # String functions
-- calculate formatted_amount as format_currency(amount)
+- run formatted_amount as format_currency(amount)
 - calculate full_name as concat(firstName, " ", lastName)
 ```
 
@@ -2428,14 +2428,14 @@ email is_email
 **Functions** support variable parameters:
 ```yaml
 # Variable number of parameters
-- calculate max_value as max(score1)                    # 1 parameter
-- calculate max_value as max(score1, score2)            # 2 parameters
-- calculate max_value as max(score1, score2, score3)    # 3 parameters
+- run max_value as max(score1)                    # 1 parameter
+- run max_value as max(score1, score2)            # 2 parameters
+- run max_value as max(score1, score2, score3)    # 3 parameters
 
 # Optional parameters with defaults
-- calculate api_data as rest_get(url)                   # Uses default timeout
-- calculate api_data as rest_get(url, headers)          # Uses default timeout
-- calculate api_data as rest_get(url, headers, 30)      # Custom timeout
+- run api_data as rest_get(url)                   # Uses default timeout
+- run api_data as rest_get(url, headers)          # Uses default timeout
+- run api_data as rest_get(url, headers, 30)      # Custom timeout
 ```
 
 #### **3. Service Integration**
@@ -2979,14 +2979,14 @@ void testAllCreditScoreRanges() {
 1. **Variable Parameters**: Need 0 to many parameters
    ```yaml
    # Functions can handle variable parameters elegantly
-   - calculate max_value as max(score1, score2, score3, score4)
-   - calculate api_data as rest_get(url, headers, timeout)
+   - run max_value as max(score1, score2, score3, score4)
+   - run api_data as rest_get(url, headers, timeout)
    ```
 
 2. **Side Effects**: Operation involves external systems
    ```yaml
    # REST calls, database access, logging
-   - calculate credit_report as rest_get("https://credit-api.com/report", headers)
+   - run credit_report as rest_get("https://credit-api.com/report", headers)
    - calculate audit_log as log_event("CREDIT_CHECK", userId, timestamp)
    ```
 

@@ -127,8 +127,8 @@ These features should only be used by experienced teams:
 **Example - Expert Level:**
 ```yaml
 then:
-  - calculate api_data as rest_get("https://api.example.com/data")
-  - calculate user_name as json_get(api_data, "user.name")
+  - run api_data as rest_get("https://api.example.com/data")
+  - run user_name as json_get(api_data, "user.name")
   - if api_call_failed then circuit_breaker "API_UNAVAILABLE"
 ```
 

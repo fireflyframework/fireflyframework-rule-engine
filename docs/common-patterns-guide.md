@@ -248,9 +248,9 @@ rules:
       - loanAmount greater_than 0
       - loanAmount at_most 500000
     then:
-      - calculate applicant_age as json_get(applicantData, "age")
-      - calculate applicant_income as json_get(applicantData, "annualIncome")
-      - calculate applicant_credit as json_get(applicantData, "creditScore")
+      - run applicant_age as json_get(applicantData, "age")
+      - run applicant_income as json_get(applicantData, "annualIncome")
+      - run applicant_credit as json_get(applicantData, "creditScore")
 
       - set stage to "ELIGIBILITY_PASSED"
       - set eligibility_age to applicant_age
@@ -341,26 +341,26 @@ then:
 
   # Primary data source - Customer API
   - calculate customer_api_url as "https://api.customer-service.com/customers/" + tostring(customerId)
-  - calculate customer_api_response as rest_get(customer_api_url)
-  - calculate customer_api_success as json_exists(customer_api_response, "personalInfo")
+  - run customer_api_response as rest_get(customer_api_url)
+  - run customer_api_success as json_exists(customer_api_response, "personalInfo")
 
   - if customer_api_success equals true then append "CUSTOMER_API" to sources
-  - if customer_api_success equals true then calculate personal_info as json_get(customer_api_response, "personalInfo")
-  - if customer_api_success equals true then calculate contact_info as json_get(customer_api_response, "contactInfo")
+  - if customer_api_success equals true then run personal_info as json_get(customer_api_response, "personalInfo")
+  - if customer_api_success equals true then run contact_info as json_get(customer_api_response, "contactInfo")
   
   # Credit bureau integration (conditional)
   - if requireCreditCheck equals true then calculate credit_api_url as "https://api.credit-bureau.com/reports/" + tostring(customerId)
-  - if requireCreditCheck equals true then calculate credit_response as rest_get(credit_api_url)
-  - if requireCreditCheck equals true then calculate credit_success as json_exists(credit_response, "creditScore")
+  - if requireCreditCheck equals true then run credit_response as rest_get(credit_api_url)
+  - if requireCreditCheck equals true then run credit_success as json_exists(credit_response, "creditScore")
   - if credit_success equals true then append "CREDIT_BUREAU" to sources
-  - if credit_success equals true then calculate credit_info as json_get(credit_response, "creditData")
+  - if credit_success equals true then run credit_info as json_get(credit_response, "creditData")
 
   # Fallback to internal database if external APIs fail
   - if customer_api_success equals false then calculate internal_api_url as "https://internal-api.company.com/customers/" + tostring(customerId)
-  - if customer_api_success equals false then calculate internal_data as rest_get(internal_api_url)
-  - if customer_api_success equals false then calculate internal_success as json_exists(internal_data, "basicInfo")
+  - if customer_api_success equals false then run internal_data as rest_get(internal_api_url)
+  - if customer_api_success equals false then run internal_success as json_exists(internal_data, "basicInfo")
   - if internal_success equals true then append "INTERNAL_DB" to sources
-  - if internal_success equals true then calculate personal_info as json_get(internal_data, "basicInfo")
+  - if internal_success equals true then run personal_info as json_get(internal_data, "basicInfo")
 
   # Store enriched data in separate variables
   - if exists personal_info then set enriched_personal_info to personal_info

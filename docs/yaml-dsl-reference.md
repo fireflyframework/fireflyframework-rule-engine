@@ -427,17 +427,17 @@ then:
   - calculate compound_interest as principal * (1 + rate) ** years
   
   # Function calls
-  - calculate max_value as max(value1, value2, value3)
+  - run max_value as max(value1, value2, value3)
   - calculate loan_payment as calculate_loan_payment(amount, rate, term)
   
   # REST API calls
-  - calculate user_data as rest_get("https://api.example.com/users/123")
-  - calculate api_response as rest_post("https://api.example.com/data", requestBody)
+  - run user_data as rest_get("https://api.example.com/users/123")
+  - run api_response as rest_post("https://api.example.com/data", requestBody)
   
   # JSON operations
-  - calculate user_name as json_get(user_data, "name")
-  - calculate user_age as json_get(user_data, "age")
-  - calculate has_email as json_exists(user_data, "email")
+  - run user_name as json_get(user_data, "name")
+  - run user_age as json_get(user_data, "age")
+  - run has_email as json_exists(user_data, "email")
   
   # Complex expressions
   - calculate risk_score as ((creditScore * 0.6) + (annualIncome / 1000 * 0.3) + 50)
@@ -520,22 +520,47 @@ rules:
 
 ### Calculation Actions
 
+The rule engine provides two commands for computed values:
+
+**`calculate`** - For mathematical operations only:
+- Arithmetic expressions (`+`, `-`, `*`, `/`, `%`, `**`)
+- Mathematical calculations with numbers
+- Expressions that produce numeric results
+
+**`run`** - For function invocations and external operations:
+- Function calls (e.g., `max()`, `min()`, `abs()`, `format_currency()`)
+- REST API calls (e.g., `rest_get()`, `rest_post()`)
+- JSON operations (e.g., `json_get()`, `json_exists()`)
+- String functions (e.g., `upper()`, `lower()`, `trim()`)
+- Any operation that invokes a function or external service
+
 ```yaml
-# Mathematical expressions
+# ✅ CORRECT: Use 'calculate' for mathematical operations
 - calculate total as amount + tax
-- calculate payment as principal * rate / (1 - (1 + rate) ** -term)
+- calculate monthly_payment as principal * rate / (1 - (1 + rate) ** -term)
+- calculate debt_ratio as monthlyDebt / annualIncome
+- calculate compound_amount as principal * (1 + rate) ** years
 
-# Function calls
-- calculate result as max(a, b, c)
-- calculate formatted as format_currency(amount)
+# ✅ CORRECT: Use 'run' for function calls
+- run maximum as max(value1, value2, value3)
+- run minimum as min(score1, score2, score3)
+- run formatted_amount as format_currency(total)
+- run absolute_value as abs(difference)
 
-# REST API calls
-- calculate api_data as rest_get("https://api.example.com/data")
-- calculate post_result as rest_post("https://api.example.com/submit", data)
+# ✅ CORRECT: Use 'run' for REST API calls
+- run api_data as rest_get("https://api.example.com/data")
+- run post_result as rest_post("https://api.example.com/submit", data)
 
-# JSON operations
-- calculate name as json_get(response, "user.name")
-- calculate count as json_size(response, "items")
+# ✅ CORRECT: Use 'run' for JSON operations
+- run user_name as json_get(response, "user.name")
+- run has_email as json_exists(response, "email")
+- calculate item_count as json_size(response, "items")
+
+# ❌ INCORRECT: Don't use 'calculate' for function calls
+# - calculate maximum as max(value1, value2, value3)  # Wrong!
+
+# ❌ INCORRECT: Don't use 'calculate' for REST calls
+# - calculate api_data as rest_get("https://api.example.com")  # Wrong!
 ```
 
 ### Arithmetic Actions
@@ -782,22 +807,22 @@ conditions:
 
 ```yaml
 # Mathematical functions
-- calculate maximum as max(value1, value2, value3)
-- calculate minimum as min(score1, score2, score3)
-- calculate absolute as abs(difference)
-- calculate rounded as round(decimal_value)
-- calculate ceiling as ceil(amount)
-- calculate floor as floor(rate)
+- run maximum as max(value1, value2, value3)
+- run minimum as min(score1, score2, score3)
+- run absolute as abs(difference)
+- run rounded as round(decimal_value)
+- run ceiling as ceil(amount)
+- run floor as floor(rate)
 
 # Financial functions
 - calculate payment as calculate_loan_payment(principal, rate, term)
 - calculate interest as calculate_compound_interest(principal, rate, time)
-- calculate formatted as format_currency(amount)
+- run formatted as format_currency(amount)
 
 # String functions
-- calculate uppercase as upper(name)
-- calculate lowercase as lower(email)
-- calculate trimmed as trim(input_text)
+- run uppercase as upper(name)
+- run lowercase as lower(email)
+- run trimmed as trim(input_text)
 - calculate length as length(description)
 
 # Date/time functions
@@ -815,12 +840,12 @@ conditions:
 
 ```yaml
 # GET requests
-- calculate user_data as rest_get("https://api.example.com/users/123")
-- calculate credit_report as rest_get("https://credit-api.com/report/" + ssn)
+- run user_data as rest_get("https://api.example.com/users/123")
+- run credit_report as rest_get("https://credit-api.com/report/" + ssn)
 
 # POST requests with body
-- calculate api_response as rest_post("https://api.example.com/submit", request_data)
-- calculate validation_result as rest_post("https://validator.com/check", {"email": email, "phone": phone})
+- run api_response as rest_post("https://api.example.com/submit", request_data)
+- run validation_result as rest_post("https://validator.com/check", {"email": email, "phone": phone})
 
 # PUT requests with headers
 - calculate update_result as rest_put("https://api.example.com/users/123", user_data, {"Authorization": "Bearer " + token})
@@ -833,25 +858,25 @@ conditions:
 
 ```yaml
 # Simple property access
-- calculate user_name as json_get(api_response, "name")
-- calculate user_age as json_get(api_response, "age")
+- run user_name as json_get(api_response, "name")
+- run user_age as json_get(api_response, "age")
 
 # Nested property access
-- calculate city as json_get(user_data, "address.city")
-- calculate zip_code as json_get(user_data, "address.zipCode")
+- run city as json_get(user_data, "address.city")
+- run zip_code as json_get(user_data, "address.zipCode")
 
 # Array access
-- calculate first_hobby as json_get(user_data, "hobbies[0]")
-- calculate last_transaction as json_get(account_data, "transactions[-1]")
+- run first_hobby as json_get(user_data, "hobbies[0]")
+- run last_transaction as json_get(account_data, "transactions[-1]")
 
 # Array size
 - calculate hobby_count as json_size(user_data, "hobbies")
 - calculate transaction_count as json_size(account_data, "transactions")
 
 # Existence checks
-- calculate has_email as json_exists(user_data, "email")
-- calculate has_address as json_exists(user_data, "address")
-- calculate has_phone as json_exists(user_data, "contact.phone")
+- run has_email as json_exists(user_data, "email")
+- run has_address as json_exists(user_data, "address")
+- run has_phone as json_exists(user_data, "contact.phone")
 ```
 
 ---
@@ -864,29 +889,29 @@ conditions:
 
 ```yaml
 # Basic mathematical operations
-- calculate maximum as max(value1, value2, value3)
-- calculate minimum as min(value1, value2, value3)
-- calculate absolute as abs(-15.5)
-- calculate rounded as round(3.14159)
-- calculate ceiling as ceil(3.1)
-- calculate floor as floor(3.9)
-- calculate power as pow(base, exponent)
-- calculate square_root as sqrt(16)
+- run maximum as max(value1, value2, value3)
+- run minimum as min(value1, value2, value3)
+- run absolute as abs(-15.5)
+- run rounded as round(3.14159)
+- run ceiling as ceil(3.1)
+- run floor as floor(3.9)
+- run power as pow(base, exponent)
+- run square_root as sqrt(16)
 
 # Statistical functions
-- calculate average as avg(score1, score2, score3)  # Also: average
-- calculate sum as sum(amount1, amount2, amount3)
+- run average as avg(score1, score2, score3)  # Also: average
+- run sum as sum(amount1, amount2, amount3)
 ```
 
 ### String Functions
 
 ```yaml
 # Case conversion
-- calculate uppercase as upper("hello world")      # Also: uppercase
-- calculate lowercase as lower("HELLO WORLD")      # Also: lowercase
+- run uppercase as upper("hello world")      # Also: uppercase
+- run lowercase as lower("HELLO WORLD")      # Also: lowercase
 
 # String manipulation
-- calculate trimmed as trim("  hello  ")
+- run trimmed as trim("  hello  ")
 - calculate length as length("hello")              # Also: len
 - calculate substring as substring("hello", 1, 3)  # Also: substr
 - calculate contains_check as contains("hello", "ell")
@@ -917,7 +942,7 @@ conditions:
 - calculate payment_score as payment_history_score(payment_data)
 
 # Utility functions
-- calculate formatted_amount as format_currency(1234.56)
+- run formatted_amount as format_currency(1234.56)
 - calculate formatted_percent as format_percentage(0.15)
 - calculate account_num as generate_account_number()
 - calculate transaction_id as generate_transaction_id()
@@ -945,8 +970,8 @@ conditions:
 ```yaml
 # List operations
 - calculate list_size as size(my_list)          # Also: count
-- calculate list_sum as sum(number_list)
-- calculate list_average as avg(number_list)    # Also: average
+- run list_sum as sum(number_list)
+- run list_average as avg(number_list)    # Also: average
 - calculate first_item as first(my_list)
 - calculate last_item as last(my_list)
 ```
@@ -978,8 +1003,8 @@ conditions:
 
 ```yaml
 # HTTP methods (all actually implemented)
-- calculate get_response as rest_get(url)
-- calculate post_response as rest_post(url, body)
+- run get_response as rest_get(url)
+- run post_response as rest_post(url, body)
 - calculate put_response as rest_put(url, body, headers)
 - calculate delete_response as rest_delete(url, headers)
 - calculate patch_response as rest_patch(url, body, headers)
@@ -990,8 +1015,8 @@ conditions:
 
 ```yaml
 # JSON path operations (all actually implemented)
-- calculate value as json_get(json_object, "path.to.property")    # Also: json_path
-- calculate exists as json_exists(json_object, "optional.property")
+- run value as json_get(json_object, "path.to.property")    # Also: json_path
+- run exists as json_exists(json_object, "optional.property")
 - calculate size as json_size(json_object, "array_property")
 - calculate type as json_type(json_object, "property")
 ```
@@ -1196,21 +1221,21 @@ when:
 
 then:
   # Fetch customer data from external API
-  - calculate customer_data as rest_get("https://api.customer-service.com/customers/" + customerId)
+  - run customer_data as rest_get("https://api.customer-service.com/customers/" + customerId)
 
   # Extract customer information using JSON paths
-  - calculate customer_name as json_get(customer_data, "personalInfo.fullName")
-  - calculate customer_email as json_get(customer_data, "contactInfo.email")
-  - calculate customer_phone as json_get(customer_data, "contactInfo.phone")
-  - calculate credit_score as json_get(customer_data, "creditInfo.score")
+  - run customer_name as json_get(customer_data, "personalInfo.fullName")
+  - run customer_email as json_get(customer_data, "contactInfo.email")
+  - run customer_phone as json_get(customer_data, "contactInfo.phone")
+  - run credit_score as json_get(customer_data, "creditInfo.score")
 
   # Check if additional data exists
-  - calculate has_employment_info as json_exists(customer_data, "employmentInfo")
-  - calculate has_address as json_exists(customer_data, "addressInfo")
+  - run has_employment_info as json_exists(customer_data, "employmentInfo")
+  - run has_address as json_exists(customer_data, "addressInfo")
 
   # Conditional processing based on available data
-  - if has_employment_info equals true then calculate annual_income as json_get(customer_data, "employmentInfo.annualIncome")
-  - if has_address equals true then calculate zip_code as json_get(customer_data, "addressInfo.zipCode")
+  - if has_employment_info equals true then run annual_income as json_get(customer_data, "employmentInfo.annualIncome")
+  - if has_address equals true then run zip_code as json_get(customer_data, "addressInfo.zipCode")
 
   # Validation if required
   - if requiresValidation equals true then calculate email_valid as validate_email(customer_email)
@@ -1258,8 +1283,8 @@ rules:
       - loanTerm greater_than 0
     then:
       - set validation_stage_1 to "PASSED"
-      - calculate applicant_age as json_get(applicantData, "age")
-      - calculate applicant_income as json_get(applicantData, "annualIncome")
+      - run applicant_age as json_get(applicantData, "age")
+      - run applicant_income as json_get(applicantData, "annualIncome")
     else:
       - set validation_stage_1 to "FAILED"
       - circuit_breaker "INVALID_APPLICATION_DATA"
