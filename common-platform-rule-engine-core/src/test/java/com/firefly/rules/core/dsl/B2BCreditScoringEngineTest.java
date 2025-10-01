@@ -571,8 +571,8 @@ class B2BCreditScoringEngineTest {
                   - set has_complete_credit_data to (business_credit_valid AND payment_history_valid AND deposits_valid AND account_age_valid AND tax_compliance_valid)
 
                   # Calculate data quality indicators
-                  - calculate revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
-                  - calculate deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
+                  - run revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
+                  - run deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
 
                   # Overall data completeness and quality check
                   - set revenue_variance_acceptable to (revenue_variance less_than 0.3)
@@ -600,8 +600,8 @@ class B2BCreditScoringEngineTest {
 
                   # Cash flow analysis
                   - calculate cash_flow_coverage as avgMonthlyDeposits / monthlyDebtPayments
-                  - calculate account_stability_score as min(100, accountAgeMonths * 2)
-                  - calculate banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
+                  - run account_stability_score as min(100, accountAgeMonths * 2)
+                  - run banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
 
                   # Loan-specific calculations
                   - calculate loan_to_revenue_ratio as requestedAmount / verifiedAnnualRevenue
@@ -610,8 +610,8 @@ class B2BCreditScoringEngineTest {
                   - calculate debt_service_coverage as (monthly_revenue_verified - monthlyExpenses) / new_debt_service
 
                   # Risk indicators
-                  - calculate revenue_stability_score as max(0, 100 - (revenue_variance * 100))
-                  - calculate cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
+                  - run revenue_stability_score as max(0, 100 - (revenue_variance * 100))
+                  - run cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
 
                   - set financial_analysis_complete to true
                 else:
@@ -624,9 +624,9 @@ class B2BCreditScoringEngineTest {
                   - financial_analysis_complete equals true
                 then:
                   # Business maturity scoring
-                  - calculate business_maturity_score as min(100, yearsInBusiness * 10)
-                  - calculate owner_experience_score as min(100, ownerYearsExperience * 8)
-                  - calculate employee_stability_score as min(100, numberOfEmployees * 5)
+                  - run business_maturity_score as min(100, yearsInBusiness * 10)
+                  - run owner_experience_score as min(100, ownerYearsExperience * 8)
+                  - run employee_stability_score as min(100, numberOfEmployees * 5)
 
                   # Industry risk assessment (using NAICS industry codes)
                   - calculate industry_risk_multiplier as 1.0
@@ -689,7 +689,7 @@ class B2BCreditScoringEngineTest {
                   - if revenue_variance greater_than 0.2 then subtract 20 from adjusted_credit_score
 
                   # Ensure score stays within bounds
-                  - calculate final_credit_score as max(300, min(850, adjusted_credit_score))
+                  - run final_credit_score as max(300, min(850, adjusted_credit_score))
 
                   - set credit_assessment_complete to true
 
@@ -735,7 +735,7 @@ class B2BCreditScoringEngineTest {
 
                   # Calculate final loan terms
                   - calculate approved_amount as requestedAmount
-                  - if risk_level equals "HIGH" AND approval_status equals "APPROVED" then calculate approved_amount as min(requestedAmount, verifiedAnnualRevenue * 0.25)
+                  - if risk_level equals "HIGH" AND approval_status equals "APPROVED" then run approved_amount as min(requestedAmount, verifiedAnnualRevenue * 0.25)
 
                   # Set rejection reasons if declined
                   - if NOT meets_credit_requirements then set rejection_reason to "Credit score below minimum requirements"

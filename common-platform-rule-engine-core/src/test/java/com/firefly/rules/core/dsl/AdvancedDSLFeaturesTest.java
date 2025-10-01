@@ -394,9 +394,9 @@ public class AdvancedDSLFeaturesTest {
                   - startDate is_not_null
 
                 then:
-                  - calculate futureDate as dateadd(startDate, 30, "days")
-                  - calculate futureMonth as dateadd(startDate, 1, "months")
-                  - calculate futureYear as dateadd(startDate, 1, "years")
+                  - run futureDate as dateadd(startDate, 30, "days")
+                  - run futureMonth as dateadd(startDate, 1, "months")
+                  - run futureYear as dateadd(startDate, 1, "years")
                   - set result to "CALCULATED"
 
                 output:
@@ -433,9 +433,9 @@ public class AdvancedDSLFeaturesTest {
                   - endDate is_not_null
 
                 then:
-                  - calculate daysDiff as datediff(startDate, endDate, "days")
-                  - calculate weeksDiff as datediff(startDate, endDate, "weeks")
-                  - calculate monthsDiff as datediff(startDate, endDate, "months")
+                  - run daysDiff as datediff(startDate, endDate, "days")
+                  - run weeksDiff as datediff(startDate, endDate, "weeks")
+                  - run monthsDiff as datediff(startDate, endDate, "months")
                   - set result to "CALCULATED"
 
                 output:
@@ -475,8 +475,8 @@ public class AdvancedDSLFeaturesTest {
                   - isoDate is_not_null
 
                 then:
-                  - calculate daysBetween as datediff(usDate, isoDate, "days")
-                  - calculate futureFromUs as dateadd(usDate, 7, "days")
+                  - run daysBetween as datediff(usDate, isoDate, "days")
+                  - run futureFromUs as dateadd(usDate, 7, "days")
                   - set result to "SUCCESS"
 
                 output:
@@ -513,10 +513,10 @@ public class AdvancedDSLFeaturesTest {
                   - validDate is_not_null
 
                 then:
-                  - calculate validResult as dateadd(validDate, 1, "days")
-                  - calculate invalidResult as dateadd(invalidDate, 1, "days")
-                  - calculate invalidUnit as dateadd(validDate, 1, "invalid_unit")
-                  - calculate diffResult as datediff(validDate, invalidDate, "days")
+                  - run validResult as dateadd(validDate, 1, "days")
+                  - run invalidResult as dateadd(invalidDate, 1, "days")
+                  - run invalidUnit as dateadd(validDate, 1, "invalid_unit")
+                  - run diffResult as datediff(validDate, invalidDate, "days")
                   - set result to "COMPLETED"
 
                 output:
@@ -754,8 +754,8 @@ public class AdvancedDSLFeaturesTest {
 
                 then:
                   # Complex date calculations
-                  - calculate processing_deadline as dateadd(applicationDate, 30, "days")
-                  - calculate days_since_application as datediff(applicationDate, "2024-12-31", "days")
+                  - run processing_deadline as dateadd(applicationDate, 30, "days")
+                  - run days_since_application as datediff(applicationDate, "2024-12-31", "days")
 
                   # Complex mathematical expressions with proper precedence
                   - calculate debt_to_income_ratio as ((monthlyDebt * 12) / annualIncome) * 100

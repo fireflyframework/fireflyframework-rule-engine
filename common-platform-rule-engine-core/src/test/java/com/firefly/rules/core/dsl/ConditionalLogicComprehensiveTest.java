@@ -541,8 +541,8 @@ class ConditionalLogicComprehensiveTest {
                       - json_exists(userData, "email")
                       - json_exists(userData, "age")
                     then:
-                      - calculate user_age as json_get(userData, "age")
-                      - calculate user_email as json_get(userData, "email")
+                      - run user_age as json_get(userData, "age")
+                      - run user_email as json_get(userData, "email")
                       - set validation_passed to true
                     else:
                       - set validation_passed to false

@@ -63,7 +63,7 @@ class JsonPathFunctionsTest {
                 when:
                   - "json_get(userData, 'name') == 'John Doe'"
                 then:
-                  - calculate userName as json_get(userData, "name")
+                  - run userName as json_get(userData, "name")
                 """;
 
         Map<String, Object> userData = new HashMap<>();
@@ -87,7 +87,7 @@ class JsonPathFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate userCity as json_get(userData, "address.city")
+                  - run userCity as json_get(userData, "address.city")
                 """;
 
         // Create JSON string as input data (as users would provide)
@@ -119,7 +119,7 @@ class JsonPathFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate firstHobby as json_get(userData, "hobbies[0]")
+                  - run firstHobby as json_get(userData, "hobbies[0]")
                 """;
 
         // Create JSON string as input data (as users would provide)
@@ -147,7 +147,7 @@ class JsonPathFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate expensiveItem as json_get(userData, "orders[0].items[1].name")
+                  - run expensiveItem as json_get(userData, "orders[0].items[1].name")
                 """;
 
         // Create JSON string as input data (as users would provide)
@@ -189,7 +189,7 @@ class JsonPathFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate hasPhone as json_exists(userData, "address.phone")
+                  - run hasPhone as json_exists(userData, "address.phone")
                 """;
 
         // Create JSON string instead of Map for JSON path functions
@@ -221,7 +221,7 @@ class JsonPathFunctionsTest {
                 when:
                   - 'json_size(userData, "hobbies") >= 3'
                 then:
-                  - calculate hobbyCount as json_size(userData, "hobbies")
+                  - run hobbyCount as json_size(userData, "hobbies")
                 """;
 
         // Create JSON string instead of Map for JSON path functions
@@ -249,7 +249,7 @@ class JsonPathFunctionsTest {
                 when:
                   - 'json_type(userData, "age") == "Integer"'
                 then:
-                  - calculate ageType as json_type(userData, "age")
+                  - run ageType as json_type(userData, "age")
                 """;
 
         // Create JSON string instead of Map for JSON path functions
@@ -304,7 +304,7 @@ class JsonPathFunctionsTest {
                 when:
                   - 'json_get(userData, "profile.preferences.notifications") == true'
                 then:
-                  - calculate notificationEmail as json_get(userData, "profile.email")
+                  - run notificationEmail as json_get(userData, "profile.email")
                 """;
 
         // Create JSON string instead of Map for JSON path functions

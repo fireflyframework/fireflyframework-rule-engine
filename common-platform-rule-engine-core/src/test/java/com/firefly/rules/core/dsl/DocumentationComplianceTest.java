@@ -72,12 +72,12 @@ class DocumentationComplianceTest {
                   - "true"
                 
                 then:
-                  - calculate getResponse as rest_get(testUrl)
-                  - calculate postResponse as rest_post(testUrl, "test body")
-                  - calculate putResponse as rest_put(testUrl, "test body")
-                  - calculate patchResponse as rest_patch(testUrl, "test body")
-                  - calculate deleteResponse as rest_delete(testUrl)
-                  - calculate callResponse as rest_call("GET", testUrl)
+                  - run getResponse as rest_get(testUrl)
+                  - run postResponse as rest_post(testUrl, "test body")
+                  - run putResponse as rest_put(testUrl, "test body")
+                  - run patchResponse as rest_patch(testUrl, "test body")
+                  - run deleteResponse as rest_delete(testUrl)
+                  - run callResponse as rest_call("GET", testUrl)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -111,13 +111,13 @@ class DocumentationComplianceTest {
                   - "true"
                 
                 then:
-                  - calculate userName as json_get(userData, "name")
-                  - calculate userAge as json_get(userData, "age")
-                  - calculate hasEmail as json_exists(userData, "email")
-                  - calculate hasPhone as json_exists(userData, "phone")
-                  - calculate hobbiesCount as json_size(userData, "hobbies")
-                  - calculate nameType as json_type(userData, "name")
-                  - calculate ageType as json_type(userData, "age")
+                  - run userName as json_get(userData, "name")
+                  - run userAge as json_get(userData, "age")
+                  - run hasEmail as json_exists(userData, "email")
+                  - run hasPhone as json_exists(userData, "phone")
+                  - run hobbiesCount as json_size(userData, "hobbies")
+                  - run nameType as json_type(userData, "name")
+                  - run ageType as json_type(userData, "age")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -161,11 +161,11 @@ class DocumentationComplianceTest {
                   - "true"
                 
                 then:
-                  - calculate validCreditScore as is_valid_credit_score(creditScore)
-                  - calculate validSSN as is_valid_ssn(ssn)
-                  - calculate validAccount as is_valid_account(accountNumber)
-                  - calculate validRouting as is_valid_routing(routingNumber)
-                  - calculate ageCheck as age_meets_requirement(birthDate, 18)
+                  - run validCreditScore as is_valid_credit_score(creditScore)
+                  - run validSSN as is_valid_ssn(ssn)
+                  - run validAccount as is_valid_account(accountNumber)
+                  - run validRouting as is_valid_routing(routingNumber)
+                  - run ageCheck as age_meets_requirement(birthDate, 18)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -209,9 +209,9 @@ class DocumentationComplianceTest {
                   - "true"
                 
                 then:
-                  - calculate dtiRatio as debt_to_income_ratio(monthlyDebt, monthlyIncome)
-                  - calculate utilization as credit_utilization(balance, limit)
-                  - calculate ltvRatio as loan_to_value(loanAmount, propertyValue)
+                  - run dtiRatio as debt_to_income_ratio(monthlyDebt, monthlyIncome)
+                  - run utilization as credit_utilization(balance, limit)
+                  - run ltvRatio as loan_to_value(loanAmount, propertyValue)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -383,9 +383,9 @@ class DocumentationComplianceTest {
                   - calculate power_result as (value1 ** 2)
                   - calculate modulo_result as (value1 % value2)
                   - calculate complex_formula as (principal * (1 + rate) ** time)
-                  - calculate absolute_value as abs(-50)
-                  - calculate maximum_value as max(value1, value2, 100)
-                  - calculate minimum_value as min(value1, value2, 10)
+                  - run absolute_value as abs(-50)
+                  - run maximum_value as max(value1, value2, 100)
+                  - run minimum_value as min(value1, value2, 10)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -738,15 +738,15 @@ class DocumentationComplianceTest {
                     when:
                       - "true"
                     then:
-                      - calculate userData as rest_get("https://dummyjson.com/users/1")
-                      - calculate userName as json_get(userData, "firstName")
-                      - calculate userAge as json_get(userData, "age")
+                      - run userData as rest_get("https://dummyjson.com/users/1")
+                      - run userName as json_get(userData, "firstName")
+                      - run userAge as json_get(userData, "age")
 
                   - name: "Process User Information"
                     when: json_exists(userData, "address")
                     then:
-                      - calculate userCity as json_get(userData, "address.city")
-                      - calculate hasPhone as json_exists(userData, "phone")
+                      - run userCity as json_get(userData, "address.city")
+                      - run hasPhone as json_exists(userData, "phone")
                       - set user_processed to true
                 """;
 

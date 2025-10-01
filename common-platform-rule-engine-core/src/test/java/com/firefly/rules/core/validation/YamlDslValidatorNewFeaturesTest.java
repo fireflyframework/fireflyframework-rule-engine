@@ -249,11 +249,11 @@ public class YamlDslValidatorNewFeaturesTest {
                   - json_exists(userData, "email")
                 
                 then:
-                  - calculate api_response as rest_get(apiUrl)
-                  - calculate user_email as json_get(userData, "email")
-                  - calculate formatted_date as format_date(now(), "yyyy-MM-dd")
-                  - calculate user_age as calculate_age(json_get(userData, "birthDate"))
-                  - calculate is_valid_email as validate_email(json_get(userData, "email"))
+                  - run api_response as rest_get(apiUrl)
+                  - run user_email as json_get(userData, "email")
+                  - run formatted_date as format_date(now(), "yyyy-MM-dd")
+                  - run user_age as calculate_age(json_get(userData, "birthDate"))
+                  - run is_valid_email as validate_email(json_get(userData, "email"))
                 
                 output:
                   api_response: object
@@ -504,8 +504,8 @@ public class YamlDslValidatorNewFeaturesTest {
                       - set has_complete_credit_data to (business_credit_valid AND payment_history_valid AND deposits_valid AND account_age_valid AND tax_compliance_valid)
 
                       # Calculate data quality indicators
-                      - calculate revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
-                      - calculate deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
+                      - run revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
+                      - run deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
 
                       # Overall data completeness and quality check
                       - set revenue_variance_acceptable to (revenue_variance less_than 0.3)
@@ -533,8 +533,8 @@ public class YamlDslValidatorNewFeaturesTest {
 
                       # Cash flow analysis
                       - calculate cash_flow_coverage as avgMonthlyDeposits / monthlyDebtPayments
-                      - calculate account_stability_score as min(100, accountAgeMonths * 2)
-                      - calculate banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
+                      - run account_stability_score as min(100, accountAgeMonths * 2)
+                      - run banking_behavior_score as max(0, 100 - (nsfCount12Months * 10))
 
                       # Loan-specific calculations
                       - calculate loan_to_revenue_ratio as requestedAmount / verifiedAnnualRevenue
@@ -543,8 +543,8 @@ public class YamlDslValidatorNewFeaturesTest {
                       - calculate debt_service_coverage as (monthly_revenue_verified - monthlyExpenses) / new_debt_service
 
                       # Risk indicators
-                      - calculate revenue_stability_score as max(0, 100 - (revenue_variance * 100))
-                      - calculate cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
+                      - run revenue_stability_score as max(0, 100 - (revenue_variance * 100))
+                      - run cash_flow_stability_score as max(0, 100 - cashFlowVolatility)
 
                       - set financial_analysis_complete to true
                     else:
@@ -637,7 +637,7 @@ public class YamlDslValidatorNewFeaturesTest {
                 then:
                   - calculate result1 as invalidFunction(amount)  # Should be flagged
                   - calculate result2 as anotherBadFunc(100, 200)  # Should be flagged
-                  - calculate result3 as max(amount, 1000)  # This should be valid
+                  - run result3 as max(amount, 1000)  # This should be valid
 
                 output:
                   result1: number

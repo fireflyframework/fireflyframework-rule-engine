@@ -63,7 +63,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_get("https://dummyjson.com/todos/1")
+                  - run apiResponse as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -87,7 +87,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_post("https://dummyjson.com/todos/add", "test body")
+                  - run apiResponse as rest_post("https://dummyjson.com/todos/add", "test body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -109,7 +109,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_put("https://dummyjson.com/todos/1", "updated body")
+                  - run apiResponse as rest_put("https://dummyjson.com/todos/1", "updated body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -131,7 +131,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_delete("https://dummyjson.com/todos/1")
+                  - run apiResponse as rest_delete("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -149,7 +149,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_patch("https://dummyjson.com/todos/1", "patch body")
+                  - run apiResponse as rest_patch("https://dummyjson.com/todos/1", "patch body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -167,7 +167,7 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_call("GET", "https://dummyjson.com/todos/1")
+                  - run apiResponse as rest_call("GET", "https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -185,10 +185,10 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate apiResponse as rest_get("https://dummyjson.com/todos/1")
-                  - calculate todoId as json_get(apiResponse, "id")
-                  - calculate todoText as json_get(apiResponse, "todo")
-                  - calculate isCompleted as json_get(apiResponse, "completed")
+                  - run apiResponse as rest_get("https://dummyjson.com/todos/1")
+                  - run todoId as json_get(apiResponse, "id")
+                  - run todoText as json_get(apiResponse, "todo")
+                  - run isCompleted as json_get(apiResponse, "completed")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -209,9 +209,9 @@ class RestFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoResponse as rest_get("https://dummyjson.com/todos/1")
-                  - calculate todoId as json_get(todoResponse, "id")
-                  - calculate hasUserId as json_exists(todoResponse, "userId")
+                  - run todoResponse as rest_get("https://dummyjson.com/todos/1")
+                  - run todoId as json_get(todoResponse, "id")
+                  - run hasUserId as json_exists(todoResponse, "userId")
                   - calculate status as "VALID"
                 """;
 

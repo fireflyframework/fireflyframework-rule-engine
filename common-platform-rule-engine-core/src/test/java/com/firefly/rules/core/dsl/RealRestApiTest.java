@@ -73,7 +73,7 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
+                  - run todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -105,11 +105,11 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
-                  - calculate todoId as json_get(todoData, "id")
-                  - calculate todoText as json_get(todoData, "todo")
-                  - calculate isCompleted as json_get(todoData, "completed")
-                  - calculate userId as json_get(todoData, "userId")
+                  - run todoData as rest_get("https://dummyjson.com/todos/1")
+                  - run todoId as json_get(todoData, "id")
+                  - run todoText as json_get(todoData, "todo")
+                  - run isCompleted as json_get(todoData, "completed")
+                  - run userId as json_get(todoData, "userId")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -137,7 +137,7 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate postResponse as rest_post("https://dummyjson.com/todos/add", "simple test body")
+                  - run postResponse as rest_post("https://dummyjson.com/todos/add", "simple test body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -165,11 +165,11 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate todosData as rest_get("https://dummyjson.com/todos?limit=3")
-                  - calculate totalTodos as json_get(todosData, "total")
-                  - calculate todosArray as json_get(todosData, "todos")
-                  - calculate firstTodo as json_get(todosData, "todos[0]")
-                  - calculate firstTodoText as json_get(todosData, "todos[0].todo")
+                  - run todosData as rest_get("https://dummyjson.com/todos?limit=3")
+                  - run totalTodos as json_get(todosData, "total")
+                  - run todosArray as json_get(todosData, "todos")
+                  - run firstTodo as json_get(todosData, "todos[0]")
+                  - run firstTodoText as json_get(todosData, "todos[0].todo")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -196,13 +196,13 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate userProfile as rest_get("https://dummyjson.com/users/1")
-                  - calculate userName as json_get(userProfile, "firstName")
-                  - calculate userLastName as json_get(userProfile, "lastName")
-                  - calculate userAge as json_get(userProfile, "age")
-                  - calculate userEmail as json_get(userProfile, "email")
-                  - calculate hasAddress as json_exists(userProfile, "address")
-                  - calculate userCity as json_get(userProfile, "address.city")
+                  - run userProfile as rest_get("https://dummyjson.com/users/1")
+                  - run userName as json_get(userProfile, "firstName")
+                  - run userLastName as json_get(userProfile, "lastName")
+                  - run userAge as json_get(userProfile, "age")
+                  - run userEmail as json_get(userProfile, "email")
+                  - run hasAddress as json_exists(userProfile, "address")
+                  - run userCity as json_get(userProfile, "address.city")
                   - calculate eligibilityScore as userAge >= 18
                 """;
 
@@ -238,8 +238,8 @@ class RealRestApiTest {
                 when:
                   - "true"
                 then:
-                  - calculate errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
-                  - calculate hasError as json_exists(errorResponse, "error")
+                  - run errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
+                  - run hasError as json_exists(errorResponse, "error")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();

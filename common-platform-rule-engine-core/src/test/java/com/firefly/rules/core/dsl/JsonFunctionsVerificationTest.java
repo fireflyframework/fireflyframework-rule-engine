@@ -68,9 +68,9 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate userName as json_get(userData, "name")
-                  - calculate userAge as json_get(userData, "age")
-                  - calculate isActive as json_get(userData, "active")
+                  - run userName as json_get(userData, "name")
+                  - run userAge as json_get(userData, "age")
+                  - run isActive as json_get(userData, "active")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -95,9 +95,9 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate city as json_get(userData, "address.city")
-                  - calculate state as json_get(userData, "address.state")
-                  - calculate zipCode as json_get(userData, "address.zipCode")
+                  - run city as json_get(userData, "address.city")
+                  - run state as json_get(userData, "address.state")
+                  - run zipCode as json_get(userData, "address.zipCode")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -124,9 +124,9 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate firstHobby as json_get(userData, "hobbies[0]")
-                  - calculate secondHobby as json_get(userData, "hobbies[1]")
-                  - calculate firstSkillName as json_get(userData, "skills[0].name")
+                  - run firstHobby as json_get(userData, "hobbies[0]")
+                  - run secondHobby as json_get(userData, "hobbies[1]")
+                  - run firstSkillName as json_get(userData, "skills[0].name")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -158,10 +158,10 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate hasEmail as json_exists(userData, "email")
-                  - calculate hasPhone as json_exists(userData, "phone")
-                  - calculate hasAddress as json_exists(userData, "address")
-                  - calculate hasAddressCity as json_exists(userData, "address.city")
+                  - run hasEmail as json_exists(userData, "email")
+                  - run hasPhone as json_exists(userData, "phone")
+                  - run hasAddress as json_exists(userData, "address")
+                  - run hasAddressCity as json_exists(userData, "address.city")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -188,8 +188,8 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate hobbiesCount as json_size(userData, "hobbies")
-                  - calculate skillsCount as json_size(userData, "skills")
+                  - run hobbiesCount as json_size(userData, "hobbies")
+                  - run skillsCount as json_size(userData, "skills")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -212,10 +212,10 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate nameType as json_type(userData, "name")
-                  - calculate ageType as json_type(userData, "age")
-                  - calculate activeType as json_type(userData, "active")
-                  - calculate hobbiesType as json_type(userData, "hobbies")
+                  - run nameType as json_type(userData, "name")
+                  - run ageType as json_type(userData, "age")
+                  - run activeType as json_type(userData, "active")
+                  - run hobbiesType as json_type(userData, "hobbies")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -242,7 +242,7 @@ class JsonFunctionsVerificationTest {
                 when:
                   - "true"
                 then:
-                  - calculate userName as json_path(userData, "name")
+                  - run userName as json_path(userData, "name")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();

@@ -80,9 +80,9 @@ class RestAndJsonDemoTest {
                 when:
                   - "true"
                 then:
-                  - calculate userName as json_get(userData, "name")
-                  - calculate userAge as json_get(userData, "age")
-                  - calculate hasEmail as json_exists(userData, "email")
+                  - run userName as json_get(userData, "name")
+                  - run userAge as json_get(userData, "age")
+                  - run hasEmail as json_exists(userData, "email")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -108,9 +108,9 @@ class RestAndJsonDemoTest {
                 when:
                   - "true"
                 then:
-                  - calculate city as json_get(userData, "address.city")
-                  - calculate firstHobby as json_get(userData, "hobbies[0]")
-                  - calculate hobbiesCount as json_size(userData, "hobbies")
+                  - run city as json_get(userData, "address.city")
+                  - run firstHobby as json_get(userData, "hobbies[0]")
+                  - run hobbiesCount as json_size(userData, "hobbies")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -138,8 +138,8 @@ class RestAndJsonDemoTest {
                 when:
                   - "true"
                 then:
-                  - calculate creditScore as json_get(creditData, "score")
-                  - calculate hasDelinquencies as json_exists(creditData, "report.delinquencies")
+                  - run creditScore as json_get(creditData, "score")
+                  - run hasDelinquencies as json_exists(creditData, "report.delinquencies")
                   - set approval to "APPROVED"
                 """;
 

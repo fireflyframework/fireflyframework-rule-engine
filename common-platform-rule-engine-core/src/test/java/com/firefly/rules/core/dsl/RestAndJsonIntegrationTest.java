@@ -65,10 +65,10 @@ class RestAndJsonIntegrationTest {
                     when:
                       - "true"
                     then:
-                      - calculate todoResponse as rest_get("https://dummyjson.com/todos/1")
-                      - calculate todoText as json_get(todoResponse, "todo")
-                      - calculate isCompleted as json_get(todoResponse, "completed")
-                      - calculate userId as json_get(todoResponse, "userId")
+                      - run todoResponse as rest_get("https://dummyjson.com/todos/1")
+                      - run todoText as json_get(todoResponse, "todo")
+                      - run isCompleted as json_get(todoResponse, "completed")
+                      - run userId as json_get(todoResponse, "userId")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -118,10 +118,10 @@ class RestAndJsonIntegrationTest {
                     when:
                       - "true"
                     then:
-                      - calculate todo1 as rest_get("https://dummyjson.com/todos/1")
-                      - calculate todo2 as rest_get("https://dummyjson.com/todos/2")
-                      - calculate user1Id as json_get(todo1, "userId")
-                      - calculate user2Id as json_get(todo2, "userId")
+                      - run todo1 as rest_get("https://dummyjson.com/todos/1")
+                      - run todo2 as rest_get("https://dummyjson.com/todos/2")
+                      - run user1Id as json_get(todo1, "userId")
+                      - run user2Id as json_get(todo2, "userId")
                       - calculate sameUser as user1Id == user2Id
                 """;
 
@@ -147,9 +147,9 @@ class RestAndJsonIntegrationTest {
                     when:
                       - "true"
                     then:
-                      - calculate createResponse as rest_post("https://dummyjson.com/todos/add", "test body")
-                      - calculate newTodoId as json_get(createResponse, "id")
-                      - calculate newTodoText as json_get(createResponse, "todo")
+                      - run createResponse as rest_post("https://dummyjson.com/todos/add", "test body")
+                      - run newTodoId as json_get(createResponse, "id")
+                      - run newTodoText as json_get(createResponse, "todo")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -172,9 +172,9 @@ class RestAndJsonIntegrationTest {
                     when:
                       - "true"
                     then:
-                      - calculate errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
-                      - calculate hasMessage as json_get(errorResponse, "message")
-                      - calculate hasErrorMessage as json_exists(errorResponse, "message")
+                      - run errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
+                      - run hasMessage as json_get(errorResponse, "message")
+                      - run hasErrorMessage as json_exists(errorResponse, "message")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -198,8 +198,8 @@ class RestAndJsonIntegrationTest {
                       - "true"
                     then:
                       - calculate dynamicUrl as "https://dummyjson.com/todos/" + todoId
-                      - calculate todoData as rest_get(dynamicUrl)
-                      - calculate todoDescription as json_get(todoData, "todo")
+                      - run todoData as rest_get(dynamicUrl)
+                      - run todoDescription as json_get(todoData, "todo")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -224,11 +224,11 @@ class RestAndJsonIntegrationTest {
                     when:
                       - "true"
                     then:
-                      - calculate userResponse as rest_get("https://dummyjson.com/users/1")
-                      - calculate firstName as json_get(userResponse, "firstName")
-                      - calculate lastName as json_get(userResponse, "lastName")
-                      - calculate city as json_get(userResponse, "address.city")
-                      - calculate addressFieldCount as json_size(userResponse, "address")
+                      - run userResponse as rest_get("https://dummyjson.com/users/1")
+                      - run firstName as json_get(userResponse, "firstName")
+                      - run lastName as json_get(userResponse, "lastName")
+                      - run city as json_get(userResponse, "address.city")
+                      - run addressFieldCount as json_size(userResponse, "address")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();

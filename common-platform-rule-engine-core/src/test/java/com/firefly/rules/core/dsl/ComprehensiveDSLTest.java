@@ -455,10 +455,10 @@ class ComprehensiveDSLTest {
                 when:
                   - value1 greater_than 0
                 then:
-                  - calculate maximum as max(value1, value2, value3)
-                  - calculate minimum as min(value1, value2, value3)
-                  - calculate absolute as abs(value2)
-                  - calculate rounded as round(value3)
+                  - run maximum as max(value1, value2, value3)
+                  - run minimum as min(value1, value2, value3)
+                  - run absolute as abs(value2)
+                  - run rounded as round(value3)
                 output:
                   maximum: number
                   minimum: number
@@ -527,7 +527,7 @@ class ComprehensiveDSLTest {
                 when:
                   - monthlyIncome greater_than 0
                 then:
-                  - calculate dti_ratio as debt_to_income_ratio(monthlyDebt, monthlyIncome)
+                  - run dti_ratio as debt_to_income_ratio(monthlyDebt, monthlyIncome)
                   - set dti_acceptable to (dti_ratio less_than_or_equal 0.43)
                 output:
                   dti_ratio: number

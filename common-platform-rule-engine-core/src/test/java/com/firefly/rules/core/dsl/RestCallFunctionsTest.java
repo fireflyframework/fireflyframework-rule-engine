@@ -64,7 +64,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
+                  - run todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -82,7 +82,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
+                  - run todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -99,7 +99,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate postResponse as rest_post("https://dummyjson.com/todos/add", "test body")
+                  - run postResponse as rest_post("https://dummyjson.com/todos/add", "test body")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -115,7 +115,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate response as rest_get("https://dummyjson.com/todos/1")
+                  - run response as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -131,7 +131,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate response as rest_get("https://dummyjson.com/todos/1")
+                  - run response as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -147,7 +147,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate todoData as rest_get("https://dummyjson.com/todos/1")
+                  - run todoData as rest_get("https://dummyjson.com/todos/1")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -164,7 +164,7 @@ class RestCallFunctionsTest {
                 when:
                   - "true"
                 then:
-                  - calculate errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
+                  - run errorResponse as rest_get("https://invalid-url-that-does-not-exist.com/api")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
@@ -182,7 +182,7 @@ class RestCallFunctionsTest {
                   - "true"
                 then:
                   - set apiUrl to "https://dummyjson.com/todos/1"
-                  - calculate response as rest_get(apiUrl)
+                  - run response as rest_get(apiUrl)
                 """;
 
         Map<String, Object> inputData = new HashMap<>();

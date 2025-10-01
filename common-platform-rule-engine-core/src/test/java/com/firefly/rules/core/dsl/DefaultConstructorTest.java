@@ -88,7 +88,7 @@ class DefaultConstructorTest {
                 when:
                   - "true"
                 then:
-                  - calculate restResponse as rest_get("https://httpbin.org/json")
+                  - run restResponse as rest_get("https://httpbin.org/json")
                 """;
 
         Map<String, Object> inputData = new HashMap<>();
