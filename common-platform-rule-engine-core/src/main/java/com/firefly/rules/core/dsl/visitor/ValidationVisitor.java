@@ -372,10 +372,20 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
     @Override
     public List<ValidationError> visitCalculateAction(CalculateAction node) {
         List<ValidationError> errors = new ArrayList<>();
-        
+
+        // Validate that calculate only uses mathematical expressions (no function calls)
+        if (containsNonMathematicalOperation(node.getExpression())) {
+            errors.add(new ValidationError(
+                "The 'calculate' command can only be used for mathematical operations (arithmetic expressions with +, -, *, /, %, **). " +
+                "Use 'run' for function calls (e.g., max(), min(), abs()), REST API calls (rest_get, rest_post), or JSON operations (json_get, json_exists).",
+                node.getLocation(),
+                "VAL_CALC_001"
+            ));
+        }
+
         // Validate expression
         errors.addAll(node.getExpression().accept(this));
-        
+
         // Variable name validation
         if (node.getResultVariable() == null || node.getResultVariable().trim().isEmpty()) {
             errors.add(new ValidationError(
@@ -384,17 +394,71 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
                 "VAL_017"
             ));
         }
-        
+
         return errors;
     }
-    
+
+    /**
+     * Check if an expression contains non-mathematical operations (function calls, REST calls, JSON operations)
+     */
+    private boolean containsNonMathematicalOperation(Expression expression) {
+        if (expression instanceof FunctionCallExpression) {
+            return true;
+        }
+        if (expression instanceof RestCallExpression) {
+            return true;
+        }
+        if (expression instanceof JsonPathExpression) {
+            return true;
+        }
+        if (expression instanceof BinaryExpression binaryExpr) {
+            return containsNonMathematicalOperation(binaryExpr.getLeft()) ||
+                   containsNonMathematicalOperation(binaryExpr.getRight());
+        }
+        if (expression instanceof UnaryExpression unaryExpr) {
+            return containsNonMathematicalOperation(unaryExpr.getOperand());
+        }
+        if (expression instanceof ArithmeticExpression arithmeticExpr) {
+            // Check all operands in the arithmetic expression
+            if (arithmeticExpr.getOperands() != null) {
+                for (Expression operand : arithmeticExpr.getOperands()) {
+                    if (containsNonMathematicalOperation(operand)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        // LiteralExpression and VariableExpression are allowed
+        return false;
+    }
+
+    @Override
+    public List<ValidationError> visitRunAction(RunAction node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate expression
+        errors.addAll(node.getExpression().accept(this));
+
+        // Variable name validation
+        if (node.getResultVariable() == null || node.getResultVariable().trim().isEmpty()) {
+            errors.add(new ValidationError(
+                "Run action requires a result variable name",
+                node.getLocation(),
+                "VAL_019"
+            ));
+        }
+
+        return errors;
+    }
+
     @Override
     public List<ValidationError> visitSetAction(SetAction node) {
         List<ValidationError> errors = new ArrayList<>();
-        
+
         // Validate value expression
         errors.addAll(node.getValue().accept(this));
-        
+
         // Variable name validation
         if (node.getVariableName() == null || node.getVariableName().trim().isEmpty()) {
             errors.add(new ValidationError(
@@ -403,7 +467,7 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
                 "VAL_018"
             ));
         }
-        
+
         return errors;
     }
 

@@ -452,7 +452,12 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     public Object visitCalculateAction(CalculateAction node) {
         throw new UnsupportedOperationException("Actions cannot be evaluated as expressions");
     }
-    
+
+    @Override
+    public Object visitRunAction(RunAction node) {
+        throw new UnsupportedOperationException("Actions cannot be evaluated as expressions");
+    }
+
     @Override
     public Object visitSetAction(SetAction node) {
         throw new UnsupportedOperationException("Actions cannot be evaluated as expressions");

@@ -51,6 +51,7 @@ public interface ASTVisitor<T> {
     T visitFunctionCallAction(FunctionCallAction node);
     T visitConditionalAction(ConditionalAction node);
     T visitCalculateAction(CalculateAction node);
+    T visitRunAction(RunAction node);
     T visitSetAction(SetAction node);
     T visitArithmeticAction(ArithmeticAction node);
     T visitListAction(ListAction node);

@@ -150,18 +150,71 @@ public class ActionExecutor implements ASTVisitor<Void> {
     
     @Override
     public Void visitCalculateAction(CalculateAction node) {
+        // Validate that calculate only uses mathematical expressions (no function calls)
+        if (containsNonMathematicalOperation(node.getExpression())) {
+            throw new IllegalArgumentException(
+                "The 'calculate' command can only be used for mathematical operations. " +
+                "Use 'run' for function calls, REST API calls, or JSON operations. " +
+                "Expression: " + node.getExpression()
+            );
+        }
+
         Object result = node.getExpression().accept(expressionEvaluator);
         context.setComputedVariable(node.getResultVariable(), result);
-        
+
         log.debug("Calculated {} = {}", node.getResultVariable(), result);
         return null;
     }
-    
+
+    /**
+     * Check if an expression contains non-mathematical operations (function calls, REST calls, JSON operations)
+     */
+    private boolean containsNonMathematicalOperation(Expression expression) {
+        if (expression instanceof FunctionCallExpression) {
+            return true;
+        }
+        if (expression instanceof RestCallExpression) {
+            return true;
+        }
+        if (expression instanceof JsonPathExpression) {
+            return true;
+        }
+        if (expression instanceof BinaryExpression binaryExpr) {
+            return containsNonMathematicalOperation(binaryExpr.getLeft()) ||
+                   containsNonMathematicalOperation(binaryExpr.getRight());
+        }
+        if (expression instanceof UnaryExpression unaryExpr) {
+            return containsNonMathematicalOperation(unaryExpr.getOperand());
+        }
+        if (expression instanceof ArithmeticExpression arithmeticExpr) {
+            // Check all operands in the arithmetic expression
+            if (arithmeticExpr.getOperands() != null) {
+                for (Expression operand : arithmeticExpr.getOperands()) {
+                    if (containsNonMathematicalOperation(operand)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        // LiteralExpression and VariableExpression are allowed
+        return false;
+    }
+
+    @Override
+    public Void visitRunAction(RunAction node) {
+        Object result = node.getExpression().accept(expressionEvaluator);
+        context.setComputedVariable(node.getResultVariable(), result);
+
+        log.debug("Run {} = {}", node.getResultVariable(), result);
+        return null;
+    }
+
     @Override
     public Void visitSetAction(SetAction node) {
         Object value = node.getValue().accept(expressionEvaluator);
         context.setComputedVariable(node.getVariableName(), value);
-        
+
         log.debug("Set {} = {}", node.getVariableName(), value);
         return null;
     }
