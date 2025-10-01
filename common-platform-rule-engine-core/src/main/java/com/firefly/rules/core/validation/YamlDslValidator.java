@@ -456,7 +456,7 @@ public class YamlDslValidator {
     }
 
     /**
-     * Extract variables created by actions (set, calculate, etc.)
+     * Extract variables created by actions (set, calculate, run, etc.)
      */
     private Set<String> extractVariablesFromActions(List<Action> actions) {
         Set<String> variables = new HashSet<>();
@@ -466,6 +466,9 @@ public class YamlDslValidator {
                 variables.add(setAction.getVariableName());
             } else if (action instanceof CalculateAction calculateAction) {
                 variables.add(calculateAction.getResultVariable());
+            } else if (action instanceof RunAction runAction) {
+                // Run actions create computed variables (for function calls, REST calls, JSON operations)
+                variables.add(runAction.getResultVariable());
             } else if (action instanceof ListAction listAction) {
                 // List actions like append, prepend, remove also create/modify variables
                 variables.add(listAction.getListVariable());
@@ -711,6 +714,12 @@ public class YamlDslValidator {
 
         @Override
         public Void visitCalculateAction(CalculateAction node) {
+            if (node.getExpression() != null) node.getExpression().accept(this);
+            return null;
+        }
+
+        @Override
+        public Void visitRunAction(RunAction node) {
             if (node.getExpression() != null) node.getExpression().accept(this);
             return null;
         }
