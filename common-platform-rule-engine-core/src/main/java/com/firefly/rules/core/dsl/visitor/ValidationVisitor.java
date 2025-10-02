@@ -604,6 +604,88 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
     }
 
     @Override
+    public List<ValidationError> visitWhileAction(WhileAction node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate condition
+        if (node.getCondition() == null) {
+            errors.add(new ValidationError(
+                "while condition cannot be null",
+                node.getLocation(),
+                "VAL_WHILE_001"
+            ));
+        } else {
+            errors.addAll(node.getCondition().accept(this));
+        }
+
+        // Validate body actions
+        if (node.getBodyActions() == null || node.getBodyActions().isEmpty()) {
+            errors.add(new ValidationError(
+                "while body cannot be empty",
+                node.getLocation(),
+                "VAL_WHILE_002"
+            ));
+        } else {
+            // Validate each body action
+            for (Action bodyAction : node.getBodyActions()) {
+                errors.addAll(bodyAction.accept(this));
+            }
+        }
+
+        // Validate max iterations
+        if (node.getMaxIterations() <= 0) {
+            errors.add(new ValidationError(
+                "while maxIterations must be positive",
+                node.getLocation(),
+                "VAL_WHILE_003"
+            ));
+        }
+
+        return errors;
+    }
+
+    @Override
+    public List<ValidationError> visitDoWhileAction(DoWhileAction node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate body actions
+        if (node.getBodyActions() == null || node.getBodyActions().isEmpty()) {
+            errors.add(new ValidationError(
+                "do-while body cannot be empty",
+                node.getLocation(),
+                "VAL_DOWHILE_001"
+            ));
+        } else {
+            // Validate each body action
+            for (Action bodyAction : node.getBodyActions()) {
+                errors.addAll(bodyAction.accept(this));
+            }
+        }
+
+        // Validate condition
+        if (node.getCondition() == null) {
+            errors.add(new ValidationError(
+                "do-while condition cannot be null",
+                node.getLocation(),
+                "VAL_DOWHILE_002"
+            ));
+        } else {
+            errors.addAll(node.getCondition().accept(this));
+        }
+
+        // Validate max iterations
+        if (node.getMaxIterations() <= 0) {
+            errors.add(new ValidationError(
+                "do-while maxIterations must be positive",
+                node.getLocation(),
+                "VAL_DOWHILE_003"
+            ));
+        }
+
+        return errors;
+    }
+
+    @Override
     public List<ValidationError> visitJsonPathExpression(JsonPathExpression node) {
         List<ValidationError> errors = new ArrayList<>();
 
