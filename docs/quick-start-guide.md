@@ -240,6 +240,71 @@ output:
 - You can use `forEach item, index in list: action` to access the position
 - Multiple actions can be separated by semicolons: `forEach x in list: action1; action2`
 
+### Example 5: Conditional Loops with while
+
+```yaml
+name: "Accumulate to Target"
+description: "Add values until reaching a target amount"
+
+inputs:
+  - increment
+  - target
+
+when:
+  - exists increment
+  - exists target
+
+then:
+  - set total to 0
+  - set iterations to 0
+
+  # Loop until target is reached
+  - while total less_than target: calculate total as total + increment; add 1 to iterations
+
+output:
+  total: number
+  iterations: number
+```
+
+**Key while Concepts:**
+- Use `while condition: action` to repeat actions while condition is true
+- Condition is checked **before** each iteration
+- If condition is false initially, the loop never executes
+- Maximum 1000 iterations to prevent infinite loops
+- Multiple actions separated by semicolons: `while x < 10: action1; action2`
+
+### Example 6: Guaranteed Execution with do-while
+
+```yaml
+name: "Process At Least Once"
+description: "Execute action at least once, then check condition"
+
+inputs:
+  - startValue
+  - maxValue
+
+when:
+  - exists startValue
+
+then:
+  - set current to startValue
+  - set count to 0
+
+  # Always executes at least once
+  - do: multiply current by 2; add 1 to count while current less_than maxValue
+
+output:
+  current: number
+  count: number
+```
+
+**Key do-while Concepts:**
+- Use `do: action while condition` for loops that execute at least once
+- Condition is checked **after** each iteration
+- Guarantees first execution even if condition is initially false
+- Perfect for retry logic and validation scenarios
+- Multiple actions separated by semicolons: `do: action1; action2 while condition`
+
 ---
 
 ## Variable Naming Rules

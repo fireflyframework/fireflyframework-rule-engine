@@ -279,6 +279,130 @@ output:
 
 **Why This Pattern**: Shows how to use index for position-dependent calculations and logic.
 
+### Pattern: Conditional Loops with while
+
+**Use Case**: Iterating until a condition is met, accumulating values, retry logic
+
+```yaml
+name: "Accumulate Until Threshold"
+description: "Add values until reaching a target threshold"
+
+inputs:
+  - baseValue
+  - threshold
+
+when:
+  - exists baseValue
+  - exists threshold
+
+then:
+  - set total to 0
+  - set counter to 0
+
+  # Accumulate until threshold is reached
+  - while total less_than threshold: calculate total as total + baseValue; add 1 to counter
+
+  # Determine if threshold was reached
+  - if total at_least threshold then set status to "THRESHOLD_REACHED"
+  - if total less_than threshold then set status to "BELOW_THRESHOLD"
+
+output:
+  total: number
+  counter: number
+  status: string
+```
+
+**Why This Pattern**: Useful for accumulation, counting, and iterative calculations with dynamic stopping conditions.
+
+**Advanced while Example - Fibonacci Sequence:**
+
+```yaml
+name: "Generate Fibonacci Sequence"
+description: "Generate Fibonacci numbers up to a limit"
+
+inputs:
+  - limit  # Maximum value for Fibonacci numbers
+
+when:
+  - exists limit
+
+then:
+  - set fibonacci to [0, 1]
+  - set index to 1
+  - set current to 1
+
+  # Generate Fibonacci numbers while under limit
+  - while current less_than limit: set prev to fibonacci[index - 1]; set next to prev + current; append next to fibonacci; set current to next; add 1 to index
+
+output:
+  fibonacci: list
+  count: number
+```
+
+**Why This Pattern**: Demonstrates sequence generation with dynamic termination based on calculated values.
+
+### Pattern: Guaranteed Execution with do-while
+
+**Use Case**: Retry logic, validation loops, processing that must happen at least once
+
+```yaml
+name: "Retry with Backoff"
+description: "Attempt operation with guaranteed first try"
+
+inputs:
+  - initialValue
+  - maxAttempts
+
+when:
+  - exists initialValue
+
+then:
+  - set attempts to 0
+  - set result to initialValue
+
+  # Always try at least once, then retry if needed
+  - do: calculate result as result * 2; add 1 to attempts while attempts less_than maxAttempts and result less_than 100
+
+  # Determine outcome
+  - if result at_least 100 then set outcome to "SUCCESS"
+  - if result less_than 100 then set outcome to "PARTIAL"
+
+output:
+  result: number
+  attempts: number
+  outcome: string
+```
+
+**Why This Pattern**: Ensures at least one execution, perfect for retry logic and validation scenarios.
+
+**do-while Example - Build Until Condition:**
+
+```yaml
+name: "Build Sequence Until Target"
+description: "Build a sequence with guaranteed initial value"
+
+inputs:
+  - multiplier
+  - targetSize
+
+when:
+  - exists multiplier
+
+then:
+  - set sequence to []
+  - set current to 1
+  - set count to 0
+
+  # Build sequence (always adds at least one value)
+  - do: append current to sequence; multiply current by multiplier; add 1 to count while count less_than targetSize
+
+output:
+  sequence: list
+  finalValue: number
+```
+
+**Why This Pattern**: Guarantees initial data population before checking continuation conditions.
+
 ### Pattern: Multi-Factor Risk Scoring
 
 **Use Case**: Calculating risk scores from multiple factors

@@ -150,6 +150,8 @@ The DSL uses specific reserved keywords that have special meaning in the parser.
 | `call` | Function invocation | `call function with [args]` | `call log with ["Message", "INFO"]` |
 | `forEach` | Loop over list | `forEach item in list: action` | `forEach num in numbers: calculate total as total + num` |
 | `for` | Loop over list (alias) | `for item in list: action` | `for item in items: set count to count + 1` |
+| `while` | Conditional loop | `while condition: action` | `while counter less_than 10: add 1 to counter` |
+| `do` | Do-while loop | `do: action while condition` | `do: add 1 to counter while counter less_than 10` |
 | `in` | Loop list specifier | Used with forEach/for | `forEach item in items: ...` |
 | `if`/`then`/`else` | Conditional actions | `if condition then action` | `if creditScore > 700 then set tier to "PRIME"` |
 | `add` | Addition operation | `add value to variable` | `add 10 to base_score` |
@@ -586,7 +588,11 @@ The rule engine provides two commands for computed values:
 - remove "TEMPORARY" from account_flags
 ```
 
-### Loop Operations (forEach)
+### Loop Operations
+
+The rule engine supports three types of loops: `forEach` for iterating over lists, `while` for conditional loops, and `do-while` for loops that execute at least once.
+
+#### forEach Loop
 
 The `forEach` action allows you to iterate over lists and perform actions on each element.
 
@@ -656,6 +662,119 @@ The `forEach` action allows you to iterate over lists and perform actions on eac
 - Multiple actions must be separated by semicolons (`;`)
 - forEach can be nested, but keep complexity manageable for maintainability
 - The list expression can be an input variable, computed variable, or expression
+
+#### while Loop
+
+The `while` action executes actions repeatedly as long as a condition is true. The condition is checked **before** each iteration.
+
+**Basic Syntax:**
+```yaml
+# Simple while loop
+- while counter less_than 10: add 1 to counter
+
+# Multiple actions (separated by semicolons)
+- while counter less_than 10: calculate total as total + counter; add 1 to counter
+
+# Complex condition
+- while counter less_than maxValue and total less_than 100: calculate total as total + counter; add 1 to counter
+```
+
+**Common Use Cases:**
+
+```yaml
+# Count to a target value
+- set counter to 0
+- while counter less_than 10: add 1 to counter
+
+# Accumulate until threshold
+- set sum to 0
+- set index to 0
+- while sum less_than 100: calculate sum as sum + index; add 1 to index
+
+# Process with dynamic condition
+- set attempts to 0
+- set success to false
+- while attempts less_than 5 and success equals false: call tryOperation with []; add 1 to attempts
+
+# Build a sequence
+- set fibonacci to [0, 1]
+- set count to 2
+- while count less_than 10: set next to fibonacci[count - 1] + fibonacci[count - 2]; append next to fibonacci; add 1 to count
+```
+
+**Important Notes:**
+- The condition is evaluated **before** each iteration
+- If the condition is false initially, the loop body never executes
+- Maximum iterations limit: 1000 (prevents infinite loops)
+- Multiple actions must be separated by semicolons (`;`)
+- The loop variable must be modified within the loop to avoid infinite loops
+
+#### do-while Loop
+
+The `do-while` action executes actions at least once, then repeats as long as a condition is true. The condition is checked **after** each iteration.
+
+**Basic Syntax:**
+```yaml
+# Simple do-while loop
+- do: add 1 to counter while counter less_than 10
+
+# Multiple actions (separated by semicolons)
+- do: calculate total as total + counter; add 1 to counter while counter less_than 10
+
+# Complex condition
+- do: set temp to value * 2; add temp to total while total less_than 100
+```
+
+**Common Use Cases:**
+
+```yaml
+# Execute at least once, then check condition
+- set counter to 0
+- do: add 1 to counter while counter less_than 5
+
+# Process until condition met (guaranteed first execution)
+- set result to 0
+- do: calculate result as result + 10 while result less_than 50
+
+# Retry logic with guaranteed first attempt
+- set attempts to 0
+- do: call processData with []; add 1 to attempts while attempts less_than 3
+
+# Build data with initial value
+- set values to []
+- set current to 1
+- do: append current to values; multiply current by 2 while current less_than 100
+```
+
+**Important Notes:**
+- The loop body **always executes at least once**, even if the condition is initially false
+- The condition is evaluated **after** each iteration
+- Maximum iterations limit: 1000 (prevents infinite loops)
+- Multiple actions must be separated by semicolons (`;`)
+- Useful when you need guaranteed first execution before checking the condition
+
+#### Loop Comparison
+
+| Loop Type | Condition Check | Minimum Executions | Use When |
+|-----------|----------------|-------------------|----------|
+| `forEach` | N/A (iterates over list) | 0 (if list is empty) | You have a list to iterate over |
+| `while` | Before each iteration | 0 (if condition is false) | You need to check condition before executing |
+| `do-while` | After each iteration | 1 (always executes once) | You need guaranteed first execution |
+
+**Example Comparison:**
+
+```yaml
+# forEach - iterates over existing list
+- forEach item in [1, 2, 3]: calculate total as total + item
+
+# while - may not execute if condition is false
+- set counter to 10
+- while counter less_than 5: add 1 to counter  # Never executes
+
+# do-while - always executes at least once
+- set counter to 10
+- do: add 1 to counter while counter less_than 5  # Executes once, then stops
+```
 
 ### Function Call Actions
 
