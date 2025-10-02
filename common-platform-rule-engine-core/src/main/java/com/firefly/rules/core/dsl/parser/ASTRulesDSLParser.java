@@ -405,12 +405,53 @@ public class ASTRulesDSLParser {
                 return null;
             }
         } else if (actionObj instanceof Map) {
-            // Complex syntax: { set: { variable: "name", value: "value" } }
             Map<String, Object> actionMap = (Map<String, Object>) actionObj;
+
+            // Check if this is a single-entry map that might be a forEach/while/do-while action
+            // YAML interprets "forEach item in items: action" as {"forEach item in items": "action"}
+            // Same for "while condition: action" as {"while condition": "action"}
+            // Same for "do: action while condition" as {"do": "action while condition"}
+            if (actionMap.size() == 1) {
+                Map.Entry<String, Object> entry = actionMap.entrySet().iterator().next();
+                String key = entry.getKey();
+                Object value = entry.getValue();
+
+                // Check if key starts with forEach, while, or do
+                if (key.startsWith("forEach ") || key.startsWith("while ") || key.equals("do")) {
+                    // Reconstruct the action string
+                    String actionString = key + ": " + formatActionValue(value);
+                    try {
+                        Action action = dslParser.parseAction(actionString);
+                        return action;
+                    } catch (Exception e) {
+                        log.warn("Failed to parse reconstructed loop action: {}", actionString, e);
+                        // Fall through to complex action parsing
+                    }
+                }
+            }
+
+            // Complex syntax: { set: { variable: "name", value: "value" } }
             return parseComplexAction(actionMap);
         } else {
             log.warn("Unexpected action object type: {}", actionObj.getClass());
             return null;
+        }
+    }
+
+    /**
+     * Format action value for reconstruction (handles strings, lists, etc.)
+     */
+    @SuppressWarnings("unchecked")
+    private String formatActionValue(Object value) {
+        if (value instanceof String) {
+            return (String) value;
+        } else if (value instanceof List) {
+            List<Object> list = (List<Object>) value;
+            return list.stream()
+                    .map(item -> item instanceof String ? (String) item : item.toString())
+                    .collect(Collectors.joining("; "));
+        } else {
+            return value.toString();
         }
     }
 
@@ -521,6 +562,82 @@ public class ASTRulesDSLParser {
                 log.warn("Failed to parse complex forEach action: {}", actionMap, e);
                 return null;
             }
+        } else if (actionMap.containsKey("while")) {
+            Map<String, Object> whileMap = (Map<String, Object>) actionMap.get("while");
+            String condition = (String) whileMap.get("condition");
+            Object doValue = whileMap.get("do");
+
+            // Build simple syntax
+            StringBuilder simpleSyntax = new StringBuilder("while ");
+            simpleSyntax.append(condition);
+            simpleSyntax.append(": ");
+
+            // Parse body actions
+            if (doValue instanceof List) {
+                List<Object> doList = (List<Object>) doValue;
+                List<String> bodyActionStrings = new ArrayList<>();
+
+                for (Object actionObj : doList) {
+                    if (actionObj instanceof String) {
+                        bodyActionStrings.add((String) actionObj);
+                    } else if (actionObj instanceof Map) {
+                        // Recursively parse complex action and convert to string
+                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
+                        if (bodyAction != null) {
+                            bodyActionStrings.add(bodyAction.toDebugString());
+                        }
+                    }
+                }
+
+                simpleSyntax.append(String.join("; ", bodyActionStrings));
+            } else if (doValue instanceof String) {
+                simpleSyntax.append((String) doValue);
+            }
+
+            try {
+                return dslParser.parseAction(simpleSyntax.toString());
+            } catch (Exception e) {
+                log.warn("Failed to parse complex while action: {}", actionMap, e);
+                return null;
+            }
+        } else if (actionMap.containsKey("do")) {
+            Map<String, Object> doWhileMap = (Map<String, Object>) actionMap.get("do");
+            Object doValue = doWhileMap.get("actions");
+            String condition = (String) doWhileMap.get("while");
+
+            // Build simple syntax
+            StringBuilder simpleSyntax = new StringBuilder("do: ");
+
+            // Parse body actions
+            if (doValue instanceof List) {
+                List<Object> doList = (List<Object>) doValue;
+                List<String> bodyActionStrings = new ArrayList<>();
+
+                for (Object actionObj : doList) {
+                    if (actionObj instanceof String) {
+                        bodyActionStrings.add((String) actionObj);
+                    } else if (actionObj instanceof Map) {
+                        // Recursively parse complex action and convert to string
+                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
+                        if (bodyAction != null) {
+                            bodyActionStrings.add(bodyAction.toDebugString());
+                        }
+                    }
+                }
+
+                simpleSyntax.append(String.join("; ", bodyActionStrings));
+            } else if (doValue instanceof String) {
+                simpleSyntax.append((String) doValue);
+            }
+
+            simpleSyntax.append(" while ").append(condition);
+
+            try {
+                return dslParser.parseAction(simpleSyntax.toString());
+            } catch (Exception e) {
+                log.warn("Failed to parse complex do-while action: {}", actionMap, e);
+                return null;
+            }
         } else {
             log.warn("Unknown complex action type: {}", actionMap.keySet());
             return null;
@@ -556,13 +673,16 @@ public class ASTRulesDSLParser {
 
                                 // Check if this is a YAML-parsed simple syntax action
                                 // e.g., {forEach item in items: set count to 1}
+                                // e.g., {while counter < 10: add 1 to counter}
+                                // e.g., {do: add 1 to counter while counter < 10}
                                 if (map.size() == 1) {
                                     Map.Entry<String, Object> entry = map.entrySet().iterator().next();
                                     String key = entry.getKey();
                                     Object value = entry.getValue();
 
                                     // If the key starts with an action keyword, reconstruct the action string
-                                    if (key.startsWith("forEach ") || key.startsWith("for ")) {
+                                    if (key.startsWith("forEach ") || key.startsWith("for ") ||
+                                        key.startsWith("while ") || key.equals("do")) {
                                         String actionString = key + ": " + value;
                                         return dslParser.parseAction(actionString);
                                     }

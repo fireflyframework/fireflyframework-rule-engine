@@ -142,6 +142,7 @@ public enum TokenType {
     FOREACH("forEach", TokenCategory.KEYWORD),
     IN("in", TokenCategory.KEYWORD),
     DO("do", TokenCategory.KEYWORD),
+    WHILE("while", TokenCategory.KEYWORD),
 
     // Punctuation
     LPAREN("(", TokenCategory.PUNCTUATION),

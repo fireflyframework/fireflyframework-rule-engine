@@ -121,10 +121,18 @@ public class ActionParser extends BaseParser {
             return parseForEachAction();
         }
 
+        if (match(TokenType.WHILE)) {
+            return parseWhileAction();
+        }
+
+        if (match(TokenType.DO)) {
+            return parseDoWhileAction();
+        }
+
         throw error(
             "Expected action statement",
             "PARSE_002",
-            List.of("Use 'set', 'calculate', 'run', 'call', 'if', 'forEach', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
+            List.of("Use 'set', 'calculate', 'run', 'call', 'if', 'forEach', 'while', 'do', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
         );
     }
     
@@ -483,5 +491,123 @@ public class ActionParser extends BaseParser {
         } else {
             return new ForEachAction(forEachToken.getLocation(), iterationVariable, listExpression, bodyActions);
         }
+    }
+
+    /**
+     * Parse a while loop action
+     * Syntax: while condition: action
+     *         while condition: action1; action2
+     */
+    private Action parseWhileAction() {
+        Token whileToken = previous();
+
+        // Parse the condition - synchronize parser positions
+        this.conditionParser.setCurrentPosition(this.current);
+        Condition condition = conditionParser.parseCondition();
+        this.current = this.conditionParser.getCurrentPosition();
+
+        // Expect colon
+        if (!match(TokenType.COLON)) {
+            throw error(
+                "Expected ':' after while condition",
+                "PARSE_016",
+                List.of("Add ':' after the while condition", "Example: while counter < 10: add 1 to counter")
+            );
+        }
+
+        // Parse body actions (can be multiple separated by semicolons)
+        List<Action> bodyActions = new ArrayList<>();
+        do {
+            try {
+                Action action = parseAction();
+                bodyActions.add(action);
+            } catch (Exception e) {
+                // If we can't parse an action, check if we're at a natural break point
+                if (isAtEnd() || check(TokenType.NEWLINE)) {
+                    break;
+                }
+                throw e;
+            }
+
+            // Check for semicolon separator
+            if (!match(TokenType.SEMICOLON)) {
+                break;
+            }
+        } while (!isAtEnd());
+
+        if (bodyActions.isEmpty()) {
+            throw error(
+                "while body cannot be empty",
+                "PARSE_017",
+                List.of("Add at least one action in the while body")
+            );
+        }
+
+        return new WhileAction(whileToken.getLocation(), condition, bodyActions);
+    }
+
+    /**
+     * Parse a do-while loop action
+     * Syntax: do: action while condition
+     *         do: action1; action2 while condition
+     */
+    private Action parseDoWhileAction() {
+        Token doToken = previous();
+
+        // Expect colon
+        if (!match(TokenType.COLON)) {
+            throw error(
+                "Expected ':' after 'do'",
+                "PARSE_018",
+                List.of("Add ':' after 'do'", "Example: do: add 1 to counter while counter < 10")
+            );
+        }
+
+        // Parse body actions (can be multiple separated by semicolons)
+        List<Action> bodyActions = new ArrayList<>();
+        do {
+            try {
+                Action action = parseAction();
+                bodyActions.add(action);
+            } catch (Exception e) {
+                // Check if we hit the 'while' keyword
+                if (check(TokenType.WHILE)) {
+                    break;
+                }
+                throw e;
+            }
+
+            // Check for semicolon separator or while keyword
+            if (check(TokenType.WHILE)) {
+                break;
+            }
+            if (!match(TokenType.SEMICOLON)) {
+                break;
+            }
+        } while (!isAtEnd());
+
+        if (bodyActions.isEmpty()) {
+            throw error(
+                "do-while body cannot be empty",
+                "PARSE_019",
+                List.of("Add at least one action in the do-while body")
+            );
+        }
+
+        // Expect 'while' keyword
+        if (!match(TokenType.WHILE)) {
+            throw error(
+                "Expected 'while' after do-while body",
+                "PARSE_020",
+                List.of("Add 'while' keyword after the do-while body", "Example: do: add 1 to counter while counter < 10")
+            );
+        }
+
+        // Parse the condition - synchronize parser positions
+        this.conditionParser.setCurrentPosition(this.current);
+        Condition condition = conditionParser.parseCondition();
+        this.current = this.conditionParser.getCurrentPosition();
+
+        return new DoWhileAction(doToken.getLocation(), bodyActions, condition);
     }
 }
