@@ -635,6 +635,7 @@ The Python compiler supports **100% of the YAML DSL specification**:
 - ✅ Constants management with database integration
 - ✅ Variable assignments and calculations
 - ✅ Conditional logic (if/then/else)
+- ✅ Loop operations (forEach/for) for list processing
 - ✅ REST API calls and JSON processing
 - ✅ Security functions (encryption, masking)
 - ✅ Interactive execution mode
