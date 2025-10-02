@@ -490,6 +490,84 @@ public class ActionExecutor implements ASTVisitor<Void> {
     }
 
     @Override
+    public Void visitWhileAction(WhileAction node) {
+        log.debug("Executing while loop");
+
+        int iterations = 0;
+        int maxIterations = node.getMaxIterations();
+
+        // Evaluate condition before each iteration
+        while (iterations < maxIterations) {
+            // Evaluate the condition
+            Object conditionResult = node.getCondition().accept(expressionEvaluator);
+            boolean conditionMet = toBoolean(conditionResult);
+
+            if (!conditionMet) {
+                break;
+            }
+
+            // Execute body actions
+            for (Action action : node.getBodyActions()) {
+                try {
+                    action.accept(this);
+                } catch (Exception e) {
+                    log.error("Error executing while body action at iteration {}: {}", iterations, e.getMessage(), e);
+                    throw e;
+                }
+            }
+
+            iterations++;
+        }
+
+        if (iterations >= maxIterations) {
+            log.warn("while loop reached maximum iterations limit: {}", maxIterations);
+        }
+
+        log.debug("while completed: {} iterations", iterations);
+        return null;
+    }
+
+    @Override
+    public Void visitDoWhileAction(DoWhileAction node) {
+        log.debug("Executing do-while loop");
+
+        int iterations = 0;
+        int maxIterations = node.getMaxIterations();
+
+        // Execute body at least once, then check condition
+        do {
+            // Execute body actions
+            for (Action action : node.getBodyActions()) {
+                try {
+                    action.accept(this);
+                } catch (Exception e) {
+                    log.error("Error executing do-while body action at iteration {}: {}", iterations, e.getMessage(), e);
+                    throw e;
+                }
+            }
+
+            iterations++;
+
+            if (iterations >= maxIterations) {
+                log.warn("do-while loop reached maximum iterations limit: {}", maxIterations);
+                break;
+            }
+
+            // Evaluate the condition after executing the body
+            Object conditionResult = node.getCondition().accept(expressionEvaluator);
+            boolean conditionMet = toBoolean(conditionResult);
+
+            if (!conditionMet) {
+                break;
+            }
+
+        } while (iterations < maxIterations);
+
+        log.debug("do-while completed: {} iterations", iterations);
+        return null;
+    }
+
+    @Override
     public Void visitJsonPathExpression(JsonPathExpression node) {
         // Expressions don't execute actions, so return null
         return null;

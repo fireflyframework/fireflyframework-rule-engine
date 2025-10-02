@@ -21,6 +21,8 @@ import com.firefly.rules.core.dsl.condition.ComparisonCondition;
 import com.firefly.rules.core.dsl.condition.ExpressionCondition;
 import com.firefly.rules.core.dsl.condition.LogicalCondition;
 import com.firefly.rules.core.dsl.expression.*;
+import com.firefly.rules.core.dsl.action.WhileAction;
+import com.firefly.rules.core.dsl.action.DoWhileAction;
 
 /**
  * Visitor interface for traversing and operating on AST nodes.
@@ -57,6 +59,8 @@ public interface ASTVisitor<T> {
     T visitListAction(ListAction node);
     T visitCircuitBreakerAction(CircuitBreakerAction node);
     T visitForEachAction(ForEachAction node);
+    T visitWhileAction(WhileAction node);
+    T visitDoWhileAction(DoWhileAction node);
 
     // Default implementation for unknown nodes
     default T visitUnknown(ASTNode node) {
