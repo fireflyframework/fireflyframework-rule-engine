@@ -18,13 +18,14 @@ package com.firefly.rules.core.dsl;
 
 import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
 import com.firefly.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
-import com.firefly.rules.core.services.ConstantsService;
-import com.firefly.rules.core.services.JsonPathService;
-import com.firefly.rules.core.services.RestCallService;
+import com.firefly.rules.core.dsl.parser.ASTRulesDSLParser;
+import com.firefly.rules.core.dsl.parser.DSLParser;
+import com.firefly.rules.core.services.ConstantService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import reactor.core.publisher.Flux;
 
 import java.util.Map;
 
@@ -37,16 +38,17 @@ import static org.junit.jupiter.api.Assertions.*;
 public class CircuitBreakerTest {
 
     private ASTRulesEvaluationEngine evaluationEngine;
-    private ConstantsService constantsService;
-    private RestCallService restCallService;
-    private JsonPathService jsonPathService;
+    private ConstantService constantService;
 
     @BeforeEach
     void setUp() {
-        constantsService = Mockito.mock(ConstantsService.class);
-        restCallService = Mockito.mock(RestCallService.class);
-        jsonPathService = Mockito.mock(JsonPathService.class);
-        evaluationEngine = new ASTRulesEvaluationEngine(constantsService, restCallService, jsonPathService);
+        constantService = Mockito.mock(ConstantService.class);
+        Mockito.lenient().when(constantService.getConstantsByCodes(Mockito.anyList()))
+               .thenReturn(Flux.empty());
+
+        DSLParser dslParser = new DSLParser();
+        ASTRulesDSLParser parser = new ASTRulesDSLParser(dslParser);
+        evaluationEngine = new ASTRulesEvaluationEngine(parser, constantService);
     }
 
     @Test
