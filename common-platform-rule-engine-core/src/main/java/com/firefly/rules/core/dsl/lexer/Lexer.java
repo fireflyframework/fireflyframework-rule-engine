@@ -80,6 +80,7 @@ public class Lexer {
             case ',' -> addToken(TokenType.COMMA);
             case '.' -> addToken(TokenType.DOT);
             case ':' -> addToken(TokenType.COLON);
+            case ';' -> addToken(TokenType.SEMICOLON);
             case '+' -> addToken(TokenType.PLUS);
             case '-' -> addToken(TokenType.MINUS);
             case '%' -> addToken(TokenType.MODULO);

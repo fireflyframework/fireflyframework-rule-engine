@@ -136,7 +136,13 @@ public enum TokenType {
 
     // Circuit breaker keyword
     CIRCUIT_BREAKER("circuit_breaker", TokenCategory.KEYWORD),
-    
+
+    // Loop keywords
+    FOR("for", TokenCategory.KEYWORD),
+    FOREACH("forEach", TokenCategory.KEYWORD),
+    IN("in", TokenCategory.KEYWORD),
+    DO("do", TokenCategory.KEYWORD),
+
     // Punctuation
     LPAREN("(", TokenCategory.PUNCTUATION),
     RPAREN(")", TokenCategory.PUNCTUATION),
@@ -145,7 +151,8 @@ public enum TokenType {
     COMMA(",", TokenCategory.PUNCTUATION),
     DOT(".", TokenCategory.PUNCTUATION),
     COLON(":", TokenCategory.PUNCTUATION),
-    
+    SEMICOLON(";", TokenCategory.PUNCTUATION),
+
     // Special
     EOF("EOF", TokenCategory.SPECIAL),
     NEWLINE("\\n", TokenCategory.SPECIAL),

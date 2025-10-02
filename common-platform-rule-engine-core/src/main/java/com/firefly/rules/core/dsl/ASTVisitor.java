@@ -56,7 +56,8 @@ public interface ASTVisitor<T> {
     T visitArithmeticAction(ArithmeticAction node);
     T visitListAction(ListAction node);
     T visitCircuitBreakerAction(CircuitBreakerAction node);
-    
+    T visitForEachAction(ForEachAction node);
+
     // Default implementation for unknown nodes
     default T visitUnknown(ASTNode node) {
         throw new UnsupportedOperationException(

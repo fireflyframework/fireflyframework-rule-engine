@@ -29,6 +29,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -215,18 +217,12 @@ public class ASTRulesDSLParser {
         }
         
         if (yamlMap.containsKey("then")) {
-            List<String> thenStrings = convertToStringList(yamlMap.get("then"));
-            List<Action> thenActions = thenStrings.stream()
-                    .map(dslParser::parseAction)
-                    .collect(Collectors.toList());
+            List<Action> thenActions = parseActionList(yamlMap.get("then"));
             builder.thenActions(thenActions);
         }
-        
+
         if (yamlMap.containsKey("else")) {
-            List<String> elseStrings = convertToStringList(yamlMap.get("else"));
-            List<Action> elseActions = elseStrings.stream()
-                    .map(dslParser::parseAction)
-                    .collect(Collectors.toList());
+            List<Action> elseActions = parseActionList(yamlMap.get("else"));
             builder.elseActions(elseActions);
         }
         
@@ -479,6 +475,52 @@ public class ASTRulesDSLParser {
                 log.warn("Failed to parse complex call action: {}", actionMap, e);
                 return null;
             }
+        } else if (actionMap.containsKey("forEach")) {
+            Map<String, Object> forEachMap = (Map<String, Object>) actionMap.get("forEach");
+            String variable = (String) forEachMap.get("variable");
+            String index = (String) forEachMap.get("index");  // optional
+            Object inValue = forEachMap.get("in");
+            Object doValue = forEachMap.get("do");
+
+            // Build simple syntax
+            StringBuilder simpleSyntax = new StringBuilder("forEach ");
+            simpleSyntax.append(variable);
+
+            if (index != null && !index.trim().isEmpty()) {
+                simpleSyntax.append(", ").append(index);
+            }
+
+            simpleSyntax.append(" in ").append(formatValue(inValue));
+            simpleSyntax.append(": ");
+
+            // Parse body actions
+            if (doValue instanceof List) {
+                List<Object> doList = (List<Object>) doValue;
+                List<String> bodyActionStrings = new ArrayList<>();
+
+                for (Object actionObj : doList) {
+                    if (actionObj instanceof String) {
+                        bodyActionStrings.add((String) actionObj);
+                    } else if (actionObj instanceof Map) {
+                        // Recursively parse complex action and convert to string
+                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
+                        if (bodyAction != null) {
+                            bodyActionStrings.add(bodyAction.toDebugString());
+                        }
+                    }
+                }
+
+                simpleSyntax.append(String.join("; ", bodyActionStrings));
+            } else if (doValue instanceof String) {
+                simpleSyntax.append((String) doValue);
+            }
+
+            try {
+                return dslParser.parseAction(simpleSyntax.toString());
+            } catch (Exception e) {
+                log.warn("Failed to parse complex forEach action: {}", actionMap, e);
+                return null;
+            }
         } else {
             log.warn("Unknown complex action type: {}", actionMap.keySet());
             return null;
@@ -493,6 +535,56 @@ public class ASTRulesDSLParser {
             return "\"" + value + "\"";
         } else {
             return String.valueOf(value);
+        }
+    }
+
+    /**
+     * Parse a list of actions, handling both simple string syntax and complex map syntax
+     */
+    @SuppressWarnings("unchecked")
+    private List<Action> parseActionList(Object obj) {
+        if (obj instanceof List) {
+            List<Object> list = (List<Object>) obj;
+            return list.stream()
+                    .map(item -> {
+                        try {
+                            if (item instanceof String) {
+                                // Simple syntax: "set x to 5"
+                                return dslParser.parseAction((String) item);
+                            } else if (item instanceof Map) {
+                                Map<String, Object> map = (Map<String, Object>) item;
+
+                                // Check if this is a YAML-parsed simple syntax action
+                                // e.g., {forEach item in items: set count to 1}
+                                if (map.size() == 1) {
+                                    Map.Entry<String, Object> entry = map.entrySet().iterator().next();
+                                    String key = entry.getKey();
+                                    Object value = entry.getValue();
+
+                                    // If the key starts with an action keyword, reconstruct the action string
+                                    if (key.startsWith("forEach ") || key.startsWith("for ")) {
+                                        String actionString = key + ": " + value;
+                                        return dslParser.parseAction(actionString);
+                                    }
+                                }
+
+                                // Complex syntax: {forEach: {variable: x, in: items, do: [...]}}
+                                return parseComplexAction(map);
+                            } else {
+                                // Fallback: try to parse as string
+                                return dslParser.parseAction(item.toString());
+                            }
+                        } catch (Exception e) {
+                            log.error("Error parsing action: {}", item, e);
+                            throw e;
+                        }
+                    })
+                    .filter(action -> action != null)
+                    .collect(Collectors.toList());
+        } else if (obj instanceof String) {
+            return List.of(dslParser.parseAction((String) obj));
+        } else {
+            return List.of(dslParser.parseAction(obj.toString()));
         }
     }
 

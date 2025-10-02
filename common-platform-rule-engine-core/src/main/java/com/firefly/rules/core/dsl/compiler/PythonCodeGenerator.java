@@ -740,6 +740,30 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
             message, errorCode);
     }
 
+    @Override
+    public String visitForEachAction(ForEachAction node) {
+        StringBuilder code = new StringBuilder();
+        String listExpr = node.getListExpression().accept(this);
+        String iterVar = node.getIterationVariable();
+
+        // Generate for loop
+        if (node.hasIndexVariable()) {
+            String indexVar = node.getIndexVariable();
+            code.append(String.format("for %s, %s in enumerate(%s):\n", indexVar, iterVar, listExpr));
+        } else {
+            code.append(String.format("for %s in %s:\n", iterVar, listExpr));
+        }
+
+        // Indent and generate body actions
+        indentLevel++;
+        for (Action bodyAction : node.getBodyActions()) {
+            code.append(indent()).append(bodyAction.accept(this)).append("\n");
+        }
+        indentLevel--;
+
+        return code.toString();
+    }
+
     // Utility methods
     private String indent() {
         return "    ".repeat(indentLevel);

@@ -116,10 +116,15 @@ public class ActionParser extends BaseParser {
             return parseCircuitBreakerAction();
         }
 
+        // Loop actions
+        if (match(TokenType.FOREACH) || match(TokenType.FOR)) {
+            return parseForEachAction();
+        }
+
         throw error(
             "Expected action statement",
             "PARSE_002",
-            List.of("Use 'set', 'calculate', 'run', 'call', 'if', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
+            List.of("Use 'set', 'calculate', 'run', 'call', 'if', 'forEach', arithmetic operations, list operations, or 'circuit_breaker' to start an action")
         );
     }
     
@@ -370,5 +375,113 @@ public class ActionParser extends BaseParser {
         }
 
         return new CircuitBreakerAction(circuitBreakerToken.getLocation(), message);
+    }
+
+    /**
+     * Parse forEach action: "forEach item in items: action" or "forEach item, index in items: action"
+     */
+    private Action parseForEachAction() {
+        Token forEachToken = previous();
+
+        // Parse iteration variable
+        if (!check(TokenType.IDENTIFIER)) {
+            throw error(
+                "Expected iteration variable name after 'forEach'",
+                "PARSE_011",
+                List.of("Add a variable name after 'forEach', e.g., 'forEach item in items'")
+            );
+        }
+
+        Token iterationVarToken = advance();
+        String iterationVariable = iterationVarToken.getLexeme();
+
+        // Check for optional index variable (forEach item, index in items)
+        String indexVariable = null;
+        if (match(TokenType.COMMA)) {
+            if (!check(TokenType.IDENTIFIER)) {
+                throw error(
+                    "Expected index variable name after comma",
+                    "PARSE_012",
+                    List.of("Add an index variable name after comma, e.g., 'forEach item, index in items'")
+                );
+            }
+            Token indexVarToken = advance();
+            indexVariable = indexVarToken.getLexeme();
+        }
+
+        // Expect 'in' keyword
+        if (!match(TokenType.IN)) {
+            throw error(
+                "Expected 'in' after iteration variable",
+                "PARSE_013",
+                List.of("Add 'in' keyword, e.g., 'forEach item in items'")
+            );
+        }
+
+        // Parse the list expression
+        this.expressionParser.setCurrentPosition(this.current);
+        Expression listExpression = this.expressionParser.parseExpression();
+        this.current = this.expressionParser.getCurrentPosition();
+
+        // Expect ':' or 'do' before body actions
+        boolean hasColon = match(TokenType.COLON);
+        boolean hasDo = match(TokenType.DO);
+
+        if (!hasColon && !hasDo) {
+            throw error(
+                "Expected ':' or 'do' before forEach body",
+                "PARSE_014",
+                List.of("Add ':' or 'do' before the forEach actions, e.g., 'forEach item in items: set total to total + item'")
+            );
+        }
+
+        // Parse body actions (can be multiple actions separated by semicolons)
+        List<Action> bodyActions = new java.util.ArrayList<>();
+
+        // For simple syntax with colon, parse actions until end of line or semicolon
+        do {
+            // Skip any leading semicolons
+            while (match(TokenType.SEMICOLON)) {
+                // Skip
+            }
+
+            if (isAtEnd()) {
+                break;
+            }
+
+            // Save position to check if we made progress
+            int savedPosition = current;
+
+            // Try to parse an action
+            try {
+                Action bodyAction = parseAction();
+                bodyActions.add(bodyAction);
+            } catch (Exception e) {
+                // If we couldn't parse an action and haven't made progress, break
+                if (current == savedPosition) {
+                    break;
+                }
+                throw e;
+            }
+
+            // Check for semicolon separator
+            if (!match(TokenType.SEMICOLON)) {
+                break;
+            }
+        } while (!isAtEnd());
+
+        if (bodyActions.isEmpty()) {
+            throw error(
+                "forEach body cannot be empty",
+                "PARSE_015",
+                List.of("Add at least one action in the forEach body")
+            );
+        }
+
+        if (indexVariable != null) {
+            return new ForEachAction(forEachToken.getLocation(), iterationVariable, indexVariable, listExpression, bodyActions);
+        } else {
+            return new ForEachAction(forEachToken.getLocation(), iterationVariable, listExpression, bodyActions);
+        }
     }
 }

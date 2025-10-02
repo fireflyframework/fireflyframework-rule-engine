@@ -751,6 +751,23 @@ public class YamlDslValidator {
         }
 
         @Override
+        public Void visitForEachAction(ForEachAction node) {
+            // Collect variable references from list expression
+            if (node.getListExpression() != null) {
+                node.getListExpression().accept(this);
+            }
+
+            // Collect variable references from body actions
+            if (node.getBodyActions() != null) {
+                for (Action bodyAction : node.getBodyActions()) {
+                    bodyAction.accept(this);
+                }
+            }
+
+            return null;
+        }
+
+        @Override
         public Void visitJsonPathExpression(JsonPathExpression node) {
             // Visit the source expression to collect any variable references
             if (node.getSourceExpression() != null) {

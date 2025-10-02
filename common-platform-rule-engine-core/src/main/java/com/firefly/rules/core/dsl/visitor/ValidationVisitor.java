@@ -554,6 +554,56 @@ public class ValidationVisitor implements ASTVisitor<List<ValidationError>> {
     }
 
     @Override
+    public List<ValidationError> visitForEachAction(ForEachAction node) {
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate iteration variable name
+        if (node.getIterationVariable() == null || node.getIterationVariable().trim().isEmpty()) {
+            errors.add(new ValidationError(
+                "forEach iteration variable name cannot be empty",
+                node.getLocation(),
+                "VAL_FOREACH_001"
+            ));
+        }
+
+        // Validate index variable name if present
+        if (node.hasIndexVariable() && (node.getIndexVariable() == null || node.getIndexVariable().trim().isEmpty())) {
+            errors.add(new ValidationError(
+                "forEach index variable name cannot be empty",
+                node.getLocation(),
+                "VAL_FOREACH_002"
+            ));
+        }
+
+        // Validate list expression
+        if (node.getListExpression() == null) {
+            errors.add(new ValidationError(
+                "forEach list expression cannot be null",
+                node.getLocation(),
+                "VAL_FOREACH_003"
+            ));
+        } else {
+            errors.addAll(node.getListExpression().accept(this));
+        }
+
+        // Validate body actions
+        if (node.getBodyActions() == null || node.getBodyActions().isEmpty()) {
+            errors.add(new ValidationError(
+                "forEach body cannot be empty - at least one action is required",
+                node.getLocation(),
+                "VAL_FOREACH_004"
+            ));
+        } else {
+            // Validate each body action
+            for (Action bodyAction : node.getBodyActions()) {
+                errors.addAll(bodyAction.accept(this));
+            }
+        }
+
+        return errors;
+    }
+
+    @Override
     public List<ValidationError> visitJsonPathExpression(JsonPathExpression node) {
         List<ValidationError> errors = new ArrayList<>();
 

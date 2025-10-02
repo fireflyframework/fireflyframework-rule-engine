@@ -437,6 +437,53 @@ public class ActionExecutor implements ASTVisitor<Void> {
     }
 
     @Override
+    public Void visitForEachAction(ForEachAction node) {
+        log.debug("Executing forEach action: {} in {}", node.getIterationVariable(), node.getListExpression());
+
+        // Evaluate the list expression
+        Object listValue = node.getListExpression().accept(expressionEvaluator);
+
+        // Convert to list if needed
+        java.util.List<?> list;
+        if (listValue instanceof java.util.List) {
+            list = (java.util.List<?>) listValue;
+        } else if (listValue == null) {
+            log.warn("forEach list expression evaluated to null, skipping iteration");
+            return null;
+        } else {
+            // Wrap single value in a list
+            list = java.util.List.of(listValue);
+        }
+
+        // Iterate over the list
+        int index = 0;
+        for (Object item : list) {
+            // Set the iteration variable in the context
+            context.setComputedVariable(node.getIterationVariable(), item);
+
+            // Set the index variable if present
+            if (node.hasIndexVariable()) {
+                context.setComputedVariable(node.getIndexVariable(), index);
+            }
+
+            // Execute body actions
+            for (Action bodyAction : node.getBodyActions()) {
+                try {
+                    bodyAction.accept(this);
+                } catch (Exception e) {
+                    log.error("Error executing forEach body action at index {}: {}", index, e.getMessage(), e);
+                    throw e;
+                }
+            }
+
+            index++;
+        }
+
+        log.debug("forEach completed: {} iterations", list.size());
+        return null;
+    }
+
+    @Override
     public Void visitJsonPathExpression(JsonPathExpression node) {
         // Expressions don't execute actions, so return null
         return null;
