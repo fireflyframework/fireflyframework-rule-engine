@@ -197,6 +197,49 @@ output:
   issues: list
 ```
 
+### Example 4: Processing Lists with forEach
+
+```yaml
+name: "Transaction Summary"
+description: "Calculate total and average from a list of transactions"
+
+inputs:
+  - transactions  # List of transaction amounts
+
+when:
+  - exists transactions
+
+then:
+  - set total to 0
+  - set count to 0
+
+  # Sum all transactions
+  - forEach amount in transactions: calculate total as total + amount
+
+  # Count transactions
+  - forEach amount in transactions: add 1 to count
+
+  # Calculate average
+  - if count greater_than 0 then calculate average as total / count
+  - if count equals 0 then set average to 0
+
+else:
+  - set total to 0
+  - set count to 0
+  - set average to 0
+
+output:
+  total: number
+  count: number
+  average: number
+```
+
+**Key forEach Concepts:**
+- Use `forEach item in list: action` to process each element
+- The iteration variable (`amount`) is available only within the forEach
+- You can use `forEach item, index in list: action` to access the position
+- Multiple actions can be separated by semicolons: `forEach x in list: action1; action2`
+
 ---
 
 ## Variable Naming Rules

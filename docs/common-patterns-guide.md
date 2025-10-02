@@ -149,6 +149,136 @@ output:
 
 *For teams ready to handle more sophisticated business logic*
 
+### Pattern: List Processing with forEach
+
+**Use Case**: Processing collections of data, aggregating values, filtering lists
+
+```yaml
+name: "Transaction Analysis"
+description: "Analyze a list of transactions to calculate totals and identify patterns"
+
+inputs:
+  - transactions  # List of transaction amounts
+
+when:
+  - exists transactions
+
+then:
+  - set total to 0
+  - set count to 0
+  - set largeTransactionCount to 0
+  - set averageAmount to 0
+
+  # Sum all transactions
+  - forEach amount in transactions: calculate total as total + amount
+
+  # Count transactions
+  - forEach amount in transactions: add 1 to count
+
+  # Count large transactions (over 1000)
+  - forEach amount in transactions: if amount greater_than 1000 then add 1 to largeTransactionCount
+
+  # Calculate average
+  - if count greater_than 0 then calculate averageAmount as total / count
+
+  # Determine transaction pattern
+  - if largeTransactionCount greater_than count / 2 then set pattern to "HIGH_VALUE"
+  - if largeTransactionCount greater_than 0 and largeTransactionCount at_most count / 2 then set pattern to "MIXED"
+  - if largeTransactionCount equals 0 then set pattern to "STANDARD"
+
+else:
+  - set total to 0
+  - set count to 0
+  - set pattern to "NO_DATA"
+
+output:
+  total: number
+  count: number
+  averageAmount: number
+  largeTransactionCount: number
+  pattern: text
+```
+
+**Why This Pattern**: Efficient list processing, multiple aggregations in one pass, clear business logic.
+
+**Advanced forEach Example - Building Filtered Lists:**
+
+```yaml
+name: "Score Filtering and Categorization"
+description: "Filter and categorize test scores"
+
+inputs:
+  - scores  # List of student scores
+
+when:
+  - exists scores
+
+then:
+  - set passingScores to []
+  - set failingScores to []
+  - set excellentCount to 0
+  - set passCount to 0
+  - set failCount to 0
+
+  # Categorize each score
+  - forEach score in scores: if score at_least 90 then add 1 to excellentCount
+  - forEach score in scores: if score at_least 70 and score less_than 90 then add 1 to passCount
+  - forEach score in scores: if score less_than 70 then add 1 to failCount
+
+  # Build filtered lists
+  - forEach score in scores: if score at_least 70 then append score to passingScores
+  - forEach score in scores: if score less_than 70 then append score to failingScores
+
+  # Calculate statistics
+  - calculate totalStudents as excellentCount + passCount + failCount
+  - if totalStudents greater_than 0 then calculate passRate as (excellentCount + passCount) / totalStudents * 100
+
+else:
+  - set passRate to 0
+  - set totalStudents to 0
+
+output:
+  passingScores: list
+  failingScores: list
+  excellentCount: number
+  passCount: number
+  failCount: number
+  passRate: number
+  totalStudents: number
+```
+
+**Why This Pattern**: Demonstrates filtering, categorization, and statistical analysis on lists.
+
+**forEach with Index Example:**
+
+```yaml
+name: "Position-Based Processing"
+description: "Process items with position-dependent logic"
+
+inputs:
+  - items  # List of items to process
+
+when:
+  - exists items
+
+then:
+  - set weightedSum to 0
+  - set processedItems to []
+
+  # Calculate weighted sum (later items have higher weight)
+  - forEach item, index in items: calculate weightedSum as weightedSum + (item * (index + 1))
+
+  # Process with position awareness
+  - forEach item, position in items: if position equals 0 then append item * 2 to processedItems
+  - forEach item, position in items: if position greater_than 0 then append item to processedItems
+
+output:
+  weightedSum: number
+  processedItems: list
+```
+
+**Why This Pattern**: Shows how to use index for position-dependent calculations and logic.
+
 ### Pattern: Multi-Factor Risk Scoring
 
 **Use Case**: Calculating risk scores from multiple factors

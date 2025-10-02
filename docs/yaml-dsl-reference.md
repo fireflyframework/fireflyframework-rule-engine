@@ -145,8 +145,12 @@ The DSL uses specific reserved keywords that have special meaning in the parser.
 | Keyword | Purpose | Syntax | Example |
 |---------|---------|--------|---------|
 | `set` | Variable assignment | `set variable to value` | `set approval_status to "APPROVED"` |
-| `calculate` | Expression evaluation | `calculate variable as expression` | `calculate debt_ratio as monthlyDebt / annualIncome` |
+| `calculate` | Mathematical expression | `calculate variable as expression` | `calculate debt_ratio as monthlyDebt / annualIncome` |
+| `run` | Function/API invocation | `run variable as function(args)` | `run maximum as max(value1, value2)` |
 | `call` | Function invocation | `call function with [args]` | `call log with ["Message", "INFO"]` |
+| `forEach` | Loop over list | `forEach item in list: action` | `forEach num in numbers: calculate total as total + num` |
+| `for` | Loop over list (alias) | `for item in list: action` | `for item in items: set count to count + 1` |
+| `in` | Loop list specifier | Used with forEach/for | `forEach item in items: ...` |
 | `if`/`then`/`else` | Conditional actions | `if condition then action` | `if creditScore > 700 then set tier to "PRIME"` |
 | `add` | Addition operation | `add value to variable` | `add 10 to base_score` |
 | `subtract` | Subtraction operation | `subtract value from variable` | `subtract penalty from total_score` |
@@ -581,6 +585,77 @@ The rule engine provides two commands for computed values:
 - prepend "PRIORITY" to processing_flags
 - remove "TEMPORARY" from account_flags
 ```
+
+### Loop Operations (forEach)
+
+The `forEach` action allows you to iterate over lists and perform actions on each element.
+
+**Basic Syntax:**
+```yaml
+# Simple iteration
+- forEach item in items: set total to total + item
+
+# With index variable
+- forEach item, index in items: set processedItems[index] to item * 2
+
+# Multiple actions (separated by semicolons)
+- forEach num in numbers: set temp to num * 2; calculate total as total + temp
+```
+
+**Common Use Cases:**
+
+```yaml
+# Sum all values in a list
+- set total to 0
+- forEach amount in amounts: calculate total as total + amount
+
+# Process each item with conditions
+- set validCount to 0
+- forEach score in scores: if score at_least 70 then add 1 to validCount
+
+# Build a new list from existing data
+- set doubledValues to []
+- forEach value in values: append value * 2 to doubledValues
+
+# Iterate with index for position-based logic
+- set indexSum to 0
+- forEach item, index in items: calculate indexSum as indexSum + index
+
+# String concatenation
+- set sentence to ""
+- forEach word in words: set sentence to sentence + word + " "
+
+# Filter and accumulate
+- set evenSum to 0
+- forEach num in numbers: if num % 2 equals 0 then calculate evenSum as evenSum + num
+```
+
+**Advanced Examples:**
+
+```yaml
+# Multi-step processing in forEach
+- set processedData to []
+- forEach record in records: set temp to record * 1.1; append temp to processedData
+
+# Nested conditions within forEach
+- set highCount to 0
+- set mediumCount to 0
+- set lowCount to 0
+- forEach score in scores: if score at_least 80 then add 1 to highCount
+- forEach score in scores: if score at_least 60 and score less_than 80 then add 1 to mediumCount
+- forEach score in scores: if score less_than 60 then add 1 to lowCount
+
+# Using index for calculations
+- set weightedSum to 0
+- forEach value, position in values: calculate weightedSum as weightedSum + (value * position)
+```
+
+**Important Notes:**
+- The iteration variable (e.g., `item`) is available only within the forEach body
+- The index variable (if specified) starts at 0
+- Multiple actions must be separated by semicolons (`;`)
+- forEach can be nested, but keep complexity manageable for maintainability
+- The list expression can be an input variable, computed variable, or expression
 
 ### Function Call Actions
 
