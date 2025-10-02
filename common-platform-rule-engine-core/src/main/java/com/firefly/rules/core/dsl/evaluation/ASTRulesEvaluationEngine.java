@@ -151,8 +151,9 @@ public class ASTRulesEvaluationEngine {
             JsonLogger.info(log, operationId, "Constants loaded from database: " + context.getSystemConstants().keySet());
         }
 
+        boolean conditionResult = false;  // Declare outside try block for circuit breaker catch
+
         try {
-            boolean conditionResult = false;
             
             // Handle simplified syntax (when/then/else)
             if (rulesDSL.isSimpleSyntax()) {
@@ -198,7 +199,24 @@ public class ASTRulesEvaluationEngine {
                     .circuitBreakerTriggered(context.isCircuitBreakerTriggered())
                     .circuitBreakerMessage(context.getCircuitBreakerMessage())
                     .build();
-                    
+
+        } catch (com.firefly.rules.core.dsl.exception.CircuitBreakerException e) {
+            // Circuit breaker is a controlled stop, not an error
+            long executionTime = System.currentTimeMillis() - context.getStartTime();
+            Map<String, Object> outputData = generateOutput(rulesDSL, context, conditionResult);
+
+            JsonLogger.info(log, operationId, "Rule evaluation stopped by circuit breaker: " + e.getCircuitBreakerMessage());
+            JsonLogger.info(log, operationId, "Execution time: " + executionTime + "ms");
+
+            return ASTRulesEvaluationResult.builder()
+                    .success(true)  // Circuit breaker is a controlled stop, not an error
+                    .conditionResult(conditionResult)
+                    .outputData(outputData)
+                    .executionTimeMs(executionTime)
+                    .circuitBreakerTriggered(true)
+                    .circuitBreakerMessage(e.getCircuitBreakerMessage())
+                    .build();
+
         } catch (Exception e) {
             JsonLogger.error(log, operationId, "Error during AST-based rules evaluation", e);
             return ASTRulesEvaluationResult.builder()
@@ -265,6 +283,12 @@ public class ASTRulesEvaluationEngine {
 
                 JsonLogger.info(log, context.getOperationId(),
                     String.format("Action %d completed successfully", i + 1));
+            } catch (com.firefly.rules.core.dsl.exception.CircuitBreakerException e) {
+                // Circuit breaker is a controlled stop, not an error
+                JsonLogger.info(log, context.getOperationId(),
+                    "Circuit breaker triggered: " + e.getCircuitBreakerMessage() + " - stopping execution");
+                // Re-throw to stop execution immediately
+                throw e;
             } catch (Exception e) {
                 String operationId = context.getOperationId();
                 JsonLogger.error(log, operationId, "Error executing action: " + action.toDebugString(), e);
