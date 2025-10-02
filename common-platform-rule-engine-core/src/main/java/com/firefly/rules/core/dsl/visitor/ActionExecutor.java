@@ -432,8 +432,14 @@ public class ActionExecutor implements ASTVisitor<Void> {
     public Void visitCircuitBreakerAction(CircuitBreakerAction node) {
         log.info("Circuit breaker triggered: {}", node.getMessage());
 
-        // Create a circuit breaker exception to stop rule execution
-        throw new RuntimeException("Circuit breaker: " + node.getMessage());
+        // Trigger circuit breaker in context
+        context.triggerCircuitBreaker(node.getMessage());
+
+        // Throw circuit breaker exception to stop rule execution
+        throw new com.firefly.rules.core.dsl.exception.CircuitBreakerException(
+            node.getMessage(),
+            node.getErrorCode()
+        );
     }
 
     @Override
