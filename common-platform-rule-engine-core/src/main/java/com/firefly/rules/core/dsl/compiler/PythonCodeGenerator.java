@@ -764,6 +764,50 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         return code.toString();
     }
 
+    @Override
+    public String visitWhileAction(WhileAction node) {
+        StringBuilder code = new StringBuilder();
+        String condition = node.getCondition().accept(this);
+
+        // Generate while loop with iteration limit
+        code.append(String.format("_while_iterations = 0\n"));
+        code.append(indent()).append(String.format("while %s and _while_iterations < %d:\n", condition, node.getMaxIterations()));
+
+        // Indent and generate body actions
+        indentLevel++;
+        for (Action bodyAction : node.getBodyActions()) {
+            code.append(indent()).append(bodyAction.accept(this)).append("\n");
+        }
+        code.append(indent()).append("_while_iterations += 1\n");
+        indentLevel--;
+
+        return code.toString();
+    }
+
+    @Override
+    public String visitDoWhileAction(DoWhileAction node) {
+        StringBuilder code = new StringBuilder();
+        String condition = node.getCondition().accept(this);
+
+        // Generate do-while loop (Python doesn't have do-while, so we use while True with break)
+        code.append("_dowhile_iterations = 0\n");
+        code.append(indent()).append("while True:\n");
+
+        // Indent and generate body actions
+        indentLevel++;
+        for (Action bodyAction : node.getBodyActions()) {
+            code.append(indent()).append(bodyAction.accept(this)).append("\n");
+        }
+        code.append(indent()).append("_dowhile_iterations += 1\n");
+        code.append(indent()).append(String.format("if not (%s) or _dowhile_iterations >= %d:\n", condition, node.getMaxIterations()));
+        indentLevel++;
+        code.append(indent()).append("break\n");
+        indentLevel--;
+        indentLevel--;
+
+        return code.toString();
+    }
+
     // Utility methods
     private String indent() {
         return "    ".repeat(indentLevel);
