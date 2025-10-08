@@ -16,7 +16,7 @@
 
 package com.firefly.rules.core.services;
 
-import com.firefly.rules.core.cache.CacheProvider;
+import com.firefly.common.cache.CacheProviderType;
 import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.firefly.rules.interfaces.dtos.crud.ConstantDTO;
 import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
@@ -232,7 +232,7 @@ public interface CacheService {
      * Cache provider information.
      */
     record CacheProviderInfo(
-            CacheProvider.CacheProviderType providerType,
+            CacheProviderType providerType,
             String description,
             boolean isDistributed,
             List<String> cacheNames

@@ -16,7 +16,8 @@
 
 package com.firefly.rules.core.services.impl;
 
-import com.firefly.rules.core.cache.CacheProvider;
+import com.firefly.common.cache.CacheProviderType;
+import com.firefly.common.cache.manager.FireflyCacheManager;
 import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.firefly.rules.core.services.CacheService;
 import com.firefly.rules.core.services.ConstantService;
@@ -25,7 +26,6 @@ import com.firefly.rules.interfaces.dtos.crud.RuleDefinitionDTO;
 import com.firefly.rules.interfaces.dtos.validation.ValidationResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -38,33 +38,33 @@ import java.util.Optional;
 
 /**
  * Implementation of the CacheService interface.
- * Provides high-performance caching operations using Caffeine cache.
+ * Provides high-performance caching operations using lib-common-cache.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CacheServiceImpl implements CacheService {
 
-    @Qualifier("astCacheProvider")
-    private final CacheProvider astCacheProvider;
-
-    @Qualifier("constantsCacheProvider")
-    private final CacheProvider constantsCacheProvider;
-
-    @Qualifier("ruleDefinitionsCacheProvider")
-    private final CacheProvider ruleDefinitionsCacheProvider;
-
-    @Qualifier("validationCacheProvider")
-    private final CacheProvider validationCacheProvider;
-    
+    private final FireflyCacheManager cacheManager;
     private final ConstantService constantService;
+
+    // Cache key prefixes for different cache types
+    // Final format: firefly:cache:{cacheName}::rule-engine:{logicalCacheType}:{key}
+    private static final String RULE_ENGINE_PREFIX = ":rule-engine:";
+    private static final String AST_PREFIX = RULE_ENGINE_PREFIX + "ast:";
+    private static final String CONSTANT_PREFIX = RULE_ENGINE_PREFIX + "constant:";
+    private static final String RULE_DEF_PREFIX = RULE_ENGINE_PREFIX + "rule-def:";
+    private static final String VALIDATION_PREFIX = RULE_ENGINE_PREFIX + "validation:";
 
     // AST Cache Operations
 
     @Override
     public Optional<ASTRulesDSL> getCachedAST(String cacheKey) {
         try {
-            return astCacheProvider.get(cacheKey, ASTRulesDSL.class);
+            String fullKey = AST_PREFIX + cacheKey;
+            return cacheManager.get(fullKey, ASTRulesDSL.class)
+                    .blockOptional()
+                    .orElse(Optional.empty());
         } catch (Exception e) {
             log.warn("Error retrieving AST from cache for key: {}", cacheKey, e);
             return Optional.empty();
@@ -74,7 +74,8 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void cacheAST(String cacheKey, ASTRulesDSL astModel) {
         try {
-            astCacheProvider.put(cacheKey, astModel);
+            String fullKey = AST_PREFIX + cacheKey;
+            cacheManager.put(fullKey, astModel).subscribe();
             log.debug("Cached AST model with key: {}", cacheKey);
         } catch (Exception e) {
             log.warn("Error caching AST model for key: {}", cacheKey, e);
@@ -104,13 +105,15 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void invalidateAST(String cacheKey) {
-        astCacheProvider.evict(cacheKey);
+        String fullKey = AST_PREFIX + cacheKey;
+        cacheManager.evict(fullKey).subscribe();
         log.debug("Invalidated AST cache entry for key: {}", cacheKey);
     }
 
     @Override
     public void clearASTCache() {
-        astCacheProvider.clear();
+        // Clear all AST entries by pattern (if supported) or clear entire cache
+        cacheManager.clear().subscribe();
         log.info("Cleared all AST cache entries");
     }
 
@@ -119,7 +122,10 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public Optional<ConstantDTO> getCachedConstant(String code) {
         try {
-            return constantsCacheProvider.get(code, ConstantDTO.class);
+            String fullKey = CONSTANT_PREFIX + code;
+            return cacheManager.get(fullKey, ConstantDTO.class)
+                    .blockOptional()
+                    .orElse(Optional.empty());
         } catch (Exception e) {
             log.warn("Error retrieving constant from cache for code: {}", code, e);
             return Optional.empty();
@@ -129,7 +135,8 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void cacheConstant(String code, ConstantDTO constant) {
         try {
-            constantsCacheProvider.put(code, constant);
+            String fullKey = CONSTANT_PREFIX + code;
+            cacheManager.put(fullKey, constant).subscribe();
             log.debug("Cached constant with code: {}", code);
         } catch (Exception e) {
             log.warn("Error caching constant for code: {}", code, e);
@@ -154,13 +161,14 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void invalidateConstant(String code) {
-        constantsCacheProvider.evict(code);
+        String fullKey = CONSTANT_PREFIX + code;
+        cacheManager.evict(fullKey).subscribe();
         log.debug("Invalidated constants cache entry for code: {}", code);
     }
 
     @Override
     public void clearConstantsCache() {
-        constantsCacheProvider.clear();
+        cacheManager.clear().subscribe();
         log.info("Cleared all constants cache entries");
     }
 
@@ -169,7 +177,10 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public Optional<RuleDefinitionDTO> getCachedRuleDefinition(String code) {
         try {
-            return ruleDefinitionsCacheProvider.get(code, RuleDefinitionDTO.class);
+            String fullKey = RULE_DEF_PREFIX + code;
+            return cacheManager.get(fullKey, RuleDefinitionDTO.class)
+                    .blockOptional()
+                    .orElse(Optional.empty());
         } catch (Exception e) {
             log.warn("Error retrieving rule definition from cache for code: {}", code, e);
             return Optional.empty();
@@ -179,7 +190,8 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void cacheRuleDefinition(String code, RuleDefinitionDTO ruleDefinition) {
         try {
-            ruleDefinitionsCacheProvider.put(code, ruleDefinition);
+            String fullKey = RULE_DEF_PREFIX + code;
+            cacheManager.put(fullKey, ruleDefinition).subscribe();
             log.debug("Cached rule definition with code: {}", code);
         } catch (Exception e) {
             log.warn("Error caching rule definition for code: {}", code, e);
@@ -188,13 +200,14 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void invalidateRuleDefinition(String code) {
-        ruleDefinitionsCacheProvider.evict(code);
+        String fullKey = RULE_DEF_PREFIX + code;
+        cacheManager.evict(fullKey).subscribe();
         log.debug("Invalidated rule definitions cache entry for code: {}", code);
     }
 
     @Override
     public void clearRuleDefinitionsCache() {
-        ruleDefinitionsCacheProvider.clear();
+        cacheManager.clear().subscribe();
         log.info("Cleared all rule definitions cache entries");
     }
 
@@ -203,7 +216,10 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public Optional<ValidationResult> getCachedValidationResult(String cacheKey) {
         try {
-            return validationCacheProvider.get(cacheKey, ValidationResult.class);
+            String fullKey = VALIDATION_PREFIX + cacheKey;
+            return cacheManager.get(fullKey, ValidationResult.class)
+                    .blockOptional()
+                    .orElse(Optional.empty());
         } catch (Exception e) {
             log.warn("Error retrieving validation result from cache for key: {}", cacheKey, e);
             return Optional.empty();
@@ -213,7 +229,8 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void cacheValidationResult(String cacheKey, ValidationResult validationResult) {
         try {
-            validationCacheProvider.put(cacheKey, validationResult);
+            String fullKey = VALIDATION_PREFIX + cacheKey;
+            cacheManager.put(fullKey, validationResult).subscribe();
             log.debug("Cached validation result with key: {}", cacheKey);
         } catch (Exception e) {
             log.warn("Error caching validation result for key: {}", cacheKey, e);
@@ -222,13 +239,14 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void invalidateValidationResult(String cacheKey) {
-        validationCacheProvider.evict(cacheKey);
+        String fullKey = VALIDATION_PREFIX + cacheKey;
+        cacheManager.evict(fullKey).subscribe();
         log.debug("Invalidated validation cache entry for key: {}", cacheKey);
     }
 
     @Override
     public void clearValidationCache() {
-        validationCacheProvider.clear();
+        cacheManager.clear().subscribe();
         log.info("Cleared all validation cache entries");
     }
 
@@ -236,55 +254,43 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public Mono<CacheStatistics> getCacheStatistics() {
-        return Mono.fromCallable(() -> {
-            CacheProvider.CacheStatistics astStats = astCacheProvider.getStatistics();
-            CacheProvider.CacheStatistics constantsStats = constantsCacheProvider.getStatistics();
-            CacheProvider.CacheStatistics ruleDefinitionsStats = ruleDefinitionsCacheProvider.getStatistics();
-            CacheProvider.CacheStatistics validationStats = validationCacheProvider.getStatistics();
-
-            return new CacheStatistics(
-                    createCacheStat(astStats),
-                    createCacheStat(constantsStats),
-                    createCacheStat(ruleDefinitionsStats),
-                    createCacheStat(validationStats)
-            );
-        });
-    }
-
-    private CacheStat createCacheStat(CacheProvider.CacheStatistics stats) {
-        return new CacheStat(
-                stats.cacheName(),
-                stats.size(),
-                stats.hitRate(),
-                stats.hitCount(),
-                stats.missCount(),
-                stats.evictionCount(),
-                stats.averageLoadTime()
-        );
+        return cacheManager.getStats()
+                .map(stats -> {
+                    CacheStat cacheStat = new CacheStat(
+                            stats.getCacheName(),
+                            stats.getEntryCount(),
+                            stats.getHitRate(),
+                            stats.getHitCount(),
+                            stats.getMissCount(),
+                            stats.getEvictionCount(),
+                            stats.getAverageLoadTimeMillis()
+                    );
+                    // Return the same stats for all cache types since we're using a single cache manager
+                    return new CacheStatistics(cacheStat, cacheStat, cacheStat, cacheStat);
+                });
     }
 
     @Override
     public CacheProviderInfo getCacheProviderInfo() {
-        CacheProvider.CacheProviderType providerType = astCacheProvider.getProviderType();
+        CacheProviderType providerType = cacheManager.getCacheType() == com.firefly.common.cache.core.CacheType.CAFFEINE
+                ? CacheProviderType.CAFFEINE
+                : CacheProviderType.REDIS;
+
+        String description = providerType == CacheProviderType.CAFFEINE
+                ? "High-performance in-memory cache"
+                : "Distributed Redis cache";
+
         return new CacheProviderInfo(
                 providerType,
-                providerType.getDescription(),
-                providerType == CacheProvider.CacheProviderType.REDIS,
-                List.of(
-                        astCacheProvider.getCacheName(),
-                        constantsCacheProvider.getCacheName(),
-                        ruleDefinitionsCacheProvider.getCacheName(),
-                        validationCacheProvider.getCacheName()
-                )
+                description,
+                providerType == CacheProviderType.REDIS,
+                List.of(cacheManager.getCacheName())
         );
     }
 
     @Override
     public void clearAllCaches() {
-        clearASTCache();
-        clearConstantsCache();
-        clearRuleDefinitionsCache();
-        clearValidationCache();
+        cacheManager.clear().subscribe();
         log.info("Cleared all caches");
     }
 
