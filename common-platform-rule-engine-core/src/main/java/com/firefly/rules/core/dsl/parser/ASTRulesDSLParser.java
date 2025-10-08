@@ -57,50 +57,66 @@ public class ASTRulesDSLParser {
         this.dslParser = dslParser;
         this.complexConditionsParser = new ComplexConditionsParser(dslParser);
     }
-    
+
     /**
-     * Parse rules definition from YAML string to AST model
+     * Parse rules definition from YAML string to AST model (reactive)
+     * Uses caching to avoid re-parsing identical YAML content.
      */
     public Mono<ASTRulesDSL> parseRulesReactive(String rulesDefinition) {
-        return Mono.fromCallable(() -> parseRules(rulesDefinition))
-                .onErrorMap(e -> new ASTException("Failed to parse rules definition: " + e.getMessage()));
+        long startTime = System.currentTimeMillis();
+
+        // Check cache first if caching is enabled
+        if (cacheService != null) {
+            String cacheKey = cacheService.generateCacheKey(rulesDefinition);
+
+            return cacheService.getCachedAST(cacheKey)
+                    .flatMap(cachedAST -> {
+                        if (cachedAST.isPresent()) {
+                            JsonLogger.info(log, "AST cache hit for rules definition");
+                            return Mono.just(cachedAST.get());
+                        } else {
+                            // Cache miss - parse and cache the result
+                            JsonLogger.info(log, "AST cache miss - parsing rules definition with AST parser");
+                            try {
+                                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
+                                return cacheService.cacheAST(cacheKey, parsedAST)
+                                        .thenReturn(parsedAST);
+                            } catch (Exception e) {
+                                return Mono.error(new ASTException("Failed to parse rules definition: " + e.getMessage()));
+                            }
+                        }
+                    })
+                    .doOnTerminate(() -> {
+                        long parseTime = System.currentTimeMillis() - startTime;
+                    })
+                    .onErrorMap(e -> {
+                        if (e instanceof ASTException) {
+                            return e;
+                        }
+                        JsonLogger.error(log, "Error parsing rules definition", e);
+                        return new ASTException("Failed to parse rules definition: " + e.getMessage());
+                    });
+        } else {
+            // No caching available - parse directly
+            JsonLogger.info(log, "Parsing rules definition with AST parser (no caching)");
+            try {
+                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
+                return Mono.just(parsedAST);
+            } catch (Exception e) {
+                JsonLogger.error(log, "Error parsing rules definition", e);
+                return Mono.error(new ASTException("Failed to parse rules definition: " + e.getMessage()));
+            }
+        }
     }
 
     /**
      * Parse rules definition from YAML string to AST model (synchronous)
      * Uses caching to avoid re-parsing identical YAML content.
+     *
+     * @deprecated Use parseRulesReactive() instead for reactive contexts
      */
     public ASTRulesDSL parseRules(String rulesDefinition) {
-        long startTime = System.currentTimeMillis();
-        try {
-            // Check cache first if caching is enabled
-            if (cacheService != null) {
-                String cacheKey = cacheService.generateCacheKey(rulesDefinition);
-                Optional<ASTRulesDSL> cachedAST = cacheService.getCachedAST(cacheKey);
-
-                if (cachedAST.isPresent()) {
-                    JsonLogger.info(log, "AST cache hit for rules definition");
-                    return cachedAST.get();
-                }
-
-                // Cache miss - parse and cache the result
-                JsonLogger.info(log, "AST cache miss - parsing rules definition with AST parser");
-                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
-                cacheService.cacheAST(cacheKey, parsedAST);
-                return parsedAST;
-            } else {
-                // No caching available - parse directly
-                JsonLogger.info(log, "Parsing rules definition with AST parser (no caching)");
-                ASTRulesDSL parsedAST = parseRulesInternal(rulesDefinition);
-                return parsedAST;
-            }
-
-        } catch (Exception e) {
-            JsonLogger.error(log, "Error parsing rules definition", e);
-            throw new ASTException("Failed to parse rules definition: " + e.getMessage());
-        } finally {
-            long parseTime = System.currentTimeMillis() - startTime;
-        }
+        return parseRulesReactive(rulesDefinition).block();
     }
 
     /**
