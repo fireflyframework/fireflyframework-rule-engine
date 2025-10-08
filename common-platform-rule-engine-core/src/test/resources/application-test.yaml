@@ -14,6 +14,7 @@ spring:
       - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
       - org.springframework.boot.autoconfigure.r2dbc.R2dbcDataAutoConfiguration
       - org.springframework.boot.autoconfigure.r2dbc.R2dbcRepositoriesAutoConfiguration
+      - com.firefly.common.cache.config.RedisCacheAutoConfiguration
 
   # Disable web server for tests
   main:
@@ -31,32 +32,36 @@ spring:
           min-idle: 0
           max-wait: 1000ms
 
-# Firefly cache configuration for tests
+# Firefly cache configuration using lib-common-cache
 firefly:
   cache:
-    provider: CAFFEINE  # Default to Caffeine, can be overridden in specific tests
-    ast:
-      maximum-size: 100
-      expire-after-write: PT1M
-      expire-after-access: PT30S
-    constants:
-      maximum-size: 50
-      expire-after-write: PT30S
-      expire-after-access: PT15S
-    rule-definitions:
-      maximum-size: 20
-      expire-after-write: PT30S
-      expire-after-access: PT10S
-    validation:
-      maximum-size: 10
-      expire-after-write: PT15S
+    enabled: true
+    default-cache-type: CAFFEINE  # Default to Caffeine for tests
+    metrics-enabled: true
+    health-enabled: true
+    stats-enabled: true
+    caffeine:
+      cache-name: default  # Cache name for the rule engine
+      enabled: true
+      key-prefix: firefly:cache  # Prefix for all cache keys
+      maximum-size: 1000
+      expire-after-write: PT1H
+      record-stats: true
+    redis:
+      cache-name: default
+      enabled: false  # Disabled by default for tests
+      key-prefix: firefly:cache
+      host: localhost
+      port: 6379
+      database: 0
 
 logging:
   level:
     root: WARN
     com.firefly: DEBUG
-    com.firefly.rules.core.cache: DEBUG
     com.firefly.rules.core.config: DEBUG
+    com.firefly.rules.core.services: DEBUG
+    com.firefly.common.cache: DEBUG
     org.springframework: WARN
     org.testcontainers: INFO
     org.springframework.data.redis: DEBUG
