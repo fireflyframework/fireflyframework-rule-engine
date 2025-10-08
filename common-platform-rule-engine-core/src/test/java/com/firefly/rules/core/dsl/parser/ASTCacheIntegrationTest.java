@@ -42,7 +42,7 @@ class ASTCacheIntegrationTest {
     private FireflyCacheManager cacheManager;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         // Create a Caffeine cache adapter with test configuration
         CaffeineCacheConfig config = CaffeineCacheConfig.builder()
                 .keyPrefix("firefly:cache")
@@ -50,16 +50,22 @@ class ASTCacheIntegrationTest {
                 .expireAfterWrite(Duration.ofHours(1))
                 .recordStats(true)
                 .build();
-        
+
         CaffeineCacheAdapter cacheAdapter = new CaffeineCacheAdapter("default", config);
         cacheManager = new FireflyCacheManager(cacheAdapter, null);
-        
+
         // Create cache service with mock constant service
         cacheService = new CacheServiceImpl(cacheManager, Mockito.mock(com.firefly.rules.core.services.ConstantService.class));
-        
-        // Create parser with cache service
-        parser = new ASTRulesDSLParser(cacheService);
-        
+
+        // Create DSL parser and AST parser
+        DSLParser dslParser = new DSLParser();
+        parser = new ASTRulesDSLParser(dslParser);
+
+        // Inject cache service using reflection (since it's @Autowired)
+        java.lang.reflect.Field cacheServiceField = ASTRulesDSLParser.class.getDeclaredField("cacheService");
+        cacheServiceField.setAccessible(true);
+        cacheServiceField.set(parser, cacheService);
+
         // Clear cache before each test
         cacheManager.clear().block();
     }
