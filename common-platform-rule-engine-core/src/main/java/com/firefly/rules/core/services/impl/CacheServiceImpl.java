@@ -59,27 +59,20 @@ public class CacheServiceImpl implements CacheService {
     // AST Cache Operations
 
     @Override
-    public Optional<ASTRulesDSL> getCachedAST(String cacheKey) {
-        try {
-            String fullKey = AST_PREFIX + cacheKey;
-            return cacheManager.get(fullKey, ASTRulesDSL.class)
-                    .blockOptional()
-                    .orElse(Optional.empty());
-        } catch (Exception e) {
-            log.warn("Error retrieving AST from cache for key: {}", cacheKey, e);
-            return Optional.empty();
-        }
+    public Mono<Optional<ASTRulesDSL>> getCachedAST(String cacheKey) {
+        String fullKey = AST_PREFIX + cacheKey;
+        return cacheManager.get(fullKey, ASTRulesDSL.class)
+                .doOnError(e -> log.warn("Error retrieving AST from cache for key: {}", cacheKey, e))
+                .onErrorReturn(Optional.empty());
     }
 
     @Override
-    public void cacheAST(String cacheKey, ASTRulesDSL astModel) {
-        try {
-            String fullKey = AST_PREFIX + cacheKey;
-            cacheManager.put(fullKey, astModel).subscribe();
-            log.debug("Cached AST model with key: {}", cacheKey);
-        } catch (Exception e) {
-            log.warn("Error caching AST model for key: {}", cacheKey, e);
-        }
+    public Mono<Void> cacheAST(String cacheKey, ASTRulesDSL astModel) {
+        String fullKey = AST_PREFIX + cacheKey;
+        return cacheManager.put(fullKey, astModel)
+                .doOnSuccess(v -> log.debug("Cached AST model with key: {}", cacheKey))
+                .doOnError(e -> log.warn("Error caching AST model for key: {}", cacheKey, e))
+                .onErrorResume(e -> Mono.empty());
     }
 
     @Override
@@ -104,17 +97,18 @@ public class CacheServiceImpl implements CacheService {
     }
 
     @Override
-    public void invalidateAST(String cacheKey) {
+    public Mono<Void> invalidateAST(String cacheKey) {
         String fullKey = AST_PREFIX + cacheKey;
-        cacheManager.evict(fullKey).subscribe();
-        log.debug("Invalidated AST cache entry for key: {}", cacheKey);
+        return cacheManager.evict(fullKey)
+                .doOnSuccess(v -> log.debug("Invalidated AST cache entry for key: {}", cacheKey))
+                .then();
     }
 
     @Override
-    public void clearASTCache() {
+    public Mono<Void> clearASTCache() {
         // Clear all AST entries by pattern (if supported) or clear entire cache
-        cacheManager.clear().subscribe();
-        log.info("Cleared all AST cache entries");
+        return cacheManager.clear()
+                .doOnSuccess(v -> log.info("Cleared all AST cache entries"));
     }
 
     // Constants Cache Operations

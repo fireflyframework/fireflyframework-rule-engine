@@ -33,22 +33,23 @@ import java.util.Optional;
 public interface CacheService {
 
     // AST Cache Operations
-    
+
     /**
      * Get a cached AST model by its cache key.
-     * 
+     *
      * @param cacheKey The cache key (typically a hash of the YAML content)
-     * @return Optional containing the cached AST model if found
+     * @return Mono containing Optional with the cached AST model if found
      */
-    Optional<ASTRulesDSL> getCachedAST(String cacheKey);
-    
+    Mono<Optional<ASTRulesDSL>> getCachedAST(String cacheKey);
+
     /**
      * Cache an AST model with the specified key.
-     * 
+     *
      * @param cacheKey The cache key (typically a hash of the YAML content)
      * @param astModel The AST model to cache
+     * @return Mono that completes when caching is done
      */
-    void cacheAST(String cacheKey, ASTRulesDSL astModel);
+    Mono<Void> cacheAST(String cacheKey, ASTRulesDSL astModel);
     
     /**
      * Generate a cache key for YAML content.
@@ -61,15 +62,18 @@ public interface CacheService {
     
     /**
      * Invalidate a specific AST cache entry.
-     * 
+     *
      * @param cacheKey The cache key to invalidate
+     * @return Mono that completes when invalidation is done
      */
-    void invalidateAST(String cacheKey);
-    
+    Mono<Void> invalidateAST(String cacheKey);
+
     /**
      * Clear all AST cache entries.
+     *
+     * @return Mono that completes when clearing is done
      */
-    void clearASTCache();
+    Mono<Void> clearASTCache();
 
     // Constants Cache Operations
     
