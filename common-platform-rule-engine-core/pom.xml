@@ -34,6 +34,11 @@
             <artifactId>lib-common-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.firefly</groupId>
+            <artifactId>lib-common-cache</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Spring WebFlux -->
         <dependency>
@@ -75,18 +80,7 @@
             <version>1.77</version>
         </dependency>
 
-        <!-- Caching -->
-        <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-        </dependency>
-
-        <!-- Redis (optional) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
-            <optional>true</optional>
-        </dependency>
+        <!-- Caching is now provided by lib-common-cache -->
 
         <!-- Testing -->
         <dependency>
