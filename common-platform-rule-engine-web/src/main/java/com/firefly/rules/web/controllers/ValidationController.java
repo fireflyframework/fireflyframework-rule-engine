@@ -36,6 +36,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * REST controller for YAML DSL validation services.
@@ -119,51 +121,51 @@ public class ValidationController {
         )
     })
     @PostMapping("/yaml")
-    public ResponseEntity<ValidationResult> validateYaml(
+    public Mono<ResponseEntity<ValidationResult>> validateYaml(
             @Valid @RequestBody ValidateYamlRequest request) {
-        
-        log.info("Validating YAML DSL rule, content length: {} characters", 
+
+        log.info("Validating YAML DSL rule, content length: {} characters",
                 request.getYamlContent().length());
 
-        try {
-            ValidationResult result = yamlDslValidator.validate(request.getYamlContent());
-            
-            // Filter results based on request parameters
-            ValidationResult filteredResult = filterValidationResult(result, request);
-            
-            log.info("Validation completed: status={}, issues={}, quality_score={}", 
-                    filteredResult.getStatus(),
-                    filteredResult.getSummary().getTotalIssues(),
-                    filteredResult.getSummary().getQualityScore());
+        return Mono.fromCallable(() -> yamlDslValidator.validate(request.getYamlContent()))
+                .subscribeOn(Schedulers.boundedElastic()) // Execute blocking code on elastic thread pool
+                .map(result -> {
+                    // Filter results based on request parameters
+                    ValidationResult filteredResult = filterValidationResult(result, request);
 
-            return ResponseEntity.ok(filteredResult);
-            
-        } catch (Exception e) {
-            log.error("Error during YAML validation", e);
-            
-            // Return a validation result with the error
-            ValidationResult errorResult = ValidationResult.builder()
-                .status(ValidationResult.ValidationStatus.CRITICAL_ERROR)
-                .summary(ValidationResult.ValidationSummary.builder()
-                    .totalIssues(1)
-                    .criticalErrors(1)
-                    .qualityScore(0.0)
-                    .build())
-                .issues(ValidationResult.ValidationIssues.builder()
-                    .syntax(java.util.List.of(
-                        ValidationResult.ValidationIssue.builder()
-                            .code("INTERNAL_ERROR")
-                            .severity(ValidationResult.ValidationSeverity.CRITICAL)
-                            .message("Internal validation error")
-                            .description("An unexpected error occurred: " + e.getMessage())
-                            .suggestion("Please check your YAML syntax and try again")
-                            .build()
-                    ))
-                    .build())
-                .build();
-                
-            return ResponseEntity.ok(errorResult);
-        }
+                    log.info("Validation completed: status={}, issues={}, quality_score={}",
+                            filteredResult.getStatus(),
+                            filteredResult.getSummary().getTotalIssues(),
+                            filteredResult.getSummary().getQualityScore());
+
+                    return ResponseEntity.ok(filteredResult);
+                })
+                .onErrorResume(e -> {
+                    log.error("Error during YAML validation", e);
+
+                    // Return a validation result with the error
+                    ValidationResult errorResult = ValidationResult.builder()
+                        .status(ValidationResult.ValidationStatus.CRITICAL_ERROR)
+                        .summary(ValidationResult.ValidationSummary.builder()
+                            .totalIssues(1)
+                            .criticalErrors(1)
+                            .qualityScore(0.0)
+                            .build())
+                        .issues(ValidationResult.ValidationIssues.builder()
+                            .syntax(java.util.List.of(
+                                ValidationResult.ValidationIssue.builder()
+                                    .code("INTERNAL_ERROR")
+                                    .severity(ValidationResult.ValidationSeverity.CRITICAL)
+                                    .message("Internal validation error")
+                                    .description("An unexpected error occurred: " + e.getMessage())
+                                    .suggestion("Please check your YAML syntax and try again")
+                                    .build()
+                            ))
+                            .build())
+                        .build();
+
+                    return Mono.just(ResponseEntity.ok(errorResult));
+                });
     }
 
     @Operation(
@@ -198,42 +200,42 @@ public class ValidationController {
         )
     })
     @GetMapping("/syntax")
-    public ResponseEntity<ValidationResult> checkSyntax(
-            @RequestParam("yaml") 
+    public Mono<ResponseEntity<ValidationResult>> checkSyntax(
+            @RequestParam("yaml")
             @NotBlank(message = "YAML content cannot be empty")
             @Size(max = 50000, message = "YAML content too large for quick check (max 50KB)")
             String yaml) {
-        
+
         log.debug("Quick syntax check, content length: {} characters", yaml.length());
 
-        try {
-            // Create a request with only syntax validation
-            ValidateYamlRequest request = ValidateYamlRequest.builder()
-                .yamlContent(yaml)
-                .categories(java.util.Set.of(ValidateYamlRequest.ValidationCategory.SYNTAX))
-                .includeSuggestions(false)
-                .includeMetrics(false)
-                .build();
+        // Create a request with only syntax validation
+        ValidateYamlRequest request = ValidateYamlRequest.builder()
+            .yamlContent(yaml)
+            .categories(java.util.Set.of(ValidateYamlRequest.ValidationCategory.SYNTAX))
+            .includeSuggestions(false)
+            .includeMetrics(false)
+            .build();
 
-            ValidationResult result = yamlDslValidator.validate(request.getYamlContent());
-            ValidationResult filteredResult = filterValidationResult(result, request);
+        return Mono.fromCallable(() -> yamlDslValidator.validate(request.getYamlContent()))
+                .subscribeOn(Schedulers.boundedElastic()) // Execute blocking code on elastic thread pool
+                .map(result -> {
+                    ValidationResult filteredResult = filterValidationResult(result, request);
+                    return ResponseEntity.ok(filteredResult);
+                })
+                .onErrorResume(e -> {
+                    log.error("Error during syntax check", e);
 
-            return ResponseEntity.ok(filteredResult);
-            
-        } catch (Exception e) {
-            log.error("Error during syntax check", e);
-            
-            ValidationResult errorResult = ValidationResult.builder()
-                .status(ValidationResult.ValidationStatus.CRITICAL_ERROR)
-                .summary(ValidationResult.ValidationSummary.builder()
-                    .totalIssues(1)
-                    .criticalErrors(1)
-                    .qualityScore(0.0)
-                    .build())
-                .build();
-                
-            return ResponseEntity.ok(errorResult);
-        }
+                    ValidationResult errorResult = ValidationResult.builder()
+                        .status(ValidationResult.ValidationStatus.CRITICAL_ERROR)
+                        .summary(ValidationResult.ValidationSummary.builder()
+                            .totalIssues(1)
+                            .criticalErrors(1)
+                            .qualityScore(0.0)
+                            .build())
+                        .build();
+
+                    return Mono.just(ResponseEntity.ok(errorResult));
+                });
     }
 
     /**
