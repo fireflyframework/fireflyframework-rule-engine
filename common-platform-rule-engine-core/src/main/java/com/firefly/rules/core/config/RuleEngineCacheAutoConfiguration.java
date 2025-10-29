@@ -74,10 +74,10 @@ public class RuleEngineCacheAutoConfiguration {
                 RULE_CACHE_TTL.toHours()
         );
 
-        // Prefer Redis for distributed rule evaluation
+        // Use AUTO to select the best available provider (Redis, Hazelcast, JCache, or Caffeine)
         return factory.createCacheManager(
                 "rule-engine",
-                CacheType.REDIS,
+                CacheType.AUTO,
                 RULE_CACHE_KEY_PREFIX,
                 RULE_CACHE_TTL,
                 description,
