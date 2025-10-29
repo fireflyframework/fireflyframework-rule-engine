@@ -18,6 +18,7 @@ package com.firefly.rules.core.services.impl;
 
 import com.firefly.common.cache.CacheProviderType;
 import com.firefly.common.cache.manager.FireflyCacheManager;
+import org.springframework.beans.factory.annotation.Qualifier;
 import com.firefly.rules.core.dsl.model.ASTRulesDSL;
 import com.firefly.rules.core.services.CacheService;
 import com.firefly.rules.core.services.ConstantService;
@@ -38,15 +39,30 @@ import java.util.Optional;
 
 /**
  * Implementation of the CacheService interface.
- * Provides high-performance caching operations using lib-common-cache.
+ * Provides high-performance caching operations using dedicated rule engine cache.
+ * <p>
+ * Uses the dedicated ruleEngineCacheManager bean created by RuleEngineCacheAutoConfiguration
+ * to avoid conflicts with other application caches.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CacheServiceImpl implements CacheService {
 
     private final FireflyCacheManager cacheManager;
     private final ConstantService constantService;
+
+    /**
+     * Constructor that injects the dedicated rule engine cache manager.
+     * 
+     * @param cacheManager dedicated rule engine cache manager (qualified bean)
+     * @param constantService service for managing constants
+     */
+    public CacheServiceImpl(
+            @Qualifier("ruleEngineCacheManager") FireflyCacheManager cacheManager,
+            ConstantService constantService) {
+        this.cacheManager = cacheManager;
+        this.constantService = constantService;
+    }
 
     // Cache key prefixes for different cache types
     // Final format: firefly:cache:{cacheName}::rule-engine:{logicalCacheType}:{key}
