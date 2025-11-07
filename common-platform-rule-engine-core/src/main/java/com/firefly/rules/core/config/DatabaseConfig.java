@@ -16,7 +16,7 @@
 
 package com.firefly.rules.core.config;
 
-import com.firefly.common.core.messaging.annotation.EventListener;
+import org.springframework.context.event.EventListener;
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.pool.ConnectionPoolConfiguration;
 import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
