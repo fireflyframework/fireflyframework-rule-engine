@@ -70,6 +70,7 @@ public class PythonCompilationService {
             }
 
             // Parse YAML DSL to AST
+            @SuppressWarnings("deprecation")
             ASTRulesDSL astRule = astRulesDSLParser.parseRules(yamlDsl);
 
             // Validate the AST

@@ -46,7 +46,7 @@ public class RulesEvaluationRequestDTO {
     @Size(max = 100000, message = "Base64 encoded rules definition cannot exceed 100000 characters")
     @Schema(description = "Base64 encoded YAML rules definition to evaluate. Must follow naming conventions: camelCase for inputs, snake_case for computed variables, UPPER_CASE for constants.",
             example = "bmFtZTogIkNyZWRpdCBBc3Nlc3NtZW50IgpkZXNjcmlwdGlvbjogIkJhc2ljIGNyZWRpdCBlbGlnaWJpbGl0eSBjaGVjayIKCmlucHV0czoKICAtIGNyZWRpdFNjb3JlICAgICAgIyBjYW1lbENhc2UgaW5wdXQKICAtIGFubual SW5jb21lICAgICAgIyBjYW1lbENhc2UgaW5wdXQKCndoZW46CiAgLSBjcmVkaXRTY29yZSBhdF9sZWFzdCBNSU5fQ1JFRElUX1NDT1JFICMgVVBQRVJfQ0FTRSBjb25zdGFudAogIC0gYW5udWFsSW5jb21lIGF0X2xlYXN0IDUwMDAwCgp0aGVuOgogIC0gY2FsY3VsYXRlIGRlYnRfdG9faW5jb21lIGFzIGV4aXN0aW5nRGVidCAvIGFubual SW5jb21lICMgc25ha2VfY2FzZSBjb21wdXRlZAogIC0gc2V0IGNyZWRpdF90aWVyIHRvICJQUklNRSIgICMgc25ha2VfY2FzZSBjb21wdXRlZAogIC0gc2V0IGlzX2VsaWdpYmxlIHRvIHRydWUgICMgc25ha2VfY2FzZSBjb21wdXRlZAoKZWxzZToKICAtIHNldCBjcmVkaXRfdGllciB0byAiU1RBTkRBUkQiCiAgLSBzZXQgaXNfZWxpZ2libGUgdG8gZmFsc2UKCm91dHB1dDoKICBjcmVkaXRfdGllcjogY3JlZGl0X3RpZXIKICBpc19lbGlnaWJsZTogaXNfZWxpZ2libGUKICBkZWJ0X3RvX2luY29tZTogZGVidF90b19pbmNvbWU=",
-            required = false)
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private String rulesDefinitionBase64;
 
     /**
@@ -58,7 +58,7 @@ public class RulesEvaluationRequestDTO {
     @ValidInputVariableNames
     @Schema(description = "Input data for rule evaluation. Variable names must follow camelCase convention (e.g., creditScore, annualIncome, employmentYears). These are dynamic values passed from your application.",
             example = "{\"creditScore\": 780, \"annualIncome\": 75000, \"employmentYears\": 3, \"existingDebt\": 25000, \"requestedAmount\": 200000}",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private Map<String, Object> inputData;
 
 

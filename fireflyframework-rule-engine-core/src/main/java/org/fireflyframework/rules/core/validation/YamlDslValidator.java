@@ -73,6 +73,7 @@ public class YamlDslValidator {
             if (!hasCriticalSyntaxErrors) {
                 // 2. Parse to AST for semantic validation
                 try {
+                    @SuppressWarnings("deprecation")
                     ASTRulesDSL rulesDSL = astParser.parseRules(yamlContent);
                     
                     // 3. DSL Reference Compliance validation
