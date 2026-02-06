@@ -16,8 +16,8 @@
 
 package org.fireflyframework.rules.core.services;
 
-import com.firefly.common.core.filters.FilterRequest;
-import com.firefly.common.core.queries.PaginationResponse;
+import org.fireflyframework.core.filters.FilterRequest;
+import org.fireflyframework.core.queries.PaginationResponse;
 import org.fireflyframework.rules.interfaces.dtos.crud.ConstantDTO;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;

@@ -222,7 +222,7 @@ class ConstantServiceIntegrationTest {
         dto.setCurrentValue(value);
         dto.setDescription("Test constant: " + code);
         dto.setName("Test " + code);
-        dto.setValueType(com.firefly.rules.interfaces.enums.ValueType.NUMBER); // Default to NUMBER
+        dto.setValueType(org.fireflyframework.rules.interfaces.enums.ValueType.NUMBER); // Default to NUMBER
         dto.setRequired(false);
         return dto;
     }

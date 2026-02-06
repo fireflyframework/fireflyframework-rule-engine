@@ -16,8 +16,8 @@
 
 package org.fireflyframework.rules.core.services;
 
-import com.firefly.common.core.filters.FilterRequest;
-import com.firefly.common.core.queries.PaginationResponse;
+import org.fireflyframework.core.filters.FilterRequest;
+import org.fireflyframework.core.queries.PaginationResponse;
 import org.fireflyframework.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import org.fireflyframework.rules.interfaces.dtos.crud.RuleDefinitionDTO;
 import org.springframework.web.server.ServerWebExchange;
@@ -89,7 +89,7 @@ public interface RuleDefinitionService {
      * @param yamlContent The YAML DSL content to validate
      * @return Mono containing validation results
      */
-    Mono<com.firefly.rules.interfaces.dtos.validation.ValidationResult> validateRuleDefinition(String yamlContent);
+    Mono<org.fireflyframework.rules.interfaces.dtos.validation.ValidationResult> validateRuleDefinition(String yamlContent);
 
 
 
@@ -167,5 +167,5 @@ public interface RuleDefinitionService {
      * @param exchange The web exchange for audit context
      * @return Mono containing validation results
      */
-    Mono<com.firefly.rules.interfaces.dtos.validation.ValidationResult> validateRuleDefinitionWithAudit(String yamlContent, ServerWebExchange exchange);
+    Mono<org.fireflyframework.rules.interfaces.dtos.validation.ValidationResult> validateRuleDefinitionWithAudit(String yamlContent, ServerWebExchange exchange);
 }

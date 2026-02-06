@@ -16,8 +16,8 @@
 
 package org.fireflyframework.rules.core.services.impl;
 
-import com.firefly.common.cache.CacheProviderType;
-import com.firefly.common.cache.manager.FireflyCacheManager;
+import org.fireflyframework.cache.CacheProviderType;
+import org.fireflyframework.cache.manager.FireflyCacheManager;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.fireflyframework.rules.core.dsl.model.ASTRulesDSL;
 import org.fireflyframework.rules.core.services.CacheService;
@@ -282,7 +282,7 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public CacheProviderInfo getCacheProviderInfo() {
-        CacheProviderType providerType = cacheManager.getCacheType() == com.firefly.common.cache.core.CacheType.CAFFEINE
+        CacheProviderType providerType = cacheManager.getCacheType() == org.fireflyframework.cache.core.CacheType.CAFFEINE
                 ? CacheProviderType.CAFFEINE
                 : CacheProviderType.REDIS;
 
