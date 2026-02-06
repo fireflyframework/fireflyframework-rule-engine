@@ -1,6 +1,6 @@
 # Configuration Examples
 
-This document provides comprehensive configuration examples for the Firefly Rule Engine's performance optimization features.
+This document provides comprehensive configuration examples for the Firefly Framework Rule Engine's performance optimization features.
 
 ## Performance Optimization Configuration
 
@@ -125,7 +125,7 @@ firefly:
 
 logging:
   level:
-    com.firefly: DEBUG
+    org.fireflyframework: DEBUG
     io.r2dbc.pool: DEBUG
 ```
 
@@ -200,7 +200,7 @@ firefly:
 logging:
   level:
     root: WARN
-    com.firefly: INFO
+    org.fireflyframework: INFO
 ```
 
 ## Environment Variables

@@ -2,13 +2,13 @@
 
 **A Complete Step-by-Step Tutorial for Building Enterprise Credit Assessment Rules**
 
-*This tutorial uses only real, implemented features from the Firefly Rule Engine codebase*
+*This tutorial uses only real, implemented features from the Firefly Framework Rule Engine codebase*
 
 ---
 
 ## 🎯 Tutorial Overview
 
-In this comprehensive tutorial, you'll learn to build a complete B2B credit scoring platform using the Firefly Rule Engine's YAML DSL. We'll create a sophisticated system that evaluates business loan applications by analyzing multiple data sources including:
+In this comprehensive tutorial, you'll learn to build a complete B2B credit scoring platform using the Firefly Framework Rule Engine's YAML DSL. We'll create a sophisticated system that evaluates business loan applications by analyzing multiple data sources including:
 
 - **Credit Bureau Data** - Business credit scores and payment history
 - **Bank Transaction Analysis** - Cash flow patterns and financial stability  
@@ -80,7 +80,7 @@ output:
 
 ### Key Naming Conventions
 
-The Firefly Rule Engine uses specific naming patterns to automatically determine variable sources:
+The Firefly Framework Rule Engine uses specific naming patterns to automatically determine variable sources:
 
 - **`camelCase`** (e.g., `businessId`, `annualRevenue`) - Input variables from API requests
 - **`UPPER_CASE_WITH_UNDERSCORES`** (e.g., `MIN_CREDIT_SCORE`) - System constants from database
@@ -534,7 +534,7 @@ This comprehensive multi-stage workflow demonstrates several key concepts:
 
 ## 🔧 Step 6: Understanding Key DSL Features Used
 
-Our B2B credit scoring rule demonstrates many advanced features of the Firefly Rule Engine:
+Our B2B credit scoring rule demonstrates many advanced features of the Firefly Framework Rule Engine:
 
 ### ✅ **Data Validation**
 ```yaml
@@ -853,7 +853,7 @@ Consider these enhancements for production use:
 
 ## 🏁 Conclusion
 
-Congratulations! You've built a comprehensive B2B credit scoring platform using the Firefly Rule Engine. This tutorial covered:
+Congratulations! You've built a comprehensive B2B credit scoring platform using the Firefly Framework Rule Engine. This tutorial covered:
 
 ✅ **Rule structure and organization** with proper naming conventions
 ✅ **Multi-stage evaluation workflows** that mirror real-world processes
@@ -874,7 +874,7 @@ Your rule demonstrates enterprise-grade credit assessment capabilities including
 
 ### 🚀 **Production Readiness**
 
-The Firefly Rule Engine's YAML DSL makes it possible to implement complex business logic that would traditionally require extensive custom code, while maintaining:
+The Firefly Framework Rule Engine's YAML DSL makes it possible to implement complex business logic that would traditionally require extensive custom code, while maintaining:
 - **Readability** for business users and analysts
 - **Maintainability** through structured rule organization
 - **Configurability** via database-stored constants
@@ -904,6 +904,6 @@ The credit scoring model presented here uses simplified calculations and arbitra
 - Professional risk management oversight
 - Legal and regulatory approval
 
-Organizations implementing actual credit assessment systems should consult qualified financial risk professionals, regulatory compliance experts, and legal counsel specializing in financial services.
+Organizations implementing actual credit assessment systems should consult qualified financial risk professionals, regulatory compliance experts, and legal counsel specializing in enterprise applications.
 
 **The authors disclaim liability for any damages arising from use of this educational material.**

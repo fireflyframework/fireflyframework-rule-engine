@@ -1,6 +1,6 @@
-# Firefly Rule Engine DSL Syntax Guide
+# Firefly Framework Rule Engine DSL Syntax Guide
 
-**Comprehensive Reference for the Firefly Rule Engine YAML Domain Specific Language**
+**Comprehensive Reference for the Firefly Framework Rule Engine YAML Domain Specific Language**
 
 *Based on actual AST-based parser implementation analysis*
 
@@ -35,7 +35,7 @@
 
 ## Introduction
 
-The Firefly Rule Engine uses a powerful YAML-based Domain Specific Language (DSL) that is parsed using an Abstract Syntax Tree (AST) approach. This guide documents the **actual implementation** based on comprehensive codebase analysis, ensuring accuracy and completeness.
+The Firefly Framework Rule Engine uses a powerful YAML-based Domain Specific Language (DSL) that is parsed using an Abstract Syntax Tree (AST) approach. This guide documents the **actual implementation** based on comprehensive codebase analysis, ensuring accuracy and completeness.
 
 > **💡 First Time Here?** This is a comprehensive reference. For a gentler introduction, start with the [Quick Start Guide](quick-start-guide.md) or browse [Common Patterns](common-patterns-guide.md) for real-world examples.
 
@@ -1699,5 +1699,5 @@ Ready to put this knowledge into practice?
 
 ---
 
-*This guide is based on comprehensive analysis of the actual Firefly Rule Engine AST-based parser implementation. All syntax examples and features documented here are verified against the codebase implementation and tested with real-world scenarios.*
+*This guide is based on comprehensive analysis of the actual Firefly Framework Rule Engine AST-based parser implementation. All syntax examples and features documented here are verified against the codebase implementation and tested with real-world scenarios.*
 

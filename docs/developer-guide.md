@@ -1,6 +1,6 @@
-# Firefly Rule Engine AST System Deep Dive
+# Firefly Framework Rule Engine AST System Deep Dive
 
-This comprehensive guide provides an exhaustive exploration of the Firefly Rule Engine's Abstract Syntax Tree (AST) system architecture. It covers every aspect of how the AST system works, from lexical analysis to rule evaluation, and provides detailed instructions for extending the system with new functionality.
+This comprehensive guide provides an exhaustive exploration of the Firefly Framework Rule Engine's Abstract Syntax Tree (AST) system architecture. It covers every aspect of how the AST system works, from lexical analysis to rule evaluation, and provides detailed instructions for extending the system with new functionality.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ This comprehensive guide provides an exhaustive exploration of the Firefly Rule 
 
 ### 🧠 **What is an Abstract Syntax Tree (AST)?**
 
-An **Abstract Syntax Tree (AST)** is a tree representation of the syntactic structure of source code. Each node in the tree represents a construct occurring in the programming language. The Firefly Rule Engine uses ASTs to represent business rules in a structured, type-safe manner.
+An **Abstract Syntax Tree (AST)** is a tree representation of the syntactic structure of source code. Each node in the tree represents a construct occurring in the programming language. The Firefly Framework Rule Engine uses ASTs to represent business rules in a structured, type-safe manner.
 
 **Why AST over String-Based Evaluation?**
 
@@ -36,7 +36,7 @@ Traditional rule engines often use string-based evaluation where rules are parse
 
 **The AST Approach Solves These Problems:**
 
-The Firefly Rule Engine transforms YAML-based business rules into structured, type-safe AST nodes that provide:
+The Firefly Framework Rule Engine transforms YAML-based business rules into structured, type-safe AST nodes that provide:
 
 ### 🎯 **Core Benefits**
 
@@ -192,7 +192,7 @@ Outputs are collected and formatted into the final evaluation result.
 The AST system is organized into logical packages that separate concerns and enable clean extensibility:
 
 ```
-com.firefly.rules.core.dsl.ast/
+org.fireflyframework.rules.core.dsl.ast/
 ├── lexer/                    # Lexical analysis components
 │   ├── Lexer.java           # Main lexer implementation
 │   ├── Token.java           # Token representation
@@ -282,7 +282,7 @@ com.firefly.rules.core.dsl.ast/
 
 ### 🔍 **Finite State Machine Approach**
 
-The Firefly Rule Engine uses a **Finite State Machine (FSM)** approach for lexical analysis. This is a proven technique used in most programming language compilers.
+The Firefly Framework Rule Engine uses a **Finite State Machine (FSM)** approach for lexical analysis. This is a proven technique used in most programming language compilers.
 
 **What is a Finite State Machine?**
 
@@ -601,7 +601,7 @@ Type mismatch: Cannot compare string to number at line 5, column 12
 
 **What is an AST Node?**
 
-An AST node represents a single construct in the programming language. In the Firefly Rule Engine, every piece of a rule (expressions, conditions, actions) is represented by a specific type of AST node.
+An AST node represents a single construct in the programming language. In the Firefly Framework Rule Engine, every piece of a rule (expressions, conditions, actions) is represented by a specific type of AST node.
 
 **Why Use a Hierarchy?**
 
@@ -2319,11 +2319,11 @@ private void recordPerformanceMetrics(EvaluationContext context, long startTime)
 
 ## Functions vs Operators: Architecture and Implementation
 
-This section provides a comprehensive understanding of the architectural distinction between functions and operators in the Firefly Rule Engine, along with practical tutorials for implementing both.
+This section provides a comprehensive understanding of the architectural distinction between functions and operators in the Firefly Framework Rule Engine, along with practical tutorials for implementing both.
 
 ### 🧠 **Fundamental Architectural Distinction**
 
-The Firefly Rule Engine makes a clear architectural distinction between **operators** and **functions** based on their purpose, complexity, and implementation requirements.
+The Firefly Framework Rule Engine makes a clear architectural distinction between **operators** and **functions** based on their purpose, complexity, and implementation requirements.
 
 #### **🔧 Operators: Core Language Constructs**
 
@@ -3069,7 +3069,7 @@ void testAllCreditScoreRanges() {
 3. **Performance**: Optimize for high-frequency evaluation
 4. **Consistency**: Follow existing operator patterns
 
-This comprehensive guide provides everything needed to understand and extend the function and operator systems in the Firefly Rule Engine. The clear architectural separation enables both powerful functionality and maintainable code.
+This comprehensive guide provides everything needed to understand and extend the function and operator systems in the Firefly Framework Rule Engine. The clear architectural separation enables both powerful functionality and maintainable code.
 
 ## Extending the AST System
 
@@ -3303,7 +3303,7 @@ public List<ValidationError> visitFunctionCallExpression(FunctionCallExpression 
 
 ```java
 // Create new file: CustomExpression.java
-package com.firefly.rules.core.dsl.ast.expression;
+package org.fireflyframework.rules.core.dsl.ast.expression;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -3445,10 +3445,10 @@ When adding new functionality to the AST system, use this checklist:
 
 ### 📚 **Resources**
 
-- **Source Code**: `common-platform-rule-engine-core/src/main/java/com/firefly/rules/core/dsl/ast/`
-- **Tests**: `common-platform-rule-engine-core/src/test/java/com/firefly/rules/core/dsl/`
+- **Source Code**: `fireflyframework-rule-engine-core/src/main/java/com/firefly/rules/core/dsl/ast/`
+- **Tests**: `fireflyframework-rule-engine-core/src/test/java/com/firefly/rules/core/dsl/`
 - **Documentation**: `docs/yaml-dsl-reference.md`
 - **Examples**: `docs/my-first-rule-design.md`
 
-This comprehensive guide provides everything needed to understand, use, and extend the Firefly Rule Engine's AST system. The modular architecture and visitor pattern make it straightforward to add new functionality while maintaining type safety, performance, and reliability.
+This comprehensive guide provides everything needed to understand, use, and extend the Firefly Framework Rule Engine's AST system. The modular architecture and visitor pattern make it straightforward to add new functionality while maintaining type safety, performance, and reliability.
 ```

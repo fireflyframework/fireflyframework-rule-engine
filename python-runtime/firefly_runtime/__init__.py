@@ -5,7 +5,7 @@ Firefly Rule Engine Python Runtime Library
 This module provides all the built-in functions and utilities needed
 to execute compiled Python rules from the Firefly Rule Engine.
 
-Copyright 2025 Firefly Software Solutions Inc
+Copyright 2024-2026 Firefly Software Solutions Inc
 Licensed under the Apache License, Version 2.0
 """
 

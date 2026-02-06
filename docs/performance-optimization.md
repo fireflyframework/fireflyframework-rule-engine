@@ -1,10 +1,10 @@
 # Performance Optimization Guide
 
-This guide provides comprehensive information about the Firefly Rule Engine's performance optimization features, configuration options, and best practices for high-load production environments.
+This guide provides comprehensive information about the Firefly Framework Rule Engine's performance optimization features, configuration options, and best practices for high-load production environments.
 
 ## Overview
 
-The Firefly Rule Engine includes three major performance optimization systems:
+The Firefly Framework Rule Engine includes three major performance optimization systems:
 
 1. **AST Caching** - Dual cache providers (Caffeine/Redis) for parsed AST models
 2. **Connection Pool Tuning** - Optimized R2DBC connection pools for high-load scenarios  

@@ -1,4 +1,4 @@
-# Firefly Rule Engine - Governance Guidelines
+# Firefly Framework Rule Engine - Governance Guidelines
 
 **Team standards for rule complexity and feature usage**
 

@@ -1,6 +1,6 @@
-# Firefly Rule Engine - API Documentation
+# Firefly Framework Rule Engine - API Documentation
 
-**Complete REST API Reference for the Firefly Rule Engine**
+**Complete REST API Reference for the Firefly Framework Rule Engine**
 
 *Based on actual controller implementations and DTOs*
 
@@ -1183,15 +1183,15 @@ Get application information.
 ```json
 {
   "app": {
-    "name": "common-platform-rule-engine",
+    "name": "fireflyframework-rule-engine",
     "version": "1.0.0",
     "description": "Rule Engine Core Application"
   },
   "build": {
     "version": "1.0.0",
-    "artifact": "common-platform-rule-engine-web",
-    "name": "common-platform-rule-engine-web",
-    "group": "com.firefly",
+    "artifact": "fireflyframework-rule-engine-web",
+    "name": "fireflyframework-rule-engine-web",
+    "group": "org.fireflyframework",
     "time": "2025-01-12T10:30:00.000Z"
   }
 }
