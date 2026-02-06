@@ -1,15 +1,15 @@
-# Firefly Rule Engine
+# Firefly Framework Rule Engine
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 [![Maven](https://img.shields.io/badge/Maven-3.8+-red.svg)](https://maven.apache.org/)
 
-A powerful, flexible, and high-performance rule engine designed for the **Firefly OpenCore Banking Platform**. The Firefly Rule Engine enables financial institutions to define, manage, and execute complex business rules using an intuitive YAML-based Domain Specific Language (DSL) with a modern **AST-based (Abstract Syntax Tree) architecture**.
+A powerful, flexible, and high-performance rule engine designed for the **Firefly Framework**. The Firefly Framework Rule Engine enables organizations to define, manage, and execute complex business rules using an intuitive YAML-based Domain Specific Language (DSL) with a modern **AST-based (Abstract Syntax Tree) architecture**.
 
-## 🏦 Banking-First Design
+## 🏦 Enterprise-First Design
 
-Built specifically for financial services, the Firefly Rule Engine excels at:
+Built specifically for enterprise applications, the Firefly Framework Rule Engine excels at:
 
 - **Credit Scoring & Risk Assessment** - Evaluate creditworthiness and financial risk in real-time
 - **Anti-Money Laundering (AML)** - Detect suspicious transaction patterns and compliance violations
@@ -64,7 +64,7 @@ Built specifically for financial services, the Firefly Rule Engine excels at:
 
 ## 🏛️ Architecture Overview
 
-The Firefly Rule Engine follows a modern **AST-based modular architecture** with clean separation of concerns and a sophisticated processing pipeline:
+The Firefly Framework Rule Engine follows a modern **AST-based modular architecture** with clean separation of concerns and a sophisticated processing pipeline:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -168,37 +168,37 @@ The Firefly Rule Engine follows a modern **AST-based modular architecture** with
 
 ### 📦 Module Architecture
 
-The Firefly Rule Engine is organized into distinct modules, each with specific responsibilities:
+The Firefly Framework Rule Engine is organized into distinct modules, each with specific responsibilities:
 
-#### **🧠 `common-platform-rule-engine-core`** - The Brain
+#### **🧠 `fireflyframework-rule-engine-core`** - The Brain
 - **AST-Based Rule Engine**: Complete AST processing pipeline with lexer, parser, and evaluators
 - **Visitor Pattern Implementation**: Extensible operation system for expressions, conditions, and actions
 - **YAML DSL Processing**: Full DSL support with 200+ token types and semantic validation
 - **Performance Optimizations**: AST caching, constant folding, and memory-efficient evaluation
 - **Type Safety System**: Compile-time type checking and runtime type coercion
 
-#### **🌐 `common-platform-rule-engine-web`** - The Interface
+#### **🌐 `fireflyframework-rule-engine-web`** - The Interface
 - **Reactive REST APIs**: Non-blocking Spring WebFlux controllers for high-throughput scenarios
 - **Comprehensive Endpoints**: Rule evaluation, definition management, validation, and constants
 - **OpenAPI Documentation**: Complete Swagger/OpenAPI 3.0 specification with examples
 - **Error Handling**: Structured error responses with detailed validation messages
 - **Security Integration**: Ready for authentication and authorization frameworks
 
-#### **💾 `common-platform-rule-engine-models`** - The Foundation
+#### **💾 `fireflyframework-rule-engine-models`** - The Foundation
 - **R2DBC Entities**: Reactive database entities for PostgreSQL integration
 - **Repository Layer**: Async repositories with connection pooling and transaction management
 - **Database Schema**: Optimized schema with proper indexing and constraints
 - **Migration System**: Flyway-based database versioning and migration support
 - **Audit Trail**: Complete tracking of rule operations and evaluations
 
-#### **🔌 `common-platform-rule-engine-interfaces`** - The Contracts
+#### **🔌 `fireflyframework-rule-engine-interfaces`** - The Contracts
 - **DTOs & Models**: Data transfer objects for API communication
 - **Service Interfaces**: Clean contracts for business logic separation
 - **Validation Annotations**: Comprehensive validation rules for input data
 - **Exception Hierarchy**: Structured exception handling with error codes
 - **Configuration Models**: Type-safe configuration classes
 
-#### **📚 `common-platform-rule-engine-sdk`** - The Client
+#### **📚 `fireflyframework-rule-engine-sdk`** - The Client
 - **Multi-Language Support**: Java, Python, and Node.js client libraries
 - **Fluent APIs**: Easy-to-use builder patterns for rule construction
 - **Connection Management**: Automatic retry, timeout, and circuit breaker patterns
@@ -243,7 +243,7 @@ The rule evaluation follows a sophisticated 7-phase pipeline that ensures correc
 
 ### 🏗️ AST Architecture Benefits
 
-The Firefly Rule Engine has **completely migrated from string-based parsing to a pure AST-based architecture**:
+The Firefly Framework Rule Engine has **completely migrated from string-based parsing to a pure AST-based architecture**:
 
 #### **🎯 Type Safety & Reliability**
 - **Compile-time Type Checking**: Eliminates runtime type errors through static analysis
@@ -290,8 +290,8 @@ The Firefly Rule Engine has **completely migrated from string-based parsing to a
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/firefly-oss/common-platform-rule-engine.git
-cd common-platform-rule-engine
+git clone https://github.com/fireflyframework/fireflyframework-rule-engine.git
+cd fireflyframework-rule-engine
 ```
 
 ### 2. Configure Database
@@ -314,7 +314,7 @@ export DB_SSL_MODE=disable
 mvn clean install
 
 # Run the application
-cd common-platform-rule-engine-web
+cd fireflyframework-rule-engine-web
 mvn spring-boot:run
 ```
 
@@ -326,7 +326,7 @@ Visit `http://localhost:8080/swagger-ui.html` to explore the interactive API doc
 
 ## 💾 YAML DSL Storage & Management
 
-The Firefly Rule Engine provides comprehensive YAML DSL storage capabilities, allowing you to:
+The Firefly Framework Rule Engine provides comprehensive YAML DSL storage capabilities, allowing you to:
 
 ### 📚 **Store & Version Rule Definitions**
 - Store validated YAML DSL definitions in PostgreSQL
@@ -418,7 +418,7 @@ CREATE TABLE constants (
 
 ## 💡 How It Works: Dynamic vs. Static Data
 
-The Firefly Rule Engine intelligently handles three types of data during rule evaluation:
+The Firefly Framework Rule Engine intelligently handles three types of data during rule evaluation:
 
 ### 🔄 **Dynamic Input Variables** (Runtime Data)
 Data passed from your application via the REST API - these change with each request.
@@ -555,7 +555,7 @@ context.setComputedVariable("debt_to_income", calculatedValue);
 
 ## 🐍 Python Code Generation
 
-The Firefly Rule Engine can compile YAML DSL rules into standalone Python code, enabling rule execution without the Java runtime. This feature is perfect for:
+The Firefly Framework Rule Engine can compile YAML DSL rules into standalone Python code, enabling rule execution without the Java runtime. This feature is perfect for:
 
 - **Standalone Applications** - Deploy rules as independent Python scripts
 - **Edge Computing** - Run rules on lightweight Python environments
@@ -669,7 +669,7 @@ For complete documentation, see the [Python Compilation Complete Guide](docs/pyt
 
 ## 🔍 Audit Trail System
 
-The Firefly Rule Engine includes comprehensive audit trail capabilities for compliance, monitoring, and debugging:
+The Firefly Framework Rule Engine includes comprehensive audit trail capabilities for compliance, monitoring, and debugging:
 
 ### 📊 **Audit Trail Features**
 - **Complete Operation Tracking** - All rule operations (create, update, delete, evaluate) are audited
@@ -801,7 +801,7 @@ Key configuration options in `application.yaml`:
 ```yaml
 spring:
   application:
-    name: common-platform-rule-engine
+    name: fireflyframework-rule-engine
     version: 1.0.0
     description: Rule Engine Core Application
 
@@ -820,7 +820,7 @@ management:
 
 ## ⚡ Performance Optimization Features
 
-The Firefly Rule Engine includes enterprise-grade performance optimizations designed for high-load production environments:
+The Firefly Framework Rule Engine includes enterprise-grade performance optimizations designed for high-load production environments:
 
 ### 🚀 **AST Caching with Dual Provider Support**
 
@@ -1077,7 +1077,7 @@ kubectl apply -f k8s/
 
 ## 🤝 Contributing
 
-We welcome contributions to the Firefly Rule Engine! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions to the Firefly Framework Rule Engine! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### Development Setup
 
@@ -1100,7 +1100,7 @@ We welcome contributions to the Firefly Rule Engine! Please see our [Contributin
 This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
 
 ```
-Copyright 2025 Firefly Software Solutions Inc
+Copyright 2024-2026 Firefly Software Solutions Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1117,15 +1117,15 @@ limitations under the License.
 
 ## 🏢 About Firefly Software Solutions
 
-**Firefly Software Solutions Inc** is dedicated to building open-source financial technology solutions that empower financial institutions worldwide. The Firefly OpenCore Banking Platform provides a comprehensive suite of tools for modern banking operations.
+**Firefly Software Solutions Inc** is dedicated to building open-source financial technology solutions that empower organizations worldwide. The Firefly Framework provides a comprehensive suite of tools for modern banking operations.
 
 ### Contact & Support
 
 - **Website**: [https://getfirefly.io](https://getfirefly.io)
 - **Email**: [dev@getfirefly.io](mailto:dev@getfirefly.io)
 - **Documentation**: [https://docs.getfirefly.io](https://docs.getfirefly.io)
-- **Issues**: [GitHub Issues](https://github.com/firefly-oss/common-platform-rule-engine/issues)
+- **Issues**: [GitHub Issues](https://github.com/fireflyframework/fireflyframework-rule-engine/issues)
 
 ---
 
-**Built with ❤️ by the Firefly team for the global financial services community.**
+**Built with ❤️ by the Firefly team for the global enterprise applications community.**

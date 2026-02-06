@@ -5,7 +5,7 @@ Firefly Rule Engine Interactive Utilities
 This module provides utilities for interactive execution of compiled rules,
 including user input collection with type conversion and error handling.
 
-Copyright 2025 Firefly Software Solutions Inc
+Copyright 2024-2026 Firefly Software Solutions Inc
 Licensed under the Apache License, Version 2.0
 """
 
@@ -137,7 +137,7 @@ def print_firefly_header(rule_name: str, description: str = None, version: str =
         print(f"Description: {description}")
     if version:
         print(f"Version: {version}")
-    print("Copyright 2025 Firefly Software Solutions Inc")
+    print("Copyright 2024-2026 Firefly Software Solutions Inc")
     print("Licensed under Apache 2.0 | Made with ❤️")
     print("="*80)
 

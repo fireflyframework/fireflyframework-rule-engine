@@ -1,6 +1,6 @@
-# Firefly Rule Engine - Quick Start Guide
+# Firefly Framework Rule Engine - Quick Start Guide
 
-**Get started with the Firefly Rule Engine in 15 minutes**
+**Get started with the Firefly Framework Rule Engine in 15 minutes**
 
 *A beginner-friendly introduction to writing your first rules*
 

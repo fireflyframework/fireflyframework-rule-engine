@@ -1,4 +1,4 @@
-# Firefly Rule Engine - Common Patterns Guide
+# Firefly Framework Rule Engine - Common Patterns Guide
 
 **Real-world patterns organized by complexity tier**
 

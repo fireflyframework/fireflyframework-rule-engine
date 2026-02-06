@@ -1,4 +1,4 @@
-# Firefly Rule Engine Python Runtime Dependencies
+# Firefly Framework Rule Engine Python Runtime Dependencies
 
 # HTTP client library
 requests>=2.31.0

@@ -1,6 +1,6 @@
 # Python Compilation Example
 
-This example demonstrates how to use the Firefly Rule Engine Python Compiler to convert YAML DSL rules into executable Python code.
+This example demonstrates how to use the Firefly Framework Rule Engine Python Compiler to convert YAML DSL rules into executable Python code.
 
 ## Example Rule
 

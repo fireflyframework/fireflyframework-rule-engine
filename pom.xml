@@ -5,54 +5,54 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.firefly</groupId>
-        <artifactId>lib-parent-pom</artifactId>
+        <groupId>org.fireflyframework</groupId>
+        <artifactId>fireflyframework-parent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
+        <relativePath/>
     </parent>
 
-    <artifactId>common-platform-rule-engine</artifactId>
+    <groupId>org.fireflyframework</groupId>
+    <artifactId>fireflyframework-rule-engine</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <modules>
-        <module>common-platform-rule-engine-core</module>
-        <module>common-platform-rule-engine-interfaces</module>
-        <module>common-platform-rule-engine-web</module>
-        <module>common-platform-rule-engine-sdk</module>
-        <module>common-platform-rule-engine-models</module>
-    </modules>
 
-    <properties>
-        <common-platform-rule-engine.version>
-            1.0.0-SNAPSHOT
-        </common-platform-rule-engine.version>
-    </properties>
+    <name>Firefly Framework - Rule Engine Library</name>
+    <description>YAML DSL-based rule engine with AST processing, Python compilation, audit trails, and reactive APIs for dynamic business rule evaluation</description>
+
+    <modules>
+        <module>fireflyframework-rule-engine-core</module>
+        <module>fireflyframework-rule-engine-interfaces</module>
+        <module>fireflyframework-rule-engine-web</module>
+        <module>fireflyframework-rule-engine-sdk</module>
+        <module>fireflyframework-rule-engine-models</module>
+    </modules>
 
     <dependencyManagement>
         <dependencies>
             <!-- Internal modules -->
             <dependency>
-                <groupId>com.firefly</groupId>
-                <artifactId>common-platform-rule-engine-interfaces</artifactId>
+                <groupId>org.fireflyframework</groupId>
+                <artifactId>fireflyframework-rule-engine-interfaces</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.firefly</groupId>
-                <artifactId>common-platform-rule-engine-models</artifactId>
+                <groupId>org.fireflyframework</groupId>
+                <artifactId>fireflyframework-rule-engine-models</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.firefly</groupId>
-                <artifactId>common-platform-rule-engine-core</artifactId>
+                <groupId>org.fireflyframework</groupId>
+                <artifactId>fireflyframework-rule-engine-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.firefly</groupId>
-                <artifactId>common-platform-rule-engine-web</artifactId>
+                <groupId>org.fireflyframework</groupId>
+                <artifactId>fireflyframework-rule-engine-web</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.firefly</groupId>
-                <artifactId>common-platform-rule-engine-sdk</artifactId>
+                <groupId>org.fireflyframework</groupId>
+                <artifactId>fireflyframework-rule-engine-sdk</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

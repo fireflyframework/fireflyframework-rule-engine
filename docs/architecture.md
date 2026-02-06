@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-This document provides a comprehensive overview of the Firefly Rule Engine architecture, including the modern AST-based system design, module structure, data flow, and integration patterns.
+This document provides a comprehensive overview of the Firefly Framework Rule Engine architecture, including the modern AST-based system design, module structure, data flow, and integration patterns.
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ This document provides a comprehensive overview of the Firefly Rule Engine archi
 
 ## System Overview
 
-The Firefly Rule Engine is built as a reactive, microservice-ready application using Spring Boot 3 and WebFlux. It features a **modern AST-based (Abstract Syntax Tree) architecture** that completely replaces the legacy string-based evaluation system with structured, type-safe rule processing. The system includes comprehensive **audit trail capabilities** for compliance and monitoring, tracking all rule operations and evaluations with detailed metadata.
+The Firefly Framework Rule Engine is built as a reactive, microservice-ready application using Spring Boot 3 and WebFlux. It features a **modern AST-based (Abstract Syntax Tree) architecture** that completely replaces the legacy string-based evaluation system with structured, type-safe rule processing. The system includes comprehensive **audit trail capabilities** for compliance and monitoring, tracking all rule operations and evaluations with detailed metadata.
 
 ```mermaid
 graph TB
@@ -37,7 +37,7 @@ graph TB
         MONITOR[Monitoring Systems]
     end
 
-    subgraph "Firefly Rule Engine - AST Architecture"
+    subgraph "Firefly Framework Rule Engine - AST Architecture"
         subgraph "Web Layer"
             API[REST Controllers]
             VALIDATION_API[Validation Controller]
@@ -107,7 +107,7 @@ graph TB
 
 ## AST-Based Architecture
 
-The Firefly Rule Engine has been completely modernized with an **Abstract Syntax Tree (AST) based architecture** that provides:
+The Firefly Framework Rule Engine has been completely modernized with an **Abstract Syntax Tree (AST) based architecture** that provides:
 
 ### 🏗️ **Structured Rule Processing**
 - **Type-Safe Evaluation**: AST nodes provide compile-time type safety
@@ -132,7 +132,7 @@ The Firefly Rule Engine has been completely modernized with an **Abstract Syntax
 
 The system is organized into five distinct Maven modules, each with specific responsibilities:
 
-### 1. common-platform-rule-engine-web
+### 1. fireflyframework-rule-engine-web
 **Purpose**: Web layer and REST API endpoints
 
 **Key Components**:
@@ -145,10 +145,10 @@ The system is organized into five distinct Maven modules, each with specific res
 - OpenAPI/Swagger configuration
 
 **Dependencies**:
-- `common-platform-rule-engine-core`
-- `common-platform-rule-engine-interfaces`
+- `fireflyframework-rule-engine-core`
+- `fireflyframework-rule-engine-interfaces`
 
-### 2. common-platform-rule-engine-core
+### 2. fireflyframework-rule-engine-core
 **Purpose**: AST-based core business logic and rule evaluation engine
 
 **Key Components**:
@@ -166,10 +166,10 @@ The system is organized into five distinct Maven modules, each with specific res
 - **Audit Integration**: Comprehensive audit trail recording for all operations
 
 **Dependencies**:
-- `common-platform-rule-engine-interfaces`
-- `common-platform-rule-engine-models`
+- `fireflyframework-rule-engine-interfaces`
+- `fireflyframework-rule-engine-models`
 
-### 3. common-platform-rule-engine-models
+### 3. fireflyframework-rule-engine-models
 **Purpose**: Data entities and repository interfaces
 
 **Key Components**:
@@ -183,7 +183,7 @@ The system is organized into five distinct Maven modules, each with specific res
 
 **Dependencies**: None (base module)
 
-### 4. common-platform-rule-engine-interfaces
+### 4. fireflyframework-rule-engine-interfaces
 **Purpose**: DTOs, service interfaces, and contracts
 
 **Key Components**:
@@ -194,7 +194,7 @@ The system is organized into five distinct Maven modules, each with specific res
 
 **Dependencies**: None (base module)
 
-### 5. common-platform-rule-engine-sdk
+### 5. fireflyframework-rule-engine-sdk
 **Purpose**: Client SDK for integration (future implementation)
 
 **Key Components**:
@@ -660,7 +660,7 @@ public Void visitCircuitBreakerAction(CircuitBreakerAction node) {
 
 ## Validation Architecture
 
-The Firefly Rule Engine features a comprehensive **multi-layer validation architecture** that ensures YAML DSL compliance and quality:
+The Firefly Framework Rule Engine features a comprehensive **multi-layer validation architecture** that ensures YAML DSL compliance and quality:
 
 ### Validation Pipeline
 
@@ -733,7 +733,7 @@ public class ValidationResult {
 
 ## Performance Considerations
 
-The Firefly Rule Engine implements enterprise-grade performance optimizations designed for high-load production environments. These optimizations provide significant performance improvements while maintaining reliability and scalability.
+The Firefly Framework Rule Engine implements enterprise-grade performance optimizations designed for high-load production environments. These optimizations provide significant performance improvements while maintaining reliability and scalability.
 
 ### 1. AST-Based Performance Optimizations
 - **Direct AST Traversal**: Eliminates string parsing overhead during evaluation
@@ -987,7 +987,7 @@ curl http://localhost:8080/api/v1/rules/batch/statistics
 
 ## Audit Trail System
 
-The Firefly Rule Engine includes a comprehensive audit trail system that tracks all rule operations for compliance, monitoring, and debugging purposes.
+The Firefly Framework Rule Engine includes a comprehensive audit trail system that tracks all rule operations for compliance, monitoring, and debugging purposes.
 
 ### 🔍 **Audit Trail Features**
 
@@ -1150,4 +1150,4 @@ GET /api/v1/audit/trails/entity/{entityId}?limit=10
 - Rate limiting per client
 - Request/response encryption
 
-This architecture provides a solid foundation for a scalable, maintainable, and high-performance rule engine suitable for financial services applications.
+This architecture provides a solid foundation for a scalable, maintainable, and high-performance rule engine suitable for enterprise applications applications.

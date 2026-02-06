@@ -30,7 +30,7 @@ setup(
     description="Python runtime library for the Firefly Rule Engine",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/firefly-oss/common-platform-rule-engine",
+    url="https://github.com/firefly-oss/fireflyframework-rule-engine",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -70,8 +70,8 @@ setup(
     zip_safe=False,
     keywords="firefly rule-engine python runtime financial banking",
     project_urls={
-        "Bug Reports": "https://github.com/firefly-oss/common-platform-rule-engine/issues",
-        "Source": "https://github.com/firefly-oss/common-platform-rule-engine",
-        "Documentation": "https://github.com/firefly-oss/common-platform-rule-engine/docs",
+        "Bug Reports": "https://github.com/firefly-oss/fireflyframework-rule-engine/issues",
+        "Source": "https://github.com/firefly-oss/fireflyframework-rule-engine",
+        "Documentation": "https://github.com/firefly-oss/fireflyframework-rule-engine/docs",
     },
 )

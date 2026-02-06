@@ -1,6 +1,6 @@
-# Firefly Rule Engine Python Runtime
+# Firefly Framework Rule Engine Python Runtime
 
-The Firefly Rule Engine Python Runtime provides all the built-in functions and utilities needed to execute compiled Python rules from the Firefly Rule Engine.
+The Firefly Framework Rule Engine Python Runtime provides all the built-in functions and utilities needed to execute compiled Python rules from the Firefly Framework Rule Engine.
 
 ## 🚀 Installation
 
@@ -26,8 +26,8 @@ python3 -c "import firefly_runtime; print(f'Firefly Runtime v{firefly_runtime.__
 
 ```bash
 # Clone the repository
-git clone https://github.com/firefly-oss/common-platform-rule-engine.git
-cd common-platform-rule-engine/python-runtime
+git clone https://github.com/fireflyframework/fireflyframework-rule-engine.git
+cd fireflyframework-rule-engine/python-runtime
 
 # Create virtual environment
 python3 -m venv firefly-env
@@ -60,8 +60,8 @@ pip install -r requirements.txt
 
 ```bash
 # Clone and build
-git clone https://github.com/firefly-oss/common-platform-rule-engine.git
-cd common-platform-rule-engine/python-runtime
+git clone https://github.com/fireflyframework/fireflyframework-rule-engine.git
+cd fireflyframework-rule-engine/python-runtime
 
 # Build wheel
 python setup.py bdist_wheel
@@ -92,7 +92,7 @@ The runtime requires the following Python packages:
 
 ### Import Statement
 
-All compiled Python rules from the Firefly Rule Engine start with:
+All compiled Python rules from the Firefly Framework Rule Engine start with:
 
 ```python
 from firefly_runtime import *
@@ -316,7 +316,7 @@ def loan_approval(context):
 
 ## 📄 License
 
-Copyright 2025 Firefly Software Solutions Inc
+Copyright 2024-2026 Firefly Software Solutions Inc
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

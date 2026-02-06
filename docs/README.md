@@ -1,6 +1,6 @@
-# Firefly Rule Engine Documentation
+# Firefly Framework Rule Engine Documentation
 
-**Complete documentation for the Firefly Rule Engine - part of the Firefly OpenCore Banking Platform**
+**Complete documentation for the Firefly Framework Rule Engine - part of the Firefly Framework**
 
 *Apache 2.0 Licensed | Production-Ready | AST-Based YAML DSL*
 
@@ -8,7 +8,7 @@
 
 ## 📚 Documentation Overview
 
-This documentation provides comprehensive guidance for using the Firefly Rule Engine, from quick start tutorials to advanced patterns and complete API references.
+This documentation provides comprehensive guidance for using the Firefly Framework Rule Engine, from quick start tutorials to advanced patterns and complete API references.
 
 ### 🎯 Choose Your Learning Path
 
@@ -176,9 +176,9 @@ All documentation is generated from and validated against the actual codebase im
 
 ## 🔗 External Resources
 
-- **GitHub Repository**: [firefly-oss/common-platform-rule-engine](https://github.com/firefly-oss/common-platform-rule-engine)
+- **GitHub Repository**: [fireflyframework/fireflyframework-rule-engine](https://github.com/fireflyframework/fireflyframework-rule-engine)
 - **License**: Apache 2.0
-- **Firefly Platform**: [Firefly OpenCore Banking Platform](https://firefly.software)
+- **Firefly Platform**: [Firefly Framework](https://firefly.software)
 
 ---
 
