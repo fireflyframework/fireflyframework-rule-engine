@@ -1,7 +1,7 @@
 # Firefly Framework Rule Engine
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/projects/jdk/21/)
+[![Java](https://img.shields.io/badge/Java-25-orange.svg)](https://openjdk.java.net/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 [![Maven](https://img.shields.io/badge/Maven-3.8+-red.svg)](https://maven.apache.org/)
 
@@ -274,7 +274,7 @@ The Firefly Framework Rule Engine has **completely migrated from string-based pa
 
 #### **🚫 Legacy-Free Architecture**
 - **No String Dependencies**: String-based parser completely removed
-- **Modern Java**: Uses Java 21 features like pattern matching and records
+- **Modern Java**: Uses Java 25 features like pattern matching and records (Java 21+ compatible)
 - **Reactive Streams**: Full reactive programming support with R2DBC
 - **Cloud Native**: Designed for containerized and microservice environments
 
@@ -282,7 +282,7 @@ The Firefly Framework Rule Engine has **completely migrated from string-based pa
 
 ### Prerequisites
 
-- **Java 21** or higher
+- **Java 25** (default, Java 21+ compatible)
 - **Maven 3.8+**
 - **PostgreSQL 12+** (for persistence)
 - **Docker** (optional, for containerized deployment)

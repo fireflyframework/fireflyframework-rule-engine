@@ -464,7 +464,7 @@ public class EvaluationContext {
 ## Technology Stack
 
 ### Core Technologies
-- **Java 21** - Latest LTS version with virtual threads
+- **Java 25** - Latest LTS version with virtual threads (Java 21+ compatible)
 - **Spring Boot 3.x** - Application framework
 - **Spring WebFlux** - Reactive web stack
 - **R2DBC** - Reactive database connectivity
