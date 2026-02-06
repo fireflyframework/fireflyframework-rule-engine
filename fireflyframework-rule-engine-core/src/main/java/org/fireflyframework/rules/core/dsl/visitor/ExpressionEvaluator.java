@@ -28,6 +28,7 @@ import org.fireflyframework.rules.core.utils.JsonLogger;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -313,7 +314,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                 BigDecimal sum = operandValues.stream()
                         .map(this::toNumber)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-                yield sum.divide(BigDecimal.valueOf(operandValues.size()), 10, BigDecimal.ROUND_HALF_UP);
+                yield sum.divide(BigDecimal.valueOf(operandValues.size()), 10, RoundingMode.HALF_UP);
             }
             default -> {
                 if (operandValues.size() >= 2) {
@@ -321,7 +322,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                     BigDecimal second = toNumber(operandValues.get(1));
                     yield switch (node.getOperation()) {
                         case SUBTRACT -> first.subtract(second);
-                        case DIVIDE -> first.divide(second, 10, BigDecimal.ROUND_HALF_UP);
+                        case DIVIDE -> first.divide(second, 10, RoundingMode.HALF_UP);
                         case MODULO -> first.remainder(second);
                         case POWER -> BigDecimal.valueOf(Math.pow(first.doubleValue(), second.doubleValue()));
                         default -> first;
@@ -515,7 +516,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
         if (rightNum.compareTo(BigDecimal.ZERO) == 0) {
             throw new ArithmeticException("Division by zero");
         }
-        return toNumberSafe(left).divide(rightNum, 10, BigDecimal.ROUND_HALF_UP);
+        return toNumberSafe(left).divide(rightNum, 10, RoundingMode.HALF_UP);
     }
     
     private Object modulo(Object left, Object right) {
@@ -1332,17 +1333,17 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             int termMonths = toNumber(args[2]).intValue();
 
             if (annualRate.compareTo(BigDecimal.ZERO) == 0) {
-                return principal.divide(BigDecimal.valueOf(termMonths), 2, BigDecimal.ROUND_HALF_UP);
+                return principal.divide(BigDecimal.valueOf(termMonths), 2, RoundingMode.HALF_UP);
             }
 
-            BigDecimal monthlyRate = annualRate.divide(BigDecimal.valueOf(1200), 10, BigDecimal.ROUND_HALF_UP);
+            BigDecimal monthlyRate = annualRate.divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
             BigDecimal onePlusR = BigDecimal.ONE.add(monthlyRate);
             BigDecimal onePlusRPowN = onePlusR.pow(termMonths);
 
             BigDecimal numerator = principal.multiply(monthlyRate).multiply(onePlusRPowN);
             BigDecimal denominator = onePlusRPowN.subtract(BigDecimal.ONE);
 
-            BigDecimal result = numerator.divide(denominator, 2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal result = numerator.divide(denominator, 2, RoundingMode.HALF_UP);
 
             // If 4th parameter is provided, it's the result variable name - store the result
             if (args.length >= 4 && args[3] != null && context != null) {
@@ -1365,7 +1366,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             int compoundingFrequency = toNumber(args[2]).intValue();
             int years = toNumber(args[3]).intValue();
 
-            BigDecimal rate = annualRate.divide(BigDecimal.valueOf(100 * compoundingFrequency), 10, BigDecimal.ROUND_HALF_UP);
+            BigDecimal rate = annualRate.divide(BigDecimal.valueOf(100 * compoundingFrequency), 10, RoundingMode.HALF_UP);
             int totalPeriods = compoundingFrequency * years;
 
             BigDecimal onePlusRate = BigDecimal.ONE.add(rate);
@@ -1413,7 +1414,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             if (monthlyIncome.compareTo(BigDecimal.ZERO) == 0) return null;
 
             // Return as decimal ratio (0.333), not percentage (33.33)
-            return monthlyDebt.divide(monthlyIncome, 4, BigDecimal.ROUND_HALF_UP);
+            return monthlyDebt.divide(monthlyIncome, 4, RoundingMode.HALF_UP);
         } catch (Exception e) {
             log.warn("Error calculating debt-to-income ratio: {}", e.getMessage());
             return null;
@@ -1428,7 +1429,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
 
             if (creditLimit.compareTo(BigDecimal.ZERO) == 0) return null;
 
-            return currentBalance.divide(creditLimit, 4, BigDecimal.ROUND_HALF_UP)
+            return currentBalance.divide(creditLimit, 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
         } catch (Exception e) {
             log.warn("Error calculating credit utilization: {}", e.getMessage());
@@ -1444,7 +1445,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
 
             if (propertyValue.compareTo(BigDecimal.ZERO) == 0) return null;
 
-            return loanAmount.divide(propertyValue, 4, BigDecimal.ROUND_HALF_UP)
+            return loanAmount.divide(propertyValue, 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
         } catch (Exception e) {
             log.warn("Error calculating loan-to-value ratio: {}", e.getMessage());
@@ -1465,10 +1466,10 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             BigDecimal totalCost = totalPayments.add(totalFees);
             BigDecimal totalInterest = totalCost.subtract(loanAmount);
 
-            BigDecimal avgBalance = loanAmount.divide(BigDecimal.valueOf(2), 10, BigDecimal.ROUND_HALF_UP);
-            BigDecimal annualInterest = totalInterest.divide(BigDecimal.valueOf(termMonths / 12.0), 10, BigDecimal.ROUND_HALF_UP);
+            BigDecimal avgBalance = loanAmount.divide(BigDecimal.valueOf(2), 10, RoundingMode.HALF_UP);
+            BigDecimal annualInterest = totalInterest.divide(BigDecimal.valueOf(termMonths / 12.0), 10, RoundingMode.HALF_UP);
 
-            return annualInterest.divide(avgBalance, 4, BigDecimal.ROUND_HALF_UP)
+            return annualInterest.divide(avgBalance, 4, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100));
         } catch (Exception e) {
             log.warn("Error calculating APR: {}", e.getMessage());
@@ -1560,7 +1561,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             if (totalPayments == 0) return 0;
 
             BigDecimal onTimePayments = BigDecimal.valueOf(totalPayments - latePayments - missedPayments);
-            BigDecimal onTimeRatio = onTimePayments.divide(BigDecimal.valueOf(totalPayments), 4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal onTimeRatio = onTimePayments.divide(BigDecimal.valueOf(totalPayments), 4, RoundingMode.HALF_UP);
 
             // Penalize late and missed payments more heavily
             BigDecimal latePenalty = BigDecimal.valueOf(latePayments * 5);
@@ -1643,7 +1644,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             formatter.setMaximumFractionDigits(decimals);
             formatter.setMinimumFractionDigits(decimals);
 
-            return formatter.format(value.divide(BigDecimal.valueOf(100), 10, BigDecimal.ROUND_HALF_UP));
+            return formatter.format(value.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP));
         } catch (Exception e) {
             log.warn("Error formatting percentage: {}", e.getMessage());
             return null;
@@ -1868,7 +1869,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                 return null; // Avoid division by zero
             }
 
-            BigDecimal ratio = totalDebt.divide(totalIncome, 4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal ratio = totalDebt.divide(totalIncome, 4, RoundingMode.HALF_UP);
             return ratio.multiply(BigDecimal.valueOf(100)); // Return as percentage
         } catch (Exception e) {
             log.warn("Error calculating debt ratio: {}", e.getMessage());
@@ -1887,7 +1888,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                 return null; // Avoid division by zero
             }
 
-            BigDecimal ltv = loanAmount.divide(propertyValue, 4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal ltv = loanAmount.divide(propertyValue, 4, RoundingMode.HALF_UP);
             return ltv.multiply(BigDecimal.valueOf(100)); // Return as percentage
         } catch (Exception e) {
             log.warn("Error calculating LTV: {}", e.getMessage());
@@ -1908,7 +1909,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
 
             java.util.List<java.util.Map<String, Object>> schedule = new java.util.ArrayList<>();
             BigDecimal remainingBalance = principal;
-            BigDecimal monthlyRate = annualRate.divide(BigDecimal.valueOf(1200), 10, BigDecimal.ROUND_HALF_UP);
+            BigDecimal monthlyRate = annualRate.divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
 
             for (int month = 1; month <= termMonths; month++) {
                 BigDecimal interestPayment = remainingBalance.multiply(monthlyRate);

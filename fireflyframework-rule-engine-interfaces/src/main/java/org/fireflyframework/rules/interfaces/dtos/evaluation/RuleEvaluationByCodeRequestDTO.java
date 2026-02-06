@@ -45,7 +45,7 @@ public class RuleEvaluationByCodeRequestDTO {
              message = "Code must start with a letter and contain only letters, numbers, and underscores")
     @Schema(description = "Code of the stored rule definition to evaluate",
             example = "credit_scoring_v1",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String ruleDefinitionCode;
 
     /**
@@ -57,7 +57,7 @@ public class RuleEvaluationByCodeRequestDTO {
     @ValidInputVariableNames
     @Schema(description = "Input data for rule evaluation. Variable names must follow camelCase convention (e.g., creditScore, annualIncome, employmentYears). These are dynamic values passed from your application.",
             example = "{\"creditScore\": 780, \"annualIncome\": 75000, \"employmentYears\": 3, \"existingDebt\": 25000, \"requestedAmount\": 200000}",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private Map<String, Object> inputData;
 
     /**

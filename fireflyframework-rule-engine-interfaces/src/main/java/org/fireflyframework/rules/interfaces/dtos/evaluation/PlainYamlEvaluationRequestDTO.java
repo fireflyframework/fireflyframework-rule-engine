@@ -47,7 +47,7 @@ public class PlainYamlEvaluationRequestDTO {
     @Size(min = 10, max = 50000, message = "YAML content must be between 10 and 50000 characters")
     @Schema(description = "Plain YAML DSL rules definition to evaluate. Must follow naming conventions: camelCase for inputs (creditScore, annualIncome), snake_case for computed variables (debt_to_income, is_eligible), UPPER_CASE for constants (MIN_CREDIT_SCORE).",
             example = "name: \"Credit Scoring Rule\"\ndescription: \"Basic credit assessment for loan applications\"\n\ninputs:\n  - creditScore        # camelCase input\n  - annualIncome       # camelCase input\n  - employmentYears    # camelCase input\n  - existingDebt       # camelCase input\n\nwhen:\n  - creditScore at_least MIN_CREDIT_SCORE\n  - annualIncome at_least 50000\n  - employmentYears at_least 2\n\nthen:\n  - calculate debt_to_income as existingDebt / annualIncome    # snake_case computed\n  - set is_eligible to true                                   # snake_case computed\n  - set approval_tier to \"STANDARD\"                          # snake_case computed\n\nelse:\n  - set is_eligible to false\n  - set approval_tier to \"DECLINED\"\n\noutput:\n  is_eligible: is_eligible\n  approval_tier: approval_tier\n  debt_to_income: debt_to_income",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String yamlContent;
 
     /**
@@ -59,7 +59,7 @@ public class PlainYamlEvaluationRequestDTO {
     @ValidInputVariableNames
     @Schema(description = "Input data for rule evaluation. Variable names must follow camelCase convention (e.g., creditScore, annualIncome, employmentYears). These are dynamic values passed from your application.",
             example = "{\"creditScore\": 780, \"annualIncome\": 75000, \"employmentYears\": 3, \"existingDebt\": 25000}",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private Map<String, Object> inputData;
 
     /**

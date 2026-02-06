@@ -115,6 +115,7 @@ public class ASTRulesDSLParser {
      *
      * @deprecated Use parseRulesReactive() instead for reactive contexts
      */
+    @Deprecated
     public ASTRulesDSL parseRules(String rulesDefinition) {
         return parseRulesReactive(rulesDefinition).block();
     }
