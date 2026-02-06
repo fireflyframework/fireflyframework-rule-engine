@@ -39,7 +39,7 @@ class PythonCodeGeneratorTest {
     @BeforeEach
     void setUp() {
         pythonCodeGenerator = new PythonCodeGenerator();
-        astRulesDSLParser = new ASTRulesDSLParser(new com.firefly.rules.core.dsl.parser.DSLParser());
+        astRulesDSLParser = new ASTRulesDSLParser(new org.fireflyframework.rules.core.dsl.parser.DSLParser());
     }
 
     @Test

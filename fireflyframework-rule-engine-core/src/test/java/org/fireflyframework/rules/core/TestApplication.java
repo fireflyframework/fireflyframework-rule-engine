@@ -25,13 +25,13 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication(
     scanBasePackages = {
-        "com.firefly.rules.core",
-        "com.firefly.common.cache"  // Scan common cache library configurations
+        "org.fireflyframework.rules.core",
+        "org.fireflyframework.cache"  // Scan common cache library configurations
     }
 )
 @ConfigurationPropertiesScan(basePackages = {
-    "com.firefly.rules.core",
-    "com.firefly.common.cache"
+    "org.fireflyframework.rules.core",
+    "org.fireflyframework.cache"
 })
 public class TestApplication {
 

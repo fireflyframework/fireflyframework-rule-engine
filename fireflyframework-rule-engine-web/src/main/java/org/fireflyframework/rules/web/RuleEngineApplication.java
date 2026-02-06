@@ -14,13 +14,13 @@ import org.springframework.web.reactive.config.EnableWebFlux;
 
 @SpringBootApplication(
         scanBasePackages = {
-                "com.firefly.rules",
-                "com.firefly.common.web"  // Scan common web library configurations
+                "org.fireflyframework.rules",
+                "org.fireflyframework.web"  // Scan common web library configurations
         }
 )
 @EnableWebFlux
 @EnableR2dbcRepositories(
-        basePackages = "com.firefly.rules.models.repositories"
+        basePackages = "org.fireflyframework.rules.models.repositories"
 )
 @EnableR2dbcAuditing
 @ConfigurationPropertiesScan

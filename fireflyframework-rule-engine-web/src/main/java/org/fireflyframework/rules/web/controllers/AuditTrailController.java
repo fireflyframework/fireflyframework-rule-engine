@@ -16,7 +16,7 @@
 
 package org.fireflyframework.rules.web.controllers;
 
-import com.firefly.common.core.queries.PaginationResponse;
+import org.fireflyframework.core.queries.PaginationResponse;
 import org.fireflyframework.rules.core.services.AuditTrailService;
 import org.fireflyframework.rules.interfaces.dtos.audit.AuditTrailDTO;
 import org.fireflyframework.rules.interfaces.dtos.audit.AuditTrailFilterDTO;

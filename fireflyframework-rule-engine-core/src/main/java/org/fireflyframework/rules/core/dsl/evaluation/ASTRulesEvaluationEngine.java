@@ -200,7 +200,7 @@ public class ASTRulesEvaluationEngine {
                     .circuitBreakerMessage(context.getCircuitBreakerMessage())
                     .build();
 
-        } catch (com.firefly.rules.core.dsl.exception.CircuitBreakerException e) {
+        } catch (org.fireflyframework.rules.core.dsl.exception.CircuitBreakerException e) {
             // Circuit breaker is a controlled stop, not an error
             long executionTime = System.currentTimeMillis() - context.getStartTime();
             Map<String, Object> outputData = generateOutput(rulesDSL, context, conditionResult);
@@ -283,7 +283,7 @@ public class ASTRulesEvaluationEngine {
 
                 JsonLogger.info(log, context.getOperationId(),
                     String.format("Action %d completed successfully", i + 1));
-            } catch (com.firefly.rules.core.dsl.exception.CircuitBreakerException e) {
+            } catch (org.fireflyframework.rules.core.dsl.exception.CircuitBreakerException e) {
                 // Circuit breaker is a controlled stop, not an error
                 JsonLogger.info(log, context.getOperationId(),
                     "Circuit breaker triggered: " + e.getCircuitBreakerMessage() + " - stopping execution");

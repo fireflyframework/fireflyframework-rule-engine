@@ -16,9 +16,9 @@
 
 package org.fireflyframework.rules.core.dsl.parser;
 
-import com.firefly.common.cache.adapter.caffeine.CaffeineCacheAdapter;
-import com.firefly.common.cache.adapter.caffeine.CaffeineCacheConfig;
-import com.firefly.common.cache.manager.FireflyCacheManager;
+import org.fireflyframework.cache.adapter.caffeine.CaffeineCacheAdapter;
+import org.fireflyframework.cache.adapter.caffeine.CaffeineCacheConfig;
+import org.fireflyframework.cache.manager.FireflyCacheManager;
 import org.fireflyframework.rules.core.dsl.model.ASTRulesDSL;
 import org.fireflyframework.rules.core.services.impl.CacheServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +55,7 @@ class ASTCacheIntegrationTest {
         cacheManager = new FireflyCacheManager(cacheAdapter, null);
 
         // Create cache service with mock constant service
-        cacheService = new CacheServiceImpl(cacheManager, Mockito.mock(com.firefly.rules.core.services.ConstantService.class));
+        cacheService = new CacheServiceImpl(cacheManager, Mockito.mock(org.fireflyframework.rules.core.services.ConstantService.class));
 
         // Create DSL parser and AST parser
         DSLParser dslParser = new DSLParser();

@@ -18,7 +18,7 @@ package org.fireflyframework.rules.core.services.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.firefly.common.core.queries.PaginationResponse;
+import org.fireflyframework.core.queries.PaginationResponse;
 import org.fireflyframework.rules.core.services.AuditTrailService;
 import org.fireflyframework.rules.interfaces.dtos.audit.AuditEventType;
 import org.fireflyframework.rules.interfaces.dtos.audit.AuditTrailDTO;

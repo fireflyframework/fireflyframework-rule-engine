@@ -16,9 +16,9 @@
 
 package org.fireflyframework.rules.core.cache;
 
-import com.firefly.common.cache.adapter.caffeine.CaffeineCacheAdapter;
-import com.firefly.common.cache.adapter.caffeine.CaffeineCacheConfig;
-import com.firefly.common.cache.manager.FireflyCacheManager;
+import org.fireflyframework.cache.adapter.caffeine.CaffeineCacheAdapter;
+import org.fireflyframework.cache.adapter.caffeine.CaffeineCacheConfig;
+import org.fireflyframework.cache.manager.FireflyCacheManager;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
