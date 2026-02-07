@@ -41,14 +41,10 @@
             <artifactId>r2dbc-postgresql</artifactId>
         </dependency>
 
-        <!-- Add this dependency for Flyway -->
+        <!-- JDBC driver needed for Flyway (sync operations) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
         </dependency>
 
         <!-- Utils -->
