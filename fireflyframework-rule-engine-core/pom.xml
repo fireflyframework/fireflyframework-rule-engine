@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.fireflyframework</groupId>
         <artifactId>fireflyframework-rule-engine</artifactId>
-        <version>26.02.01</version>
+        <version>26.02.02</version>
     </parent>
 
     <artifactId>fireflyframework-rule-engine-core</artifactId>
@@ -63,21 +63,18 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
-            <version>3.6.1</version>
         </dependency>
 
         <!-- Date/Time Operations -->
         <dependency>
             <groupId>org.threeten</groupId>
             <artifactId>threeten-extra</artifactId>
-            <version>1.7.2</version>
         </dependency>
 
         <!-- Encryption and Security -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.77</version>
         </dependency>
 
         <!-- Caching is now provided by lib-common-cache -->
@@ -94,17 +91,15 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Testcontainers for integration testing -->
+        <!-- Testcontainers for integration testing (versions managed by parent via BOM) -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>1.19.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.19.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
