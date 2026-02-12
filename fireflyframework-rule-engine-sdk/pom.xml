@@ -6,10 +6,13 @@
     <parent>
         <groupId>org.fireflyframework</groupId>
         <artifactId>fireflyframework-rule-engine</artifactId>
-        <version>26.02.02</version>
+        <version>26.02.03</version>
     </parent>
 
     <artifactId>fireflyframework-rule-engine-sdk</artifactId>
+
+    <name>Firefly Framework - Rule Engine SDK</name>
+    <description>Client SDK for integrating with the Firefly Framework rule engine</description>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
