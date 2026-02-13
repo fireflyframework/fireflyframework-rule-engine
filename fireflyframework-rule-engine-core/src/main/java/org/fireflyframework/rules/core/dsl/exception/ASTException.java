@@ -16,6 +16,7 @@
 
 package org.fireflyframework.rules.core.dsl.exception;
 
+import org.fireflyframework.kernel.exception.FireflyException;
 import org.fireflyframework.rules.core.dsl.SourceLocation;
 import lombok.Getter;
 
@@ -26,7 +27,7 @@ import java.util.List;
  * Provides enhanced error reporting with source location and suggestions.
  */
 @Getter
-public class ASTException extends RuntimeException {
+public class ASTException extends FireflyException {
     
     private final SourceLocation location;
     private final String errorCode;

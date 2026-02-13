@@ -17,13 +17,14 @@
 package org.fireflyframework.rules.core.dsl.exception;
 
 import lombok.Getter;
+import org.fireflyframework.kernel.exception.FireflyException;
 
 /**
  * Exception thrown when a circuit breaker is triggered.
  * This is NOT an error - it's a controlled stop of rule execution.
  */
 @Getter
-public class CircuitBreakerException extends RuntimeException {
+public class CircuitBreakerException extends FireflyException {
     
     private final String circuitBreakerMessage;
     private final String errorCode;

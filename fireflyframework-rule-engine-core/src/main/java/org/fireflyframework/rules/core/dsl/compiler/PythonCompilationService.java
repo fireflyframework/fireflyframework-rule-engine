@@ -4,6 +4,7 @@ import org.fireflyframework.rules.core.dsl.model.ASTRulesDSL;
 import org.fireflyframework.rules.core.dsl.parser.ASTRulesDSLParser;
 import org.fireflyframework.rules.core.validation.YamlDslValidator;
 import org.fireflyframework.rules.interfaces.dtos.validation.ValidationResult;
+import org.fireflyframework.kernel.exception.FireflyException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -280,7 +281,7 @@ public class PythonCompilationService {
     /**
      * Exception thrown when Python compilation fails.
      */
-    public static class PythonCompilationException extends RuntimeException {
+    public static class PythonCompilationException extends FireflyException {
         public PythonCompilationException(String message) {
             super(message);
         }
