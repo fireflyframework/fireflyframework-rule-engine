@@ -146,7 +146,9 @@ public class CacheServiceImpl implements CacheService {
     public void cacheConstant(String code, ConstantDTO constant) {
         try {
             String fullKey = CONSTANT_PREFIX + code;
-            cacheManager.put(fullKey, constant).subscribe();
+            cacheManager.put(fullKey, constant)
+                    .doOnError(e -> log.warn("Cache write failed for constant {}: {}", code, e.getMessage()))
+                    .subscribe();
             log.debug("Cached constant with code: {}", code);
         } catch (Exception e) {
             log.warn("Error caching constant for code: {}", code, e);
@@ -172,13 +174,17 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void invalidateConstant(String code) {
         String fullKey = CONSTANT_PREFIX + code;
-        cacheManager.evict(fullKey).subscribe();
+        cacheManager.evict(fullKey)
+                .doOnError(e -> log.warn("Cache evict failed for constant {}: {}", code, e.getMessage()))
+                .subscribe();
         log.debug("Invalidated constants cache entry for code: {}", code);
     }
 
     @Override
     public void clearConstantsCache() {
-        cacheManager.clear().subscribe();
+        cacheManager.clear()
+                .doOnError(e -> log.warn("Cache clear failed for constants: {}", e.getMessage()))
+                .subscribe();
         log.info("Cleared all constants cache entries");
     }
 
@@ -201,7 +207,9 @@ public class CacheServiceImpl implements CacheService {
     public void cacheRuleDefinition(String code, RuleDefinitionDTO ruleDefinition) {
         try {
             String fullKey = RULE_DEF_PREFIX + code;
-            cacheManager.put(fullKey, ruleDefinition).subscribe();
+            cacheManager.put(fullKey, ruleDefinition)
+                    .doOnError(e -> log.warn("Cache write failed for rule definition {}: {}", code, e.getMessage()))
+                    .subscribe();
             log.debug("Cached rule definition with code: {}", code);
         } catch (Exception e) {
             log.warn("Error caching rule definition for code: {}", code, e);
@@ -211,13 +219,17 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void invalidateRuleDefinition(String code) {
         String fullKey = RULE_DEF_PREFIX + code;
-        cacheManager.evict(fullKey).subscribe();
+        cacheManager.evict(fullKey)
+                .doOnError(e -> log.warn("Cache evict failed for rule definition {}: {}", code, e.getMessage()))
+                .subscribe();
         log.debug("Invalidated rule definitions cache entry for code: {}", code);
     }
 
     @Override
     public void clearRuleDefinitionsCache() {
-        cacheManager.clear().subscribe();
+        cacheManager.clear()
+                .doOnError(e -> log.warn("Cache clear failed for rule definitions: {}", e.getMessage()))
+                .subscribe();
         log.info("Cleared all rule definitions cache entries");
     }
 
@@ -240,7 +252,9 @@ public class CacheServiceImpl implements CacheService {
     public void cacheValidationResult(String cacheKey, ValidationResult validationResult) {
         try {
             String fullKey = VALIDATION_PREFIX + cacheKey;
-            cacheManager.put(fullKey, validationResult).subscribe();
+            cacheManager.put(fullKey, validationResult)
+                    .doOnError(e -> log.warn("Cache write failed for validation result {}: {}", cacheKey, e.getMessage()))
+                    .subscribe();
             log.debug("Cached validation result with key: {}", cacheKey);
         } catch (Exception e) {
             log.warn("Error caching validation result for key: {}", cacheKey, e);
@@ -250,13 +264,17 @@ public class CacheServiceImpl implements CacheService {
     @Override
     public void invalidateValidationResult(String cacheKey) {
         String fullKey = VALIDATION_PREFIX + cacheKey;
-        cacheManager.evict(fullKey).subscribe();
+        cacheManager.evict(fullKey)
+                .doOnError(e -> log.warn("Cache evict failed for validation result {}: {}", cacheKey, e.getMessage()))
+                .subscribe();
         log.debug("Invalidated validation cache entry for key: {}", cacheKey);
     }
 
     @Override
     public void clearValidationCache() {
-        cacheManager.clear().subscribe();
+        cacheManager.clear()
+                .doOnError(e -> log.warn("Cache clear failed for validation cache: {}", e.getMessage()))
+                .subscribe();
         log.info("Cleared all validation cache entries");
     }
 
@@ -300,7 +318,9 @@ public class CacheServiceImpl implements CacheService {
 
     @Override
     public void clearAllCaches() {
-        cacheManager.clear().subscribe();
+        cacheManager.clear()
+                .doOnError(e -> log.warn("Cache clear failed: {}", e.getMessage()))
+                .subscribe();
         log.info("Cleared all caches");
     }
 

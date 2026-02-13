@@ -31,6 +31,13 @@
             <artifactId>fireflyframework-rule-engine-models</artifactId>
         </dependency>
 
+        <!-- Firefly Kernel (foundational: exceptions, shared abstractions) -->
+        <dependency>
+            <groupId>org.fireflyframework</groupId>
+            <artifactId>fireflyframework-kernel</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Common Libraries -->
         <dependency>
             <groupId>org.fireflyframework</groupId>

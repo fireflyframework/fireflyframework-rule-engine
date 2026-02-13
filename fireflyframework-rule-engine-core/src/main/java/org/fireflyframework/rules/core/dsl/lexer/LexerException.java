@@ -16,13 +16,14 @@
 
 package org.fireflyframework.rules.core.dsl.lexer;
 
+import org.fireflyframework.kernel.exception.FireflyException;
 import org.fireflyframework.rules.core.dsl.SourceLocation;
 
 /**
  * Exception thrown when lexical analysis fails.
  * Provides detailed error information including source location.
  */
-public class LexerException extends RuntimeException {
+public class LexerException extends FireflyException {
     
     private final SourceLocation location;
     private final String errorCode;
