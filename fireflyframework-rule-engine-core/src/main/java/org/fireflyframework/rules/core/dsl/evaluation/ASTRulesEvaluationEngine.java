@@ -413,11 +413,6 @@ public class ASTRulesEvaluationEngine {
         JsonLogger.info(log, operationId, "Starting AST-based rule evaluation: " + rulesDSL.getName());
 
         // Load system constants and wait for completion
-        try {
-            java.nio.file.Files.write(java.nio.file.Paths.get("/tmp/debug.log"),
-                ("🔥 DEBUG: About to call loadSystemConstants\n").getBytes(),
-                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-        } catch (Exception e) {}
         return loadSystemConstants(rulesDSL)
                 .map(constants -> {
 
@@ -453,10 +448,9 @@ public class ASTRulesEvaluationEngine {
 
             JsonLogger.info(log, "Loading constants from database: " + constantCodes);
 
-            try {
-                JsonLogger.info(log, "About to call constantService.getConstantsByCodes with: " + constantCodes);
+            JsonLogger.info(log, "About to call constantService.getConstantsByCodes with: " + constantCodes);
 
-                return constantService.getConstantsByCodes(constantCodes)
+            return constantService.getConstantsByCodes(constantCodes)
                     .doOnNext(constantDTO -> JsonLogger.info(log, "Found constant in DB: " + constantDTO.getCode()))
                     .doOnComplete(() -> JsonLogger.info(log, "ConstantService flux completed"))
                     .collectList()
@@ -478,7 +472,6 @@ public class ASTRulesEvaluationEngine {
                         Set<String> missingConstants = new HashSet<>(detectedConstants);
                         missingConstants.removeAll(foundConstants);
                         JsonLogger.info(log, "Detected constants: " + detectedConstants + ", Found constants: " + foundConstants + ", Missing constants: " + missingConstants);
-
 
                         // Add default values for constants not found in database (if explicitly declared)
                         if (rulesDSL.getConstants() != null) {
@@ -505,10 +498,6 @@ public class ASTRulesEvaluationEngine {
 
                         return Mono.just(loadedConstants);
                     });
-            } catch (Exception e) {
-
-                throw e;
-            }
         }
 
         return Mono.just(constants);

@@ -6,19 +6,13 @@
     <parent>
         <groupId>org.fireflyframework</groupId>
         <artifactId>fireflyframework-rule-engine</artifactId>
-        <version>26.02.04</version>
+        <version>26.02.05</version>
     </parent>
 
     <artifactId>fireflyframework-rule-engine-core</artifactId>
 
     <name>Firefly Framework - Rule Engine Core</name>
     <description>Core rule evaluation engine with condition matching and action execution</description>
-
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
 
     <dependencies>
         <!-- Internal modules -->
@@ -41,7 +35,7 @@
         <!-- Common Libraries -->
         <dependency>
             <groupId>org.fireflyframework</groupId>
-            <artifactId>fireflyframework-core</artifactId>
+            <artifactId>fireflyframework-starter-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
