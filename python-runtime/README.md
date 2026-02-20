@@ -88,6 +88,10 @@ The runtime requires the following Python packages:
 - `cryptography>=41.0.0` - For security/encryption functions
 - `urllib3>=2.0.0` - Enhanced HTTP client with retry capabilities
 
+**Optional dependencies:**
+
+- `python-dateutil>=2.8.0` - For accurate month/year arithmetic in date functions (`firefly_dateadd`, `firefly_datediff`). Without it, month/year operations use approximate day-based calculations.
+
 ## 🔧 Usage
 
 ### Import Statement
@@ -214,9 +218,11 @@ constants.update(constants_values)
 - `firefly_json_size()` - Get JSON array/object size
 
 ### Security Functions
-- `firefly_encrypt()` - Encrypt sensitive data
-- `firefly_decrypt()` - Decrypt sensitive data
+- `firefly_encrypt()` - Encrypt sensitive data (requires key configuration via `configure_encryption_key()`)
+- `firefly_decrypt()` - Decrypt sensitive data (requires key configuration via `configure_encryption_key()`)
 - `firefly_mask_data()` - Mask sensitive information
+- `hash_data()` - Hash data with SHA-256 or SHA-512 (MD5 is not supported)
+- `verify_hash()` - Timing-safe hash verification
 
 ### Interactive Functions
 - `get_user_input()` - Get user input with type conversion

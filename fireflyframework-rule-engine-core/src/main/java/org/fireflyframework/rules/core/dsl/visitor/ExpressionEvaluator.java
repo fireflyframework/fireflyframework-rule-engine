@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -43,6 +44,15 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     private final EvaluationContext context;
     private final RestCallService restCallService;
     private final JsonPathService jsonPathService;
+
+    private static final int REGEX_CACHE_SIZE = 64;
+    @SuppressWarnings("serial")
+    private static final Map<String, Pattern> REGEX_CACHE = new LinkedHashMap<>(REGEX_CACHE_SIZE, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Pattern> eldest) {
+            return size() > REGEX_CACHE_SIZE;
+        }
+    };
 
     public ExpressionEvaluator(EvaluationContext context) {
         this.context = context;
@@ -60,9 +70,17 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     
     @Override
     public Object visitBinaryExpression(BinaryExpression node) {
+        // Short-circuit AND/OR: evaluate right side only when needed
+        if (node.getOperator() == BinaryOperator.AND) {
+            return toBoolean(node.getLeft().accept(this)) && toBoolean(node.getRight().accept(this));
+        }
+        if (node.getOperator() == BinaryOperator.OR) {
+            return toBoolean(node.getLeft().accept(this)) || toBoolean(node.getRight().accept(this));
+        }
+
         Object leftValue = node.getLeft().accept(this);
         Object rightValue = node.getRight().accept(this);
-        
+
         return switch (node.getOperator()) {
             case ADD -> add(leftValue, rightValue);
             case SUBTRACT -> subtract(leftValue, rightValue);
@@ -88,8 +106,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case NOT_BETWEEN -> throw new IllegalStateException("NOT_BETWEEN operator should be handled in ComparisonCondition, not BinaryExpression");
             case AGE_AT_LEAST -> ageAtLeast(leftValue, rightValue);
             case AGE_LESS_THAN -> ageLessThan(leftValue, rightValue);
-            case AND -> toBoolean(leftValue) && toBoolean(rightValue);
-            case OR -> toBoolean(leftValue) || toBoolean(rightValue);
+            case AND, OR -> throw new IllegalStateException("AND/OR already handled above");
             // Handle additional aliases and operators
             case LESS_THAN_OR_EQUAL -> lessThanOrEqual(leftValue, rightValue);
             case GREATER_THAN_OR_EQUAL -> greaterThanOrEqual(leftValue, rightValue);
@@ -322,8 +339,18 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                     BigDecimal second = toNumber(operandValues.get(1));
                     yield switch (node.getOperation()) {
                         case SUBTRACT -> first.subtract(second);
-                        case DIVIDE -> first.divide(second, 10, RoundingMode.HALF_UP);
-                        case MODULO -> first.remainder(second);
+                        case DIVIDE -> {
+                            if (second.compareTo(BigDecimal.ZERO) == 0) {
+                                throw new ArithmeticException("Division by zero");
+                            }
+                            yield first.divide(second, 10, RoundingMode.HALF_UP);
+                        }
+                        case MODULO -> {
+                            if (second.compareTo(BigDecimal.ZERO) == 0) {
+                                throw new ArithmeticException("Modulo by zero");
+                            }
+                            yield first.remainder(second);
+                        }
                         case POWER -> BigDecimal.valueOf(Math.pow(first.doubleValue(), second.doubleValue()));
                         default -> first;
                     };
@@ -520,7 +547,11 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     }
     
     private Object modulo(Object left, Object right) {
-        return toNumberSafe(left).remainder(toNumberSafe(right));
+        BigDecimal rightNum = toNumberSafe(right);
+        if (rightNum.compareTo(BigDecimal.ZERO) == 0) {
+            throw new ArithmeticException("Modulo by zero");
+        }
+        return toNumberSafe(left).remainder(rightNum);
     }
     
     private Object power(Object left, Object right) {
@@ -587,8 +618,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             String leftStr = toString(left);
             String rightStr = toString(right);
 
-            Pattern pattern = Pattern.compile(rightStr);
-            // Use find() for partial matching, which is more common in DSLs
+            Pattern pattern = REGEX_CACHE.computeIfAbsent(rightStr, Pattern::compile);
             return pattern.matcher(leftStr).find();
         } catch (Exception e) {
             log.warn("Invalid regex pattern: {}", right);
@@ -643,6 +673,8 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
         if (value instanceof Boolean) return (Boolean) value;
         if (value instanceof Number) return ((Number) value).doubleValue() != 0;
         if (value instanceof String) return !((String) value).isEmpty();
+        if (value instanceof java.util.Collection) return !((java.util.Collection<?>) value).isEmpty();
+        if (value instanceof java.util.Map) return !((java.util.Map<?, ?>) value).isEmpty();
         return true;
     }
     
@@ -1014,15 +1046,8 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                 java.lang.reflect.Method booleanGetter = object.getClass().getMethod(booleanGetterName);
                 return booleanGetter.invoke(object);
             } catch (Exception e2) {
-                try {
-                    // Try direct field access
-                    java.lang.reflect.Field field = object.getClass().getDeclaredField(propertyName);
-                    field.setAccessible(true);
-                    return field.get(object);
-                } catch (Exception e3) {
-                    log.warn("Could not access property '{}' on object of type {}", propertyName, object.getClass().getSimpleName());
-                    return null;
-                }
+                log.warn("Could not access property '{}' on object of type {}", propertyName, object.getClass().getSimpleName());
+                return null;
             }
         }
     }

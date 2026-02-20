@@ -76,9 +76,13 @@ def json_path_get(data: Any, path: str) -> Any:
     return current
 
 
+_SENTINEL = object()
+
+
 def firefly_json_exists(data: Union[Dict, List, str], path: str) -> bool:
     """
     Check if a path exists in JSON data.
+    Returns True even if the value at the path is None/null.
 
     Args:
         data: JSON data
@@ -87,8 +91,53 @@ def firefly_json_exists(data: Union[Dict, List, str], path: str) -> bool:
     Returns:
         True if path exists, False otherwise
     """
-    result = firefly_json_get(data, path)
-    return result is not None
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return False
+
+    return _json_path_exists(data, path)
+
+
+def _json_path_exists(data: Any, path: str) -> bool:
+    """Check if a path exists (distinguishing None value from missing key)."""
+    if not path or not path.startswith('$'):
+        return False
+
+    path = path[1:]
+    if path.startswith('.'):
+        path = path[1:]
+
+    if not path:
+        return True
+
+    segments = _parse_path_segments(path)
+    current = data
+
+    for segment in segments:
+        if segment.startswith('[') and segment.endswith(']'):
+            index_str = segment[1:-1]
+            if isinstance(current, list):
+                try:
+                    index = int(index_str)
+                    if 0 <= index < len(current):
+                        current = current[index]
+                    else:
+                        return False
+                except ValueError:
+                    if index_str == '*':
+                        return isinstance(current, list) and len(current) > 0
+                    return False
+            else:
+                return False
+        else:
+            if isinstance(current, dict) and segment in current:
+                current = current[segment]
+            else:
+                return False
+
+    return True
 
 
 def firefly_json_size(data: Union[Dict, List, str], path: str = None) -> int:

@@ -168,6 +168,15 @@ public class AuditHelper {
      * Extract web context from ServerWebExchange
      */
     private Mono<WebContext> extractWebContext(ServerWebExchange exchange) {
+        if (exchange == null) {
+            return Mono.just(WebContext.builder()
+                    .userId("system")
+                    .httpMethod("INTERNAL")
+                    .endpoint("N/A")
+                    .ipAddress("127.0.0.1")
+                    .build());
+        }
+
         return Mono.fromCallable(() -> {
             String userId = extractUserId(exchange);
             String httpMethod = exchange.getRequest().getMethod().name();

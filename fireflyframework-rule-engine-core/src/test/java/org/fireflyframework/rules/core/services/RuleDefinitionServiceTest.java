@@ -18,6 +18,7 @@ package org.fireflyframework.rules.core.services;
 
 import org.fireflyframework.rules.core.audit.AuditHelper;
 import org.fireflyframework.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
+import org.fireflyframework.rules.core.services.CacheService;
 import org.fireflyframework.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import org.fireflyframework.rules.core.mappers.RuleDefinitionMapper;
 import org.fireflyframework.rules.core.services.impl.RuleDefinitionServiceImpl;
@@ -68,6 +69,9 @@ class RuleDefinitionServiceTest {
     @Mock
     private AuditHelper auditHelper;
 
+    @Mock
+    private CacheService cacheService;
+
     private RuleDefinitionService ruleDefinitionService;
 
     private static final String VALID_YAML_CONTENT = """
@@ -99,7 +103,8 @@ class RuleDefinitionServiceTest {
                 ruleDefinitionMapper,
                 rulesEvaluationEngine,
                 yamlDslValidator,
-                auditHelper
+                auditHelper,
+                cacheService
         );
     }
 

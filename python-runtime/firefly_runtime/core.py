@@ -181,6 +181,8 @@ def coerce_to_boolean(value: Any) -> bool:
     if isinstance(value, (list, dict, tuple, set)):
         return len(value) > 0
 
+    return bool(value)
+
 
 # Aliases for backward compatibility
 coerce_to_number = safe_convert_to_number

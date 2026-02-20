@@ -61,8 +61,9 @@ public class ActionExecutor implements ASTVisitor<Void> {
                     java.math.BigDecimal addValue = toBigDecimal(value);
                     context.setComputedVariable(node.getVariableName(), current.add(addValue));
                 } else {
-                    context.setComputedVariable(node.getVariableName(),
-                        currentValue.toString() + value.toString());
+                    String currentStr = currentValue != null ? currentValue.toString() : "";
+                    String valueStr = value != null ? value.toString() : "";
+                    context.setComputedVariable(node.getVariableName(), currentStr + valueStr);
                 }
             }
             case SUBTRACT_ASSIGN -> {
@@ -86,12 +87,11 @@ public class ActionExecutor implements ASTVisitor<Void> {
                 if (currentValue instanceof Number && value instanceof Number) {
                     java.math.BigDecimal current = toBigDecimal(currentValue);
                     java.math.BigDecimal divisor = toBigDecimal(value);
-                    if (divisor.compareTo(java.math.BigDecimal.ZERO) != 0) {
-                        context.setComputedVariable(node.getVariableName(),
-                            current.divide(divisor, 10, java.math.RoundingMode.HALF_UP));
-                    } else {
-                        log.error("Division by zero in assignment action");
+                    if (divisor.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                        throw new ArithmeticException("Division by zero in /= assignment");
                     }
+                    context.setComputedVariable(node.getVariableName(),
+                        current.divide(divisor, 10, java.math.RoundingMode.HALF_UP));
                 }
             }
         }
@@ -376,12 +376,10 @@ public class ActionExecutor implements ASTVisitor<Void> {
                 case SUBTRACT -> result = currentNum.subtract(valueNum);
                 case MULTIPLY -> result = currentNum.multiply(valueNum);
                 case DIVIDE -> {
-                    if (valueNum.compareTo(java.math.BigDecimal.ZERO) != 0) {
-                        result = currentNum.divide(valueNum, 10, java.math.RoundingMode.HALF_UP);
-                    } else {
-                        log.warn("Division by zero attempted in arithmetic action");
-                        result = null;
+                    if (valueNum.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                        throw new ArithmeticException("Division by zero in arithmetic action");
                     }
+                    result = currentNum.divide(valueNum, 10, java.math.RoundingMode.HALF_UP);
                 }
                 default -> {
                     log.warn("Unknown arithmetic operation: {}", node.getOperation());

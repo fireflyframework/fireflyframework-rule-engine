@@ -6,6 +6,12 @@ Date and time functions for the Firefly Rule Engine Python Runtime
 from datetime import datetime, timedelta
 from typing import Any, Union
 
+try:
+    from dateutil.relativedelta import relativedelta
+    _HAS_DATEUTIL = True
+except ImportError:
+    _HAS_DATEUTIL = False
+
 
 def firefly_now() -> datetime:
     """Get current date and time."""
@@ -33,10 +39,14 @@ def firefly_dateadd(date_value: Any, amount: Union[int, float], unit: str) -> da
         if unit_lower in ['day', 'days']:
             return base_date + timedelta(days=amount_int)
         elif unit_lower in ['month', 'months']:
-            # Approximate month addition (30 days)
+            if _HAS_DATEUTIL:
+                return base_date + relativedelta(months=amount_int)
+            # Fallback: approximate month addition
             return base_date + timedelta(days=amount_int * 30)
         elif unit_lower in ['year', 'years']:
-            # Approximate year addition (365 days)
+            if _HAS_DATEUTIL:
+                return base_date + relativedelta(years=amount_int)
+            # Fallback: approximate year addition
             return base_date + timedelta(days=amount_int * 365)
         elif unit_lower in ['hour', 'hours']:
             return base_date + timedelta(hours=amount_int)
@@ -80,10 +90,14 @@ def firefly_datediff(start_date: Any, end_date: Any, unit: str) -> int:
         elif unit_lower in ['second', 'seconds']:
             return int(diff.total_seconds())
         elif unit_lower in ['month', 'months']:
-            # Approximate month difference
+            if _HAS_DATEUTIL:
+                rd = relativedelta(end, start)
+                return rd.years * 12 + rd.months
             return int(diff.days / 30)
         elif unit_lower in ['year', 'years']:
-            # Approximate year difference
+            if _HAS_DATEUTIL:
+                rd = relativedelta(end, start)
+                return rd.years
             return int(diff.days / 365)
         else:
             return diff.days

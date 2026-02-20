@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -134,6 +135,7 @@ public class CacheServiceImpl implements CacheService {
         try {
             String fullKey = CONSTANT_PREFIX + code;
             return cacheManager.get(fullKey, ConstantDTO.class)
+                    .subscribeOn(Schedulers.boundedElastic())
                     .blockOptional()
                     .orElse(Optional.empty());
         } catch (Exception e) {
@@ -195,6 +197,7 @@ public class CacheServiceImpl implements CacheService {
         try {
             String fullKey = RULE_DEF_PREFIX + code;
             return cacheManager.get(fullKey, RuleDefinitionDTO.class)
+                    .subscribeOn(Schedulers.boundedElastic())
                     .blockOptional()
                     .orElse(Optional.empty());
         } catch (Exception e) {
@@ -240,6 +243,7 @@ public class CacheServiceImpl implements CacheService {
         try {
             String fullKey = VALIDATION_PREFIX + cacheKey;
             return cacheManager.get(fullKey, ValidationResult.class)
+                    .subscribeOn(Schedulers.boundedElastic())
                     .blockOptional()
                     .orElse(Optional.empty());
         } catch (Exception e) {

@@ -23,6 +23,7 @@ import org.fireflyframework.rules.core.audit.AuditHelper;
 import org.fireflyframework.rules.core.dsl.evaluation.ASTRulesEvaluationEngine;
 import org.fireflyframework.rules.core.dsl.evaluation.ASTRulesEvaluationResult;
 import org.fireflyframework.rules.core.mappers.RuleDefinitionMapper;
+import org.fireflyframework.rules.core.services.CacheService;
 import org.fireflyframework.rules.core.services.RuleDefinitionService;
 import org.fireflyframework.rules.core.validation.YamlDslValidator;
 import org.fireflyframework.rules.interfaces.dtos.audit.AuditEventType;
@@ -53,6 +54,7 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
     private final ASTRulesEvaluationEngine rulesEvaluationEngine;
     private final YamlDslValidator yamlDslValidator;
     private final AuditHelper auditHelper;
+    private final CacheService cacheService;
 
     @Override
     public Mono<PaginationResponse<RuleDefinitionDTO>> filterRuleDefinitions(
@@ -92,7 +94,8 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
                                 entity.setUpdatedAt(OffsetDateTime.now());
                                 
                                 return ruleDefinitionRepository.save(entity)
-                                        .map(ruleDefinitionMapper::toDTO);
+                                        .map(ruleDefinitionMapper::toDTO)
+                                        .doOnSuccess(dto -> cacheService.invalidateRuleDefinition(dto.getCode()));
                             });
                 });
     }
@@ -120,7 +123,8 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
                                 updatedEntity.setUpdatedAt(OffsetDateTime.now());
                                 
                                 return ruleDefinitionRepository.save(updatedEntity)
-                                        .map(ruleDefinitionMapper::toDTO);
+                                        .map(ruleDefinitionMapper::toDTO)
+                                        .doOnSuccess(dto -> cacheService.invalidateRuleDefinition(dto.getCode()));
                             });
                 });
     }
@@ -132,7 +136,8 @@ public class RuleDefinitionServiceImpl implements RuleDefinitionService {
         return ruleDefinitionRepository.findById(ruleDefinitionId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException(
                         "Rule definition not found with ID: " + ruleDefinitionId)))
-                .flatMap(entity -> ruleDefinitionRepository.delete(entity));
+                .flatMap(entity -> ruleDefinitionRepository.delete(entity)
+                        .doOnSuccess(v -> cacheService.invalidateRuleDefinition(entity.getCode())));
     }
 
     @Override

@@ -13,47 +13,54 @@ import sys
 from typing import Any, Optional, Union
 
 
+_MAX_INPUT_RETRIES = 10
+
+
 def get_user_input(prompt: str, input_type: str = "text", required: bool = False) -> Optional[Any]:
     """
     Helper function to get user input with type conversion and error handling.
-    
+
     Args:
         prompt (str): The prompt to display to the user
         input_type (str): Expected type - 'text', 'number', 'boolean'
         required (bool): Whether the input is required
-    
+
     Returns:
         The parsed input value or None if not provided and not required
-    
+
     Raises:
         SystemExit: If user cancels with Ctrl+C
     """
-    try:
-        value = input(prompt).strip()
-        if not value:
-            if required:
-                print(f"❌ This field is required.")
-                return get_user_input(prompt, input_type, required)
-            return None
-        
-        # Type conversion
-        if input_type == "number":
-            try:
-                return float(value) if '.' in value else int(value)
-            except ValueError:
-                print(f"❌ Invalid number format: {value}")
-                return get_user_input(prompt, input_type, required)
-        elif input_type == "boolean":
-            return value.lower() in ['true', '1', 'yes', 'y']
-        else:  # text
-            return value
-            
-    except KeyboardInterrupt:
-        print("\n\n❌ Execution cancelled by user.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ Error reading input: {e}")
-        return get_user_input(prompt, input_type, required)
+    for _ in range(_MAX_INPUT_RETRIES):
+        try:
+            value = input(prompt).strip()
+            if not value:
+                if required:
+                    print("This field is required.")
+                    continue
+                return None
+
+            # Type conversion
+            if input_type == "number":
+                try:
+                    return float(value) if '.' in value else int(value)
+                except ValueError:
+                    print(f"Invalid number format: {value}")
+                    continue
+            elif input_type == "boolean":
+                return value.lower() in ['true', '1', 'yes', 'y']
+            else:  # text
+                return value
+
+        except KeyboardInterrupt:
+            print("\n\nExecution cancelled by user.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error reading input: {e}")
+            continue
+
+    print("Maximum input retries exceeded.")
+    return None
 
 
 def collect_inputs(input_definitions: dict) -> dict:

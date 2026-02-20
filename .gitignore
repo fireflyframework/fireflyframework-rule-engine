@@ -49,6 +49,14 @@ replay_pid*
 **/surefire-reports/
 **/failsafe-reports/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
 # Environment files
 .env
 .env.*

@@ -395,16 +395,9 @@ public class ASTRulesDSLParser {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         } else if (actionsObj instanceof String) {
-            // Single action as string (simple syntax)
-            try {
-                return List.of(dslParser.parseAction((String) actionsObj));
-            } catch (Exception e) {
-                log.warn("Failed to parse action: {}", actionsObj, e);
-                return List.of();
-            }
+            return List.of(dslParser.parseAction((String) actionsObj));
         } else {
-            log.warn("Unexpected actions object type: {}", actionsObj.getClass());
-            return List.of();
+            throw new ASTException("Unexpected actions object type: " + actionsObj.getClass().getSimpleName());
         }
     }
 
@@ -414,13 +407,7 @@ public class ASTRulesDSLParser {
     @SuppressWarnings("unchecked")
     private Action parseActionItem(Object actionObj) {
         if (actionObj instanceof String) {
-            // Simple syntax: "set variable to value"
-            try {
-                return dslParser.parseAction((String) actionObj);
-            } catch (Exception e) {
-                log.warn("Failed to parse simple action: {}", actionObj, e);
-                return null;
-            }
+            return dslParser.parseAction((String) actionObj);
         } else if (actionObj instanceof Map) {
             Map<String, Object> actionMap = (Map<String, Object>) actionObj;
 

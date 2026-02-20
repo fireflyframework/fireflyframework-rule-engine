@@ -12,17 +12,24 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-# Global session with retry strategy
-session = requests.Session()
-retry_strategy = Retry(
-    total=3,
-    status_forcelist=[429, 500, 502, 503, 504],
-    allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
-    backoff_factor=1
-)
-adapter = HTTPAdapter(max_retries=retry_strategy)
-session.mount("http://", adapter)
-session.mount("https://", adapter)
+def _create_session() -> requests.Session:
+    """Create a new session with retry strategy (only idempotent methods)."""
+    s = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+        backoff_factor=1
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
+    return s
+
+
+# Global session — lazy-initialized per thread is ideal, but a module-level
+# session is acceptable for the runtime's use case.
+session = _create_session()
 
 
 def firefly_rest_get(url: str, headers: Optional[Dict[str, str]] = None,
@@ -310,10 +317,11 @@ def configure_rest_client(timeout: int = 30, retries: int = 3,
     retry_strategy = Retry(
         total=retries,
         status_forcelist=[429, 500, 502, 503, 504],
-        method_whitelist=["HEAD", "GET", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"],
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
         backoff_factor=backoff_factor
     )
 
     adapter = HTTPAdapter(max_retries=retry_strategy)
+    session = requests.Session()
     session.mount("http://", adapter)
     session.mount("https://", adapter)

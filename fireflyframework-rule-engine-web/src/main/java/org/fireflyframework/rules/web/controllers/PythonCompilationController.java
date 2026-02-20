@@ -34,6 +34,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 
+import reactor.core.publisher.Mono;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -144,7 +146,7 @@ public class PythonCompilationController {
         )
     })
     @PostMapping("/compile/rule/{ruleId}")
-    public ResponseEntity<?> compileRuleById(
+    public Mono<ResponseEntity<?>> compileRuleById(
             @Parameter(description = "Rule definition ID", required = true)
             @PathVariable UUID ruleId,
 
@@ -153,66 +155,58 @@ public class PythonCompilationController {
 
             ServerWebExchange exchange) {
 
-        try {
-            log.info("Compiling rule with ID '{}' to Python (cache: {})", ruleId, useCache);
+        log.info("Compiling rule with ID '{}' to Python (cache: {})", ruleId, useCache);
 
-            // Fetch rule definition from database
-            return ruleDefinitionService.getRuleDefinitionByIdWithAudit(ruleId, exchange)
-                .map(ruleDefinition -> {
-                    try {
-                        // Compile the rule using its YAML DSL
-                        PythonCompiledRule compiledRule = pythonCompilationService.compileRule(
-                            ruleDefinition.getYamlContent(),
-                            ruleDefinition.getName(),
-                            useCache
-                        );
+        return ruleDefinitionService.getRuleDefinitionByIdWithAudit(ruleId, exchange)
+            .<ResponseEntity<?>>map(ruleDefinition -> {
+                try {
+                    PythonCompiledRule compiledRule = pythonCompilationService.compileRule(
+                        ruleDefinition.getYamlContent(),
+                        ruleDefinition.getName(),
+                        useCache
+                    );
 
-                        log.info("Successfully compiled rule '{}' (ID: {}) to Python",
-                            ruleDefinition.getName(), ruleId);
+                    log.info("Successfully compiled rule '{}' (ID: {}) to Python",
+                        ruleDefinition.getName(), ruleId);
 
-                        return ResponseEntity.ok(compiledRule);
+                    return ResponseEntity.ok(compiledRule);
 
-                    } catch (PythonCompilationService.PythonCompilationException e) {
-                        log.error("Compilation failed for rule '{}' (ID: {}): {}",
-                            ruleDefinition.getName(), ruleId, e.getMessage());
-                        return ResponseEntity.badRequest()
-                            .body(Map.of(
-                                "error", "Compilation failed",
-                                "message", e.getMessage(),
-                                "ruleId", ruleId.toString(),
-                                "ruleName", ruleDefinition.getName()
-                            ));
-                    } catch (Exception e) {
-                        log.error("Unexpected error compiling rule '{}' (ID: {}): {}",
-                            ruleDefinition.getName(), ruleId, e.getMessage(), e);
-                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(Map.of(
-                                "error", "Internal server error",
-                                "message", e.getMessage(),
-                                "ruleId", ruleId.toString()
-                            ));
-                    }
-                })
-                .switchIfEmpty(
-                    // Rule not found
-                    reactor.core.publisher.Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                } catch (PythonCompilationService.PythonCompilationException e) {
+                    log.error("Compilation failed for rule '{}' (ID: {}): {}",
+                        ruleDefinition.getName(), ruleId, e.getMessage());
+                    return ResponseEntity.badRequest()
                         .body(Map.of(
-                            "error", "Rule definition not found",
-                            "message", "No rule definition found with ID: " + ruleId,
+                            "error", "Compilation failed",
+                            "message", e.getMessage(),
+                            "ruleId", ruleId.toString(),
+                            "ruleName", ruleDefinition.getName()
+                        ));
+                } catch (Exception e) {
+                    log.error("Unexpected error compiling rule '{}' (ID: {}): {}",
+                        ruleDefinition.getName(), ruleId, e.getMessage(), e);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of(
+                            "error", "Internal server error",
                             "ruleId", ruleId.toString()
-                        )))
-                )
-                .block(); // Block to convert Mono to ResponseEntity
-
-        } catch (Exception e) {
-            log.error("Unexpected error fetching/compiling rule with ID '{}': {}", ruleId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "error", "Internal server error",
-                    "message", e.getMessage(),
-                    "ruleId", ruleId.toString()
-                ));
-        }
+                        ));
+                }
+            })
+            .switchIfEmpty(
+                Mono.<ResponseEntity<?>>just(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                        "error", "Rule definition not found",
+                        "message", "No rule definition found with ID: " + ruleId,
+                        "ruleId", ruleId.toString()
+                    )))
+            )
+            .onErrorResume(e -> {
+                log.error("Unexpected error fetching/compiling rule with ID '{}': {}", ruleId, e.getMessage(), e);
+                return Mono.<ResponseEntity<?>>just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                        "error", "Internal server error",
+                        "ruleId", ruleId.toString()
+                    )));
+            });
     }
 
     @Operation(
@@ -245,7 +239,7 @@ public class PythonCompilationController {
         )
     })
     @PostMapping("/compile/rule/code/{ruleCode}")
-    public ResponseEntity<?> compileRuleByCode(
+    public Mono<ResponseEntity<?>> compileRuleByCode(
             @Parameter(description = "Rule definition code", required = true)
             @PathVariable String ruleCode,
 
@@ -254,66 +248,58 @@ public class PythonCompilationController {
 
             ServerWebExchange exchange) {
 
-        try {
-            log.info("Compiling rule with code '{}' to Python (cache: {})", ruleCode, useCache);
+        log.info("Compiling rule with code '{}' to Python (cache: {})", ruleCode, useCache);
 
-            // Fetch rule definition from database
-            return ruleDefinitionService.getRuleDefinitionByCodeWithAudit(ruleCode, exchange)
-                .map(ruleDefinition -> {
-                    try {
-                        // Compile the rule using its YAML DSL
-                        PythonCompiledRule compiledRule = pythonCompilationService.compileRule(
-                            ruleDefinition.getYamlContent(),
-                            ruleDefinition.getName(),
-                            useCache
-                        );
+        return ruleDefinitionService.getRuleDefinitionByCodeWithAudit(ruleCode, exchange)
+            .<ResponseEntity<?>>map(ruleDefinition -> {
+                try {
+                    PythonCompiledRule compiledRule = pythonCompilationService.compileRule(
+                        ruleDefinition.getYamlContent(),
+                        ruleDefinition.getName(),
+                        useCache
+                    );
 
-                        log.info("Successfully compiled rule '{}' (code: {}) to Python",
-                            ruleDefinition.getName(), ruleCode);
+                    log.info("Successfully compiled rule '{}' (code: {}) to Python",
+                        ruleDefinition.getName(), ruleCode);
 
-                        return ResponseEntity.ok(compiledRule);
+                    return ResponseEntity.ok(compiledRule);
 
-                    } catch (PythonCompilationService.PythonCompilationException e) {
-                        log.error("Compilation failed for rule '{}' (code: {}): {}",
-                            ruleDefinition.getName(), ruleCode, e.getMessage());
-                        return ResponseEntity.badRequest()
-                            .body(Map.of(
-                                "error", "Compilation failed",
-                                "message", e.getMessage(),
-                                "ruleCode", ruleCode,
-                                "ruleName", ruleDefinition.getName()
-                            ));
-                    } catch (Exception e) {
-                        log.error("Unexpected error compiling rule '{}' (code: {}): {}",
-                            ruleDefinition.getName(), ruleCode, e.getMessage(), e);
-                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(Map.of(
-                                "error", "Internal server error",
-                                "message", e.getMessage(),
-                                "ruleCode", ruleCode
-                            ));
-                    }
-                })
-                .switchIfEmpty(
-                    // Rule not found
-                    reactor.core.publisher.Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                } catch (PythonCompilationService.PythonCompilationException e) {
+                    log.error("Compilation failed for rule '{}' (code: {}): {}",
+                        ruleDefinition.getName(), ruleCode, e.getMessage());
+                    return ResponseEntity.badRequest()
                         .body(Map.of(
-                            "error", "Rule definition not found",
-                            "message", "No rule definition found with code: " + ruleCode,
+                            "error", "Compilation failed",
+                            "message", e.getMessage(),
+                            "ruleCode", ruleCode,
+                            "ruleName", ruleDefinition.getName()
+                        ));
+                } catch (Exception e) {
+                    log.error("Unexpected error compiling rule '{}' (code: {}): {}",
+                        ruleDefinition.getName(), ruleCode, e.getMessage(), e);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of(
+                            "error", "Internal server error",
                             "ruleCode", ruleCode
-                        )))
-                )
-                .block(); // Block to convert Mono to ResponseEntity
-
-        } catch (Exception e) {
-            log.error("Unexpected error fetching/compiling rule with code '{}': {}", ruleCode, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of(
-                    "error", "Internal server error",
-                    "message", e.getMessage(),
-                    "ruleCode", ruleCode
-                ));
-        }
+                        ));
+                }
+            })
+            .switchIfEmpty(
+                Mono.<ResponseEntity<?>>just(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                        "error", "Rule definition not found",
+                        "message", "No rule definition found with code: " + ruleCode,
+                        "ruleCode", ruleCode
+                    )))
+            )
+            .onErrorResume(e -> {
+                log.error("Unexpected error fetching/compiling rule with code '{}': {}", ruleCode, e.getMessage(), e);
+                return Mono.<ResponseEntity<?>>just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                        "error", "Internal server error",
+                        "ruleCode", ruleCode
+                    )));
+            });
     }
 
     @Operation(

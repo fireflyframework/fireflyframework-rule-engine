@@ -29,9 +29,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.net.InetAddress;
+import java.net.URI;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implementation of RestCallService using Spring WebClient for reactive HTTP operations.
@@ -46,6 +49,7 @@ public class RestCallServiceImpl implements RestCallService {
     
     private static final long DEFAULT_TIMEOUT_MS = 5000L;
     private static final String USER_AGENT = "Firefly-Rule-Engine/1.0";
+    private static final Set<String> ALLOWED_SCHEMES = Set.of("http", "https");
     
     /**
      * Constructor with injected dependencies (for Spring configuration)
@@ -95,14 +99,21 @@ public class RestCallServiceImpl implements RestCallService {
     }
     
     @Override
-    public Mono<Map<String, Object>> request(String method, String url, Object body, 
+    public Mono<Map<String, Object>> request(String method, String url, Object body,
                                            Map<String, String> headers, Long timeoutMs) {
-        
+
+        // SSRF protection: validate URL before making request
+        try {
+            validateUrl(url);
+        } catch (IllegalArgumentException e) {
+            return Mono.error(e);
+        }
+
         long timeout = timeoutMs != null ? timeoutMs : DEFAULT_TIMEOUT_MS;
         String operationId = java.util.UUID.randomUUID().toString();
-        
+
         JsonLogger.info(log, operationId, String.format("Making %s request to: %s", method, url));
-        
+
         return webClient
                 .method(HttpMethod.valueOf(method.toUpperCase()))
                 .uri(url)
@@ -123,6 +134,41 @@ public class RestCallServiceImpl implements RestCallService {
                 .onErrorResume(this::handleRestError);
     }
     
+    /**
+     * Validate URL to prevent SSRF attacks.
+     * Blocks requests to internal/private network addresses and non-HTTP schemes.
+     */
+    private void validateUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            String scheme = uri.getScheme();
+            if (scheme == null || !ALLOWED_SCHEMES.contains(scheme.toLowerCase())) {
+                throw new IllegalArgumentException("Only HTTP/HTTPS schemes are allowed, got: " + scheme);
+            }
+
+            String host = uri.getHost();
+            if (host == null || host.isEmpty()) {
+                throw new IllegalArgumentException("URL must have a valid host");
+            }
+
+            // Block private/internal IP ranges
+            InetAddress address = InetAddress.getByName(host);
+            if (address.isLoopbackAddress() || address.isSiteLocalAddress()
+                    || address.isLinkLocalAddress() || address.isAnyLocalAddress()) {
+                throw new IllegalArgumentException("Requests to internal/private network addresses are not allowed");
+            }
+
+            // Block metadata endpoints (cloud provider SSRF)
+            if ("169.254.169.254".equals(host) || host.endsWith(".internal")) {
+                throw new IllegalArgumentException("Requests to cloud metadata endpoints are not allowed");
+            }
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid URL: " + e.getMessage());
+        }
+    }
+
     /**
      * Parse JSON response string into a Map
      */

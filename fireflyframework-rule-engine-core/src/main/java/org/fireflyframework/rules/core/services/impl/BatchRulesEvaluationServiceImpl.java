@@ -158,18 +158,27 @@ public class BatchRulesEvaluationServiceImpl implements BatchRulesEvaluationServ
                 .build());
     }
 
+    private static final int MAX_BATCH_SIZE = 500;
+    private static final int MAX_CONCURRENCY = 20;
+
     private Mono<BatchRulesEvaluationResponseDTO> processBatchRequests(
-            BatchRulesEvaluationRequestDTO request, 
+            BatchRulesEvaluationRequestDTO request,
             ServerWebExchange exchange) {
-        
+
+        // Enforce server-side limits
+        if (request.getEvaluationRequests().size() > MAX_BATCH_SIZE) {
+            return Mono.error(new IllegalArgumentException(
+                "Batch size " + request.getEvaluationRequests().size() + " exceeds maximum of " + MAX_BATCH_SIZE));
+        }
+
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
-        List<BatchRulesEvaluationResponseDTO.SingleRuleEvaluationResult> results = new ArrayList<>();
-        
-        // Process requests concurrently
-        int maxConcurrency = request.getBatchOptions() != null ? 
+
+        // Enforce server-side concurrency cap
+        int requestedConcurrency = request.getBatchOptions() != null ?
                 request.getBatchOptions().getMaxConcurrency() : 10;
-        
+        int maxConcurrency = Math.min(requestedConcurrency, MAX_CONCURRENCY);
+
         return Flux.fromIterable(request.getEvaluationRequests())
                 .flatMap(singleRequest -> processIndividualRequest(singleRequest, request, exchange)
                         .doOnNext(result -> {
@@ -178,13 +187,10 @@ public class BatchRulesEvaluationServiceImpl implements BatchRulesEvaluationServ
                             } else {
                                 failureCount.incrementAndGet();
                             }
-                            synchronized (results) {
-                                results.add(result);
-                            }
                         })
                         .onErrorResume(error -> {
                             failureCount.incrementAndGet();
-                            BatchRulesEvaluationResponseDTO.SingleRuleEvaluationResult errorResult = 
+                            return Mono.just(
                                     BatchRulesEvaluationResponseDTO.SingleRuleEvaluationResult.builder()
                                             .requestId(singleRequest.getRequestId())
                                             .ruleDefinitionCode(singleRequest.getRuleDefinitionCode())
@@ -193,20 +199,16 @@ public class BatchRulesEvaluationServiceImpl implements BatchRulesEvaluationServ
                                             .errorCode("EVALUATION_ERROR")
                                             .processingTimeMs(0L)
                                             .startTime(OffsetDateTime.now())
-                                            .build();
-                            synchronized (results) {
-                                results.add(errorResult);
-                            }
-                            return Mono.just(errorResult);
+                                            .build());
                         }), maxConcurrency)
                 .collectList()
                 .map(evaluationResults -> {
-                    BatchRulesEvaluationResponseDTO.BatchStatus batchStatus = 
+                    BatchRulesEvaluationResponseDTO.BatchStatus batchStatus =
                             failureCount.get() == 0 ? BatchRulesEvaluationResponseDTO.BatchStatus.SUCCESS :
                                     successCount.get() > 0 ? BatchRulesEvaluationResponseDTO.BatchStatus.PARTIAL_SUCCESS :
                                             BatchRulesEvaluationResponseDTO.BatchStatus.FAILED;
-                    
-                    BatchRulesEvaluationResponseDTO.BatchSummary summary = 
+
+                    BatchRulesEvaluationResponseDTO.BatchSummary summary =
                             BatchRulesEvaluationResponseDTO.BatchSummary.builder()
                                     .totalRequests(request.getEvaluationRequests().size())
                                     .successfulEvaluations(successCount.get())
@@ -221,10 +223,10 @@ public class BatchRulesEvaluationServiceImpl implements BatchRulesEvaluationServ
                                     .cacheHitRate(0.0)
                                     .performanceMetrics(new HashMap<>())
                                     .build();
-                    
+
                     return BatchRulesEvaluationResponseDTO.builder()
                             .batchStatus(batchStatus)
-                            .evaluationResults(results)
+                            .evaluationResults(evaluationResults)
                             .batchSummary(summary)
                             .build();
                 });

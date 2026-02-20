@@ -57,7 +57,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         this.constantService = constantService;
     }
     private static final String CONTEXT_VAR = "context";
-    private int indentLevel = 0;
+    private static final ThreadLocal<Integer> indentLevel = ThreadLocal.withInitial(() -> 0);
 
     /**
      * Generate complete Python code for a rule DSL
@@ -71,6 +71,9 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
      */
     public String generatePythonFunction(ASTRulesDSL rule, String functionName) {
         log.info("Generating Python code for rule '{}'", rule.getName());
+
+        // Reset indent level for thread safety
+        indentLevel.set(0);
 
         StringBuilder code = new StringBuilder();
 
@@ -116,9 +119,9 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         header.append("# Made with ❤️ by Firefly Software Solutions Inc\n");
         header.append("# Compilation Date: ").append(OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)).append("\n");
         header.append("#\n");
-        header.append("# Rule: ").append(rule.getName()).append("\n");
+        header.append("# Rule: ").append(sanitizeComment(rule.getName())).append("\n");
         if (rule.getDescription() != null) {
-            header.append("# Description: ").append(rule.getDescription()).append("\n");
+            header.append("# Description: ").append(sanitizeComment(rule.getDescription())).append("\n");
         }
         if (rule.getVersion() != null) {
             header.append("# Version: ").append(rule.getVersion()).append("\n");
@@ -143,7 +146,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         func.append("def ").append(finalFunctionName).append("(");
         func.append(CONTEXT_VAR).append("):\n");
 
-        indentLevel++;
+        incrementIndent();
 
         // Function docstring
         func.append(indent()).append('\"').append('\"').append('\"').append("\n");
@@ -176,7 +179,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         // Return output
         func.append(generateReturnStatement(rule));
 
-        indentLevel--;
+        decrementIndent();
 
         return func.toString();
     }
@@ -195,7 +198,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
 
             logic.append(conditions).append(":\n");
 
-            indentLevel++;
+            incrementIndent();
 
             // Generate then actions
             if (rule.getThenActions() != null && !rule.getThenActions().isEmpty()) {
@@ -205,17 +208,17 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
                 }
             }
 
-            indentLevel--;
+            decrementIndent();
 
             // Generate else actions if any
             if (rule.getElseActions() != null && !rule.getElseActions().isEmpty()) {
                 logic.append(indent()).append("else:\n");
-                indentLevel++;
+                incrementIndent();
                 logic.append(indent()).append("# Else actions\n");
                 for (Action action : rule.getElseActions()) {
                     logic.append(indent()).append(action.accept(this)).append("\n");
                 }
-                indentLevel--;
+                decrementIndent();
             }
         }
 
@@ -254,21 +257,21 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
             .collect(Collectors.joining(" and "));
         logic.append(conditions).append(":\n");
 
-        indentLevel++;
+        incrementIndent();
         if (subRule.getThenActions() != null && !subRule.getThenActions().isEmpty()) {
             for (Action action : subRule.getThenActions()) {
                 logic.append(indent()).append(action.accept(this)).append("\n");
             }
         }
-        indentLevel--;
+        decrementIndent();
 
         if (subRule.getElseActions() != null && !subRule.getElseActions().isEmpty()) {
             logic.append(indent()).append("else:\n");
-            indentLevel++;
+            incrementIndent();
             for (Action action : subRule.getElseActions()) {
                 logic.append(indent()).append(action.accept(this)).append("\n");
             }
-            indentLevel--;
+            decrementIndent();
         }
 
         return logic.toString();
@@ -283,17 +286,17 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
 
         logic.append(indent()).append("if ").append(conditionalBlock.getIfCondition().accept(this)).append(":\n");
 
-        indentLevel++;
+        incrementIndent();
         if (conditionalBlock.getThenBlock() != null) {
             logic.append(generateActionBlock(conditionalBlock.getThenBlock()));
         }
-        indentLevel--;
+        decrementIndent();
 
         if (conditionalBlock.getElseBlock() != null) {
             logic.append(indent()).append("else:\n");
-            indentLevel++;
+            incrementIndent();
             logic.append(generateActionBlock(conditionalBlock.getElseBlock()));
-            indentLevel--;
+            decrementIndent();
         }
 
         return logic.toString();
@@ -333,6 +336,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
 
                 constantService.getConstantsByCodes(constantCodes)
                     .collectList()
+                    .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                     .block()
                     .forEach(dto -> databaseConstants.put(dto.getCode(), dto));
             } catch (Exception e) {
@@ -371,7 +375,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         returnStmt.append("\n").append(indent()).append("# Return output variables\n");
         returnStmt.append(indent()).append("return {\n");
 
-        indentLevel++;
+        incrementIndent();
 
         // Include explicitly defined outputs
         if (rule.getOutput() != null && !rule.getOutput().isEmpty()) {
@@ -388,7 +392,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
             }
         }
 
-        indentLevel--;
+        decrementIndent();
 
         returnStmt.append(indent()).append("}\n");
 
@@ -613,7 +617,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
     @Override
     public String visitAssignmentAction(AssignmentAction node) {
         String value = node.getValue().accept(this);
-        String varName = node.getVariableName();
+        String varName = sanitizeVariableName(node.getVariableName());
 
         return switch (node.getOperator()) {
             case ASSIGN -> String.format("%s['%s'] = %s", CONTEXT_VAR, varName, value);
@@ -658,21 +662,21 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
 
         conditional.append("if ").append(node.getCondition().accept(this)).append(":\n");
 
-        indentLevel++;
+        incrementIndent();
         if (node.getThenActions() != null && !node.getThenActions().isEmpty()) {
             for (Action action : node.getThenActions()) {
                 conditional.append(indent()).append(action.accept(this)).append("\n");
             }
         }
-        indentLevel--;
+        decrementIndent();
 
         if (node.hasElseActions()) {
             conditional.append(indent()).append("else:\n");
-            indentLevel++;
+            incrementIndent();
             for (Action action : node.getElseActions()) {
                 conditional.append(indent()).append(action.accept(this)).append("\n");
             }
-            indentLevel--;
+            decrementIndent();
         }
 
         return conditional.toString().trim();
@@ -695,7 +699,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
     @Override
     public String visitSetAction(SetAction node) {
         String value = node.getValue().accept(this);
-        String varName = node.getVariableName();
+        String varName = sanitizeVariableName(node.getVariableName());
         return String.format("%s['%s'] = %s", CONTEXT_VAR, varName, value);
     }
 
@@ -755,11 +759,11 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         }
 
         // Indent and generate body actions
-        indentLevel++;
+        incrementIndent();
         for (Action bodyAction : node.getBodyActions()) {
             code.append(indent()).append(bodyAction.accept(this)).append("\n");
         }
-        indentLevel--;
+        decrementIndent();
 
         return code.toString();
     }
@@ -774,12 +778,12 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         code.append(indent()).append(String.format("while %s and _while_iterations < %d:\n", condition, node.getMaxIterations()));
 
         // Indent and generate body actions
-        indentLevel++;
+        incrementIndent();
         for (Action bodyAction : node.getBodyActions()) {
             code.append(indent()).append(bodyAction.accept(this)).append("\n");
         }
         code.append(indent()).append("_while_iterations += 1\n");
-        indentLevel--;
+        decrementIndent();
 
         return code.toString();
     }
@@ -794,23 +798,43 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         code.append(indent()).append("while True:\n");
 
         // Indent and generate body actions
-        indentLevel++;
+        incrementIndent();
         for (Action bodyAction : node.getBodyActions()) {
             code.append(indent()).append(bodyAction.accept(this)).append("\n");
         }
         code.append(indent()).append("_dowhile_iterations += 1\n");
         code.append(indent()).append(String.format("if not (%s) or _dowhile_iterations >= %d:\n", condition, node.getMaxIterations()));
-        indentLevel++;
+        incrementIndent();
         code.append(indent()).append("break\n");
-        indentLevel--;
-        indentLevel--;
+        decrementIndent();
+        decrementIndent();
 
         return code.toString();
     }
 
     // Utility methods
     private String indent() {
-        return "    ".repeat(indentLevel);
+        return "    ".repeat(indentLevel.get());
+    }
+
+    private void incrementIndent() {
+        indentLevel.set(indentLevel.get() + 1);
+    }
+
+    private void decrementIndent() {
+        indentLevel.set(indentLevel.get() - 1);
+    }
+
+    private String sanitizeComment(String text) {
+        if (text == null) return "";
+        return text.replace("\n", " ").replace("\r", " ");
+    }
+
+    private String sanitizeVariableName(String name) {
+        if (name == null || !name.matches("^[a-zA-Z_][a-zA-Z0-9_.]*$")) {
+            throw new IllegalArgumentException("Invalid variable name for Python code generation: " + name);
+        }
+        return name;
     }
 
     public String sanitizeFunctionName(String name) {
@@ -833,7 +857,14 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         if (value == null) {
             return "None";
         } else if (value instanceof String) {
-            return "\"" + value.toString().replace("\"", "\\\"") + "\"";
+            String escaped = value.toString()
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t")
+                .replace("\0", "\\0");
+            return "\"" + escaped + "\"";
         } else if (value instanceof Boolean) {
             return ((Boolean) value) ? "True" : "False";
         } else if (value instanceof List) {
@@ -1076,7 +1107,7 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
             case LENGTH_GREATER_THAN -> "firefly_length_greater_than";
             case LENGTH_LESS_THAN -> "firefly_length_less_than";
 
-            default -> "=="; // Default fallback
+            default -> throw new UnsupportedOperationException("Unsupported comparison operator: " + operator);
         };
     }
 

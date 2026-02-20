@@ -6,7 +6,9 @@ This module provides encryption, decryption, and data masking functions.
 """
 
 import hashlib
+import hmac
 import base64
+import os
 import secrets
 from typing import Any, Optional, Union
 from cryptography.fernet import Fernet
@@ -14,28 +16,32 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
-# Global encryption key (should be configured externally in production)
+# Global encryption key and salt (should be configured externally in production)
 _encryption_key: Optional[bytes] = None
+_encryption_salt: Optional[bytes] = None
 
 
-def configure_encryption_key(key: Union[str, bytes]) -> None:
+def configure_encryption_key(key: Union[str, bytes], salt: Optional[bytes] = None) -> None:
     """
     Configure the global encryption key.
 
     Args:
-        key: Encryption key (string or bytes)
+        key: Encryption key (string or bytes). Must be provided externally.
+        salt: Optional salt bytes. If not provided, a random 16-byte salt is generated.
     """
-    global _encryption_key
+    global _encryption_key, _encryption_salt
 
     if isinstance(key, str):
         key = key.encode('utf-8')
 
-    # Derive a proper Fernet key from the provided key
+    # Use provided salt or generate a cryptographically random one
+    _encryption_salt = salt if salt is not None else os.urandom(16)
+
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=b'firefly_salt',  # In production, use a random salt
-        iterations=100000,
+        salt=_encryption_salt,
+        iterations=480000,
     )
     _encryption_key = base64.urlsafe_b64encode(kdf.derive(key))
 
@@ -55,8 +61,10 @@ def firefly_encrypt(data: str, key: Optional[str] = None) -> str:
         configure_encryption_key(key)
 
     if not _encryption_key:
-        # Generate a default key if none is configured
-        configure_encryption_key("default_firefly_key_2025")
+        raise ValueError(
+            "No encryption key configured. Call configure_encryption_key() first "
+            "or pass a key parameter."
+        )
 
     try:
         fernet = Fernet(_encryption_key)
@@ -81,8 +89,10 @@ def firefly_decrypt(encrypted_data: str, key: Optional[str] = None) -> str:
         configure_encryption_key(key)
 
     if not _encryption_key:
-        # Generate a default key if none is configured
-        configure_encryption_key("default_firefly_key_2025")
+        raise ValueError(
+            "No encryption key configured. Call configure_encryption_key() first "
+            "or pass a key parameter."
+        )
 
     try:
         fernet = Fernet(_encryption_key)
@@ -166,7 +176,7 @@ def hash_data(data: str, algorithm: str = 'sha256') -> str:
 
     Args:
         data: Data to hash
-        algorithm: Hash algorithm ('sha256', 'sha512', 'md5')
+        algorithm: Hash algorithm ('sha256', 'sha512')
 
     Returns:
         Hashed data as hex string
@@ -177,15 +187,13 @@ def hash_data(data: str, algorithm: str = 'sha256') -> str:
         return hashlib.sha256(data_bytes).hexdigest()
     elif algorithm == 'sha512':
         return hashlib.sha512(data_bytes).hexdigest()
-    elif algorithm == 'md5':
-        return hashlib.md5(data_bytes).hexdigest()
     else:
-        raise ValueError(f"Unsupported hash algorithm: {algorithm}")
+        raise ValueError(f"Unsupported hash algorithm: {algorithm}. Use 'sha256' or 'sha512'.")
 
 
 def verify_hash(data: str, hash_value: str, algorithm: str = 'sha256') -> bool:
     """
-    Verify data against a hash value.
+    Verify data against a hash value using timing-safe comparison.
 
     Args:
         data: Original data
@@ -196,4 +204,4 @@ def verify_hash(data: str, hash_value: str, algorithm: str = 'sha256') -> bool:
         True if hash matches, False otherwise
     """
     computed_hash = hash_data(data, algorithm)
-    return computed_hash == hash_value
+    return hmac.compare_digest(computed_hash, hash_value)

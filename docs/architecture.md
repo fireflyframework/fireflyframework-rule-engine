@@ -577,6 +577,13 @@ Evaluates expressions to their values using structured AST traversal:
 public class ExpressionEvaluator implements ASTVisitor<Object> {
     @Override
     public Object visitBinaryExpression(BinaryExpression node) {
+        // Short-circuit AND/OR before eager evaluation
+        if (node.getOperator() == BinaryOperator.AND) {
+            return toBoolean(node.getLeft().accept(this)) && toBoolean(node.getRight().accept(this));
+        }
+        if (node.getOperator() == BinaryOperator.OR) {
+            return toBoolean(node.getLeft().accept(this)) || toBoolean(node.getRight().accept(this));
+        }
         Object left = node.getLeft().accept(this);
         Object right = node.getRight().accept(this);
         return evaluateOperation(node.getOperator(), left, right);
@@ -1134,20 +1141,46 @@ GET /api/v1/audit/trails/entity/{entityId}?limit=10
 - YAML DSL validation during parsing
 - DTO validation with Bean Validation
 - SQL injection prevention with parameterized queries
+- Variable name and comment sanitization in Python code generation to prevent code injection
+- Regex pattern caching with LRU eviction (64 entries) to prevent ReDoS via unbounded compilation
 
-### 2. Error Handling
+### 2. SSRF Protection
+The `RestCallServiceImpl` includes comprehensive URL validation before executing any outbound HTTP request:
+- **Scheme restriction**: Only `http` and `https` schemes are allowed
+- **Private IP blocking**: Loopback, link-local, site-local, and any-local addresses are rejected
+- **Cloud metadata blocking**: Requests to `169.254.169.254` (cloud metadata endpoint) are blocked
+- **Host validation**: URLs without a valid host are rejected
+
+### 3. Cryptographic Security (Python Runtime)
+- **No hardcoded keys**: Encryption functions require explicit key configuration; no fallback to default keys
+- **Strong key derivation**: PBKDF2 with random salt (`os.urandom(16)`) and 480,000 iterations
+- **No weak algorithms**: MD5 hashing is explicitly rejected; only SHA-256 and SHA-512 are supported
+- **Timing-safe comparison**: Hash verification uses `hmac.compare_digest()` to prevent timing attacks
+
+### 4. Safe Code Evaluation
+- **No unsafe reflection**: `ExpressionEvaluator.getPropertyValue()` uses public getter methods only; `field.setAccessible(true)` is not used
+- **Division/modulo by zero**: `ExpressionEvaluator` and `ActionExecutor` throw `ArithmeticException` instead of returning null or silently failing
+- **Short-circuit evaluation**: AND/OR operators use lazy evaluation to prevent unnecessary side effects
+- **Thread-safe code generation**: `PythonCodeGenerator` uses `ThreadLocal` for mutable state to ensure safe concurrent compilation
+
+### 5. Error Handling
 - Graceful degradation for missing constants
 - Circuit breaker pattern for external dependencies
 - Comprehensive logging for audit trails
+- Null-safe audit context extraction (defaults to "system" when no web exchange is available)
 
-### 3. Database Security
+### 6. Cache Integrity
+- Cache invalidation on all CRUD operations (create, update, delete) for rule definitions
+- Reactive cache access uses `subscribeOn(Schedulers.boundedElastic())` to prevent blocking the Netty event loop
+
+### 7. Database Security
 - R2DBC with prepared statements
 - Connection encryption with SSL
 - Database user with minimal privileges
 
-### 4. API Security (Future)
+### 8. API Security (Future)
 - JWT token authentication
 - Rate limiting per client
 - Request/response encryption
 
-This architecture provides a solid foundation for a scalable, maintainable, and high-performance rule engine suitable for enterprise applications applications.
+This architecture provides a solid foundation for a scalable, maintainable, and high-performance rule engine suitable for enterprise applications.
