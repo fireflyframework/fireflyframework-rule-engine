@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Cache compiled rules
  * - Manage compilation metadata
  *
- * @author Firefly Software Solutions Inc
+ * @author Firefly Software Foundation
  * @since 1.0.0
  */
 @Service

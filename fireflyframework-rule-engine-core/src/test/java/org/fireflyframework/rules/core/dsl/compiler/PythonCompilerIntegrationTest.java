@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-2026 Firefly Software Solutions Inc
+ * Copyright 2024-2026 Firefly Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -287,7 +287,7 @@ class PythonCompilerIntegrationTest {
         String pythonCode = result.getPythonCode();
 
         // Check copyright and license headers
-        assertTrue(pythonCode.contains("Copyright 2024-2026 Firefly Software Solutions Inc"));
+        assertTrue(pythonCode.contains("Copyright 2024-2026 Firefly Software Foundation"));
         assertTrue(pythonCode.contains("Licensed under the Apache License, Version 2.0"));
         assertTrue(pythonCode.contains("Made with ❤️"));
 
