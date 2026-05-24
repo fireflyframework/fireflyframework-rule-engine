@@ -39,8 +39,6 @@ public interface ASTVisitor<T> {
     T visitVariableExpression(VariableExpression node);
     T visitLiteralExpression(LiteralExpression node);
     T visitFunctionCallExpression(FunctionCallExpression node);
-    T visitJsonPathExpression(JsonPathExpression node);
-    T visitRestCallExpression(RestCallExpression node);
 
     // Condition visitors
     T visitComparisonCondition(ComparisonCondition node);

@@ -61,9 +61,6 @@ public class ASTRulesDSL {
     // Complex conditions block
     private ASTConditionalBlock conditions;
 
-    // Circuit breaker configuration
-    private ASTCircuitBreakerConfig circuitBreaker;
-    
     /**
      * AST-based sub-rule definition
      */
@@ -208,17 +205,4 @@ public class ASTRulesDSL {
         return List.of();
     }
 
-    /**
-     * AST-based circuit breaker configuration
-     */
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class ASTCircuitBreakerConfig {
-        private boolean enabled;
-        private int failureThreshold;
-        private String timeoutDuration;
-        private String recoveryTimeout;
-    }
 }

@@ -492,41 +492,6 @@ public class PythonCodeGenerator implements ASTVisitor<String> {
         }
     }
 
-    @Override
-    public String visitJsonPathExpression(JsonPathExpression node) {
-        String sourceExpression = node.getSourceExpression().accept(this);
-        String jsonPath = "\"" + node.getJsonPath() + "\"";
-        return String.format("json_path_get(%s, %s)", sourceExpression, jsonPath);
-    }
-
-    @Override
-    public String visitRestCallExpression(RestCallExpression node) {
-        String method = "\"" + node.getHttpMethod() + "\"";
-        String url = node.getUrlExpression().accept(this);
-
-        StringBuilder restCall = new StringBuilder();
-        restCall.append("rest_call(").append(method).append(", ").append(url);
-
-        if (node.getBodyExpression() != null) {
-            restCall.append(", ").append(node.getBodyExpression().accept(this));
-        } else {
-            restCall.append(", None");
-        }
-
-        if (node.getHeadersExpression() != null) {
-            restCall.append(", ").append(node.getHeadersExpression().accept(this));
-        } else {
-            restCall.append(", None");
-        }
-
-        if (node.getTimeoutExpression() != null) {
-            restCall.append(", ").append(node.getTimeoutExpression().accept(this));
-        }
-
-        restCall.append(")");
-        return restCall.toString();
-    }
-
     // Condition visitors
     @Override
     public String visitComparisonCondition(ComparisonCondition node) {

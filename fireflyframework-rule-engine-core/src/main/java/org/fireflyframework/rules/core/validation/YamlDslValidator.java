@@ -788,32 +788,6 @@ public class YamlDslValidator {
             return null;
         }
 
-        @Override
-        public Void visitJsonPathExpression(JsonPathExpression node) {
-            // Visit the source expression to collect any variable references
-            if (node.getSourceExpression() != null) {
-                node.getSourceExpression().accept(this);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitRestCallExpression(RestCallExpression node) {
-            // Visit all expressions to collect any variable references
-            if (node.getUrlExpression() != null) {
-                node.getUrlExpression().accept(this);
-            }
-            if (node.getBodyExpression() != null) {
-                node.getBodyExpression().accept(this);
-            }
-            if (node.getHeadersExpression() != null) {
-                node.getHeadersExpression().accept(this);
-            }
-            if (node.getTimeoutExpression() != null) {
-                node.getTimeoutExpression().accept(this);
-            }
-            return null;
-        }
     }
     
     /**
@@ -1050,11 +1024,6 @@ public class YamlDslValidator {
             issues.addAll(validateMetadataSection(rulesDSL.getMetadata()));
         }
 
-        // Validate circuit breaker configuration if present
-        if (rulesDSL.getCircuitBreaker() != null) {
-            issues.addAll(validateCircuitBreakerConfig(rulesDSL.getCircuitBreaker()));
-        }
-
         // Validate when/then structure
         if (rulesDSL.getWhenConditions() != null && !rulesDSL.getWhenConditions().isEmpty()) {
             if (rulesDSL.getThenActions() == null || rulesDSL.getThenActions().isEmpty()) {
@@ -1169,20 +1138,6 @@ public class YamlDslValidator {
                         "metadata.version", "Use format: version: \"1.0.0\""));
             }
         }
-
-        return issues;
-    }
-
-    /**
-     * Validate circuit breaker configuration
-     */
-    private List<ValidationResult.ValidationIssue> validateCircuitBreakerConfig(ASTRulesDSL.ASTCircuitBreakerConfig circuitBreaker) {
-        List<ValidationResult.ValidationIssue> issues = new ArrayList<>();
-
-        // Note: ASTCircuitBreakerConfig is referenced but may not be fully implemented yet
-        // This is a placeholder for when the circuit breaker configuration is fully implemented
-
-        log.debug("Circuit breaker configuration validation - implementation pending");
 
         return issues;
     }

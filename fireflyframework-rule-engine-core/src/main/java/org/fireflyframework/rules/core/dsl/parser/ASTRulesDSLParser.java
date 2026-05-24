@@ -108,12 +108,11 @@ public class ASTRulesDSLParser {
     }
 
     /**
-     * Parse rules definition from YAML string to AST model (synchronous)
-     * Uses caching to avoid re-parsing identical YAML content.
-     *
-     * @deprecated Use parseRulesReactive() instead for reactive contexts
+     * Parse rules definition from YAML to AST -- synchronous convenience wrapper around
+     * {@link #parseRulesReactive(String)}. Intended for non-reactive callers (tests,
+     * code generation, validation tools); reactive callers should subscribe to the Mono
+     * directly. Internally blocks; safe to call from non-event-loop threads.
      */
-    @Deprecated
     public ASTRulesDSL parseRules(String rulesDefinition) {
         return parseRulesReactive(rulesDefinition).block();
     }
@@ -255,13 +254,6 @@ public class ASTRulesDSLParser {
             Map<String, Object> conditionsMap = (Map<String, Object>) yamlMap.get("conditions");
             ASTRulesDSL.ASTConditionalBlock conditions = convertToConditionalBlock(conditionsMap);
             builder.conditions(conditions);
-        }
-
-        // Circuit breaker configuration
-        if (yamlMap.containsKey("circuit_breaker")) {
-            Map<String, Object> circuitBreakerMap = (Map<String, Object>) yamlMap.get("circuit_breaker");
-            ASTRulesDSL.ASTCircuitBreakerConfig circuitBreaker = convertToCircuitBreakerConfig(circuitBreakerMap);
-            builder.circuitBreaker(circuitBreaker);
         }
 
         return builder.build();
@@ -643,33 +635,4 @@ public class ASTRulesDSLParser {
         }
     }
 
-    /**
-     * Convert to circuit breaker configuration
-     */
-    @SuppressWarnings("unchecked")
-    private ASTRulesDSL.ASTCircuitBreakerConfig convertToCircuitBreakerConfig(Map<String, Object> circuitBreakerMap) {
-        ASTRulesDSL.ASTCircuitBreakerConfig.ASTCircuitBreakerConfigBuilder builder =
-                ASTRulesDSL.ASTCircuitBreakerConfig.builder();
-
-        if (circuitBreakerMap.containsKey("enabled")) {
-            builder.enabled((Boolean) circuitBreakerMap.get("enabled"));
-        }
-
-        if (circuitBreakerMap.containsKey("failure_threshold")) {
-            Object threshold = circuitBreakerMap.get("failure_threshold");
-            if (threshold instanceof Number) {
-                builder.failureThreshold(((Number) threshold).intValue());
-            }
-        }
-
-        if (circuitBreakerMap.containsKey("timeout_duration")) {
-            builder.timeoutDuration((String) circuitBreakerMap.get("timeout_duration"));
-        }
-
-        if (circuitBreakerMap.containsKey("recovery_timeout")) {
-            builder.recoveryTimeout((String) circuitBreakerMap.get("recovery_timeout"));
-        }
-
-        return builder.build();
-    }
 }

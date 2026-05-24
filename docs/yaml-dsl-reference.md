@@ -78,12 +78,13 @@ metadata:                           # Optional: Additional metadata
 constants:                          # Optional: Constants with defaults
   - code: CONSTANT_NAME
     defaultValue: value
-
-circuit_breaker:                    # Optional: Resilience configuration
-  enabled: true
-  failure_threshold: 5
-  timeout_duration: "30s"
 ```
+
+> Note: early versions accepted a top-level `circuit_breaker:` configuration block
+> (`enabled`, `failure_threshold`, `timeout_duration`, `recovery_timeout`). It was parsed
+> but never enforced at runtime and is no longer accepted. Use the
+> `circuit_breaker "MESSAGE"` *action* (described under "Action Syntax") for controlled
+> early termination within a rule.
 
 ### Logic Sections (Choose One)
 
@@ -136,7 +137,6 @@ The DSL uses specific reserved keywords that have special meaning in the parser.
 | | `conditions` | ❌* | Complex condition blocks | `conditions: {if: {...}, then: {...}}` |
 | | `rules` | ❌* | Multiple sequential rules | `rules: [{name: "Rule 1", when: [...]}]` |
 | **Advanced Features** | `metadata` | ❌ | Additional metadata | `metadata: {tags: ["credit"], author: "Team"}` |
-| | `circuit_breaker` | ❌ | Resilience configuration | `circuit_breaker: {enabled: true}` |
 
 *One of `when`/`then`, `conditions`, or `rules` is required for logic definition.
 
@@ -1321,15 +1321,21 @@ expression contexts (`run` / `calculate` arg / condition) and action contexts (`
 
 ## Advanced Features
 
-### Circuit Breaker Configuration
+### Circuit Breaker -- the `circuit_breaker` Action
 
+The DSL has no top-level `circuit_breaker:` config block. Resilience and early
+termination are expressed as an **action** inside a rule's `then:` block:
+
+<!-- doc-test:skip (illustrative `then:` fragment, not a complete rule) -->
 ```yaml
-circuit_breaker:
-  enabled: true
-  failure_threshold: 5
-  timeout_duration: "30s"
-  recovery_timeout: "60s"
+then:
+  - if risk_score at_least 90 then circuit_breaker "HIGH_RISK_DETECTED"
+  - set processing_status to "OK"   # never executes if the previous action triggered
 ```
+
+When the action fires, the engine stops the rule cleanly. The result reports
+`success=true` with `circuitBreakerTriggered=true` and the message above; any
+already-set variables remain in the output, but no subsequent actions run.
 
 ### Metadata and Versioning
 

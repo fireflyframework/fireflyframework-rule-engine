@@ -836,32 +836,5 @@ public class ASTRulesEvaluationEngine {
 
             return null;
         }
-
-        @Override
-        public Void visitJsonPathExpression(JsonPathExpression node) {
-            // Visit the source expression to collect any variable references
-            if (node.getSourceExpression() != null) {
-                node.getSourceExpression().accept(this);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitRestCallExpression(RestCallExpression node) {
-            // Visit all expressions to collect any variable references
-            if (node.getUrlExpression() != null) {
-                node.getUrlExpression().accept(this);
-            }
-            if (node.getBodyExpression() != null) {
-                node.getBodyExpression().accept(this);
-            }
-            if (node.getHeadersExpression() != null) {
-                node.getHeadersExpression().accept(this);
-            }
-            if (node.getTimeoutExpression() != null) {
-                node.getTimeoutExpression().accept(this);
-            }
-            return null;
-        }
     }
 }

@@ -212,8 +212,6 @@ org.fireflyframework.rules.core.dsl.ast/
 │   ├── LiteralExpression.java # Literal values (numbers, strings, booleans, arrays)
 │   ├── VariableExpression.java # Variable references with property/index access
 │   ├── FunctionCallExpression.java # Function calls with parameters
-│   ├── JsonPathExpression.java # JSON path queries (visitor support; emitted by builders, not the parser)
-│   ├── RestCallExpression.java # REST API calls (visitor support; emitted by builders, not the parser)
 │   ├── BinaryOperator.java  # Binary operator enumeration
 │   ├── UnaryOperator.java   # Unary operator enumeration
 │   └── ExpressionType.java  # Expression type enumeration
@@ -671,9 +669,7 @@ ASTNode (abstract base)
 │   ├── VariableExpression          # variable refs with optional property path / index access
 │   ├── BinaryExpression            # +, -, *, /, %, **, comparisons, and/or, contains, starts_with, etc.
 │   ├── UnaryExpression             # -, +, NOT, EXISTS, IS_NULL, IS_EMAIL, IS_POSITIVE, etc.
-│   ├── FunctionCallExpression      # math, string, date, list, financial, validation, REST, JSON funcs
-│   ├── JsonPathExpression          # visitor-supported; emitted by builders, not the lexer/parser
-│   └── RestCallExpression          # visitor-supported; emitted by builders, not the lexer/parser
+│   └── FunctionCallExpression      # math, string, date, list, financial, validation, REST, JSON funcs
 ├── Condition (abstract)
 │   ├── ComparisonCondition         # `>=`, `at_least`, `between ... and ...`, `in_list [...]`, `is_email`, etc.
 │   ├── LogicalCondition            # AND / OR / NOT composition
@@ -1375,9 +1371,7 @@ public interface ASTVisitor<T> {
     T visitUnaryExpression(UnaryExpression node);               // -a, !a, is_positive(a)
     T visitVariableExpression(VariableExpression node);         // creditScore, user.profile.name
     T visitLiteralExpression(LiteralExpression node);           // 42, "hello", true, [1,2,3]
-    T visitFunctionCallExpression(FunctionCallExpression node); // max(a, b), if_else(...), coalesce(...)
-    T visitJsonPathExpression(JsonPathExpression node);         // structural node; emitted by builders
-    T visitRestCallExpression(RestCallExpression node);         // structural node; emitted by builders
+    T visitFunctionCallExpression(FunctionCallExpression node); // max(a, b), if_else(...), coalesce(...), rest_get(...), json_get(...)
 
     // Condition visitors - handle boolean logic
     T visitComparisonCondition(ComparisonCondition node);       // a > b, a between x and y, etc.

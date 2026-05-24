@@ -127,12 +127,6 @@ public class ActionExecutor implements ASTVisitor<Void> {
         if (expression instanceof FunctionCallExpression) {
             return true;
         }
-        if (expression instanceof RestCallExpression) {
-            return true;
-        }
-        if (expression instanceof JsonPathExpression) {
-            return true;
-        }
         if (expression instanceof BinaryExpression binaryExpr) {
             return containsNonMathematicalOperation(binaryExpr.getLeft()) ||
                    containsNonMathematicalOperation(binaryExpr.getRight());
@@ -508,15 +502,4 @@ public class ActionExecutor implements ASTVisitor<Void> {
         return null;
     }
 
-    @Override
-    public Void visitJsonPathExpression(JsonPathExpression node) {
-        // Expressions don't execute actions, so return null
-        return null;
-    }
-
-    @Override
-    public Void visitRestCallExpression(RestCallExpression node) {
-        // Expressions don't execute actions, so return null
-        return null;
-    }
 }
