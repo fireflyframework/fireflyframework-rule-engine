@@ -46,20 +46,29 @@ public class ASTRulesDSL {
     // Input/Output definitions
     private Map<String, String> input;
     private Map<String, String> output;
-    
+
+    // Per-input default values (applied when caller omits the variable)
+    private Map<String, Object> inputDefaults;
+
     // Constants
     private List<ASTConstantDefinition> constants;
-    
+
     // Simple syntax support (when/then/else)
     private List<Condition> whenConditions;
     private List<Action> thenActions;
     private List<Action> elseActions;
-    
+
     // Complex syntax support (multiple rules)
     private List<ASTSubRule> rules;
-    
+
     // Complex conditions block
     private ASTConditionalBlock conditions;
+
+    // DMN-style decision table block (mutually exclusive with the syntaxes above)
+    private ASTDecisionTable decisionTable;
+
+    // Per-rule wall-clock timeout in milliseconds; 0 / null means no timeout.
+    private Long timeoutMs;
 
     /**
      * AST-based sub-rule definition
@@ -71,14 +80,64 @@ public class ASTRulesDSL {
     public static class ASTSubRule {
         private String name;
         private String description;
-        
+
+        // Drools-style salience: higher priority sub-rules evaluate first.
+        // Default (when unspecified) is 0; sub-rules with equal priority preserve YAML order.
+        @Builder.Default
+        private int priority = 0;
+
         // Simple syntax
         private List<Condition> whenConditions;
         private List<Action> thenActions;
         private List<Action> elseActions;
-        
+
         // Complex syntax
         private ASTConditionalBlock conditions;
+    }
+
+    /**
+     * DMN-style decision table. Each row is a list of input conditions plus a list
+     * of output assignments. The hit policy controls which matching rows contribute
+     * to the output.
+     */
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ASTDecisionTable {
+        private List<String> inputs;
+        private List<String> outputs;
+        @Builder.Default
+        private HitPolicy hitPolicy = HitPolicy.FIRST;
+        private List<ASTDecisionRow> rows;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ASTDecisionRow {
+        // Optional row label (for diagnostics)
+        private String name;
+        // Input conditions; each entry mirrors a normal `when:` predicate (string form).
+        // The evaluator parses them into ComparisonCondition at evaluation time.
+        private List<Condition> when;
+        // Output assignments: column name -> value expression
+        private Map<String, Object> outputs;
+        // Optional fallback row -- if true, this row matches when no others did (DMN "else").
+        @Builder.Default
+        private boolean otherwise = false;
+    }
+
+    public enum HitPolicy {
+        /** First matching row wins. */
+        FIRST,
+        /** Collect outputs from every matching row into a list per output column. */
+        COLLECT,
+        /** Any matching row's outputs apply; rows must produce identical outputs. */
+        ANY,
+        /** Exactly one row must match; otherwise the rule fails loudly. */
+        UNIQUE
     }
     
     /**
@@ -139,6 +198,13 @@ public class ASTRulesDSL {
      */
     public boolean isComplexConditionsSyntax() {
         return conditions != null;
+    }
+
+    /**
+     * Check if this rule is a decision table.
+     */
+    public boolean isDecisionTable() {
+        return decisionTable != null;
     }
     
     /**

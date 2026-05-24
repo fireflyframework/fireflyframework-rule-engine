@@ -110,7 +110,11 @@ output:
 
 - **Single-fact decisions** -- direct translation.
 - **Tiered scoring** with `if/then/else` chains -- direct translation.
+- **Decision tables** -- DRL `RuleTable` blocks map to Firefly `decision_table:` with `FIRST`, `COLLECT`, `ANY`, or `UNIQUE` hit policies. See [yaml-dsl-reference.md](yaml-dsl-reference.md#decision-tables-dmn-style).
+- **Salience / priority** -- DRL `salience` corresponds to Firefly's per-sub-rule `priority: N`. Higher priority evaluates first; ties preserve declaration order.
+- **Rule composition** -- DRL `rule "X" extends "Y"` and modify-then-fire chains map to `invoke_rule("other_rule", "k1", v1, "k2", v2)` which returns the nested rule's output map.
 - **External data calls** -- Drools requires plugin work; Firefly has `rest_get`, `json_get`, etc. built-in.
+- **Per-rule budgets** -- where DRL relies on `KieSession`-level timeouts, Firefly accepts a `timeout: 5s` directive on each rule.
 
 ### Patterns that don't map
 

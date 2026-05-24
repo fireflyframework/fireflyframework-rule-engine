@@ -47,6 +47,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     private final RestCallService restCallService;
     private final JsonPathService jsonPathService;
     private final CustomFunctionRegistry customFunctions;
+    private final org.fireflyframework.rules.core.dsl.function.RuleInvoker ruleInvoker;
 
     private static final int REGEX_CACHE_SIZE = 64;
     @SuppressWarnings("serial")
@@ -58,21 +59,30 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     };
 
     public ExpressionEvaluator(EvaluationContext context) {
-        this(context, null, null, null);
+        this(context, null, null, null, null);
     }
 
     public ExpressionEvaluator(EvaluationContext context, RestCallService restCallService, JsonPathService jsonPathService) {
-        this(context, restCallService, jsonPathService, null);
+        this(context, restCallService, jsonPathService, null, null);
     }
 
     public ExpressionEvaluator(EvaluationContext context,
                                RestCallService restCallService,
                                JsonPathService jsonPathService,
                                CustomFunctionRegistry customFunctions) {
+        this(context, restCallService, jsonPathService, customFunctions, null);
+    }
+
+    public ExpressionEvaluator(EvaluationContext context,
+                               RestCallService restCallService,
+                               JsonPathService jsonPathService,
+                               CustomFunctionRegistry customFunctions,
+                               org.fireflyframework.rules.core.dsl.function.RuleInvoker ruleInvoker) {
         this.context = context;
         this.restCallService = restCallService;
         this.jsonPathService = jsonPathService;
         this.customFunctions = customFunctions;
+        this.ruleInvoker = ruleInvoker;
     }
     
     // Expression visitors
@@ -225,6 +235,15 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "floor" -> evaluateFloor(args);
             case "sqrt" -> evaluateSqrt(args);
             case "pow" -> evaluatePow(args);
+            case "exp" -> evaluateUnaryMath(args, "exp", Math::exp);
+            case "ln" -> evaluateUnaryMath(args, "ln", Math::log);
+            case "log10" -> evaluateUnaryMath(args, "log10", Math::log10);
+            case "sin" -> evaluateUnaryMath(args, "sin", Math::sin);
+            case "cos" -> evaluateUnaryMath(args, "cos", Math::cos);
+            case "tan" -> evaluateUnaryMath(args, "tan", Math::tan);
+            case "atan2" -> evaluateBinaryMath(args, "atan2", Math::atan2);
+            case "hash" -> evaluateHash(args);
+            case "log" -> evaluateLog(args);
 
             // String functions
             case "length", "len" -> evaluateLength(args);
@@ -272,6 +291,7 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "median" -> evaluateMedian(args);
             case "stddev" -> evaluateStddev(args);
             case "variance" -> evaluateVariance(args);
+            case "percentile" -> evaluatePercentile(args);
 
             // String formatting
             case "format" -> evaluateStringFormat(args);
@@ -339,6 +359,9 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "rest_delete" -> restDelete(args);
             case "rest_patch" -> restPatch(args);
             case "rest_call" -> restCall(args);
+
+            // Rule composition -- delegate to a stored rule by code
+            case "invoke_rule" -> evaluateInvokeRule(args);
 
             // JSON path functions
             case "json_get", "json_path" -> jsonGet(args);
@@ -760,6 +783,104 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
         BigDecimal exponent = toBigDecimal(args[1]);
         if (base == null || exponent == null) return null;
         return BigDecimal.valueOf(Math.pow(base.doubleValue(), exponent.doubleValue()));
+    }
+
+    private Object evaluateUnaryMath(Object[] args, String name, java.util.function.DoubleUnaryOperator op) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException(name + "() requires exactly 1 argument");
+        }
+        BigDecimal v = toBigDecimal(args[0]);
+        if (v == null) return null;
+        double result = op.applyAsDouble(v.doubleValue());
+        if (Double.isNaN(result) || Double.isInfinite(result)) {
+            throw new IllegalArgumentException(name + "() produced a non-finite result for input " + v);
+        }
+        return BigDecimal.valueOf(result);
+    }
+
+    private Object evaluateBinaryMath(Object[] args, String name, java.util.function.DoubleBinaryOperator op) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException(name + "() requires exactly 2 arguments");
+        }
+        BigDecimal a = toBigDecimal(args[0]);
+        BigDecimal b = toBigDecimal(args[1]);
+        if (a == null || b == null) return null;
+        double result = op.applyAsDouble(a.doubleValue(), b.doubleValue());
+        if (Double.isNaN(result) || Double.isInfinite(result)) {
+            throw new IllegalArgumentException(name + "() produced a non-finite result");
+        }
+        return BigDecimal.valueOf(result);
+    }
+
+    private Object evaluateHash(Object[] args) {
+        if (args.length < 1 || args.length > 2) {
+            throw new IllegalArgumentException("hash(value [, algorithm]) requires 1 or 2 arguments");
+        }
+        String input = args[0] == null ? "" : args[0].toString();
+        String algorithm = args.length == 2 && args[1] != null ? args[1].toString() : "SHA-256";
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance(algorithm);
+            byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalArgumentException("hash() unknown algorithm '" + algorithm + "'. Supported: MD5, SHA-1, SHA-256, SHA-512");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object evaluateInvokeRule(Object[] args) {
+        if (args.length < 1) {
+            throw new IllegalArgumentException(
+                    "invoke_rule(code [, inputs | key, value, ...]) requires at least the rule code argument");
+        }
+        if (ruleInvoker == null) {
+            throw new IllegalStateException(
+                    "invoke_rule() requires a RuleInvoker bean. Wire RuleInvokerImpl into the application context "
+                            + "or evaluate via the full Spring-managed engine.");
+        }
+        String code = args[0] == null ? null : args[0].toString();
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("invoke_rule(code, ...): first argument must be a non-empty rule code");
+        }
+        java.util.Map<String, Object> inputs;
+        if (args.length == 1) {
+            inputs = java.util.Collections.emptyMap();
+        } else if (args.length == 2 && args[1] instanceof java.util.Map<?, ?> m) {
+            inputs = (java.util.Map<String, Object>) m;
+        } else {
+            // Alternating-key/value form: invoke_rule("code", "k1", v1, "k2", v2, ...)
+            if ((args.length - 1) % 2 != 0) {
+                throw new IllegalArgumentException(
+                        "invoke_rule: trailing arguments must be alternating key/value pairs (odd count)");
+            }
+            java.util.Map<String, Object> built = new java.util.LinkedHashMap<>();
+            for (int i = 1; i < args.length; i += 2) {
+                if (args[i] == null) {
+                    throw new IllegalArgumentException("invoke_rule: input key at position " + i + " is null");
+                }
+                built.put(args[i].toString(), args[i + 1]);
+            }
+            inputs = built;
+        }
+        return ruleInvoker.invokeBlocking(code, inputs);
+    }
+
+    private Object evaluateLog(Object[] args) {
+        if (args.length < 1 || args.length > 2) {
+            throw new IllegalArgumentException("log(message [, level]) requires 1 or 2 arguments");
+        }
+        String message = args[0] == null ? "null" : args[0].toString();
+        String level = args.length == 2 && args[1] != null ? args[1].toString().toUpperCase() : "INFO";
+        switch (level) {
+            case "TRACE" -> log.trace("[rule-log] {}", message);
+            case "DEBUG" -> log.debug("[rule-log] {}", message);
+            case "WARN", "WARNING" -> log.warn("[rule-log] {}", message);
+            case "ERROR" -> log.error("[rule-log] {}", message);
+            default -> log.info("[rule-log] {}", message);
+        }
+        return message;
     }
 
     // String functions
@@ -1235,6 +1356,34 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
     private Object evaluateStddev(Object[] args) {
         java.math.BigDecimal variance = (java.math.BigDecimal) evaluateVariance(args);
         return java.math.BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
+    }
+
+    private Object evaluatePercentile(Object[] args) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException("percentile(list, p) requires 2 arguments where p is in [0, 100]");
+        }
+        if (!(args[0] instanceof List<?> list) || list.isEmpty()) {
+            throw new IllegalArgumentException("percentile(list, p): first argument must be a non-empty list");
+        }
+        java.math.BigDecimal p = toBigDecimal(args[1]);
+        if (p == null || p.compareTo(java.math.BigDecimal.ZERO) < 0 || p.compareTo(java.math.BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("percentile(list, p): p must be in [0, 100], got " + p);
+        }
+        List<java.math.BigDecimal> nums = new java.util.ArrayList<>(list.size());
+        for (Object item : list) {
+            java.math.BigDecimal n = toBigDecimal(item);
+            if (n == null) throw new IllegalArgumentException("percentile: list contains non-numeric value " + item);
+            nums.add(n);
+        }
+        java.util.Collections.sort(nums);
+        // Linear interpolation, NIST/Excel definition
+        double rank = p.doubleValue() / 100.0 * (nums.size() - 1);
+        int lo = (int) Math.floor(rank);
+        int hi = (int) Math.ceil(rank);
+        if (lo == hi) return nums.get(lo);
+        double frac = rank - lo;
+        return nums.get(lo).multiply(java.math.BigDecimal.valueOf(1 - frac))
+                .add(nums.get(hi).multiply(java.math.BigDecimal.valueOf(frac)));
     }
 
     // ---------------------------------------------------------------------------------

@@ -203,10 +203,10 @@ public class YamlDslValidator {
         if (rulesDSL.getInput() != null) {
             for (String inputName : rulesDSL.getInput().keySet()) {
                 if (!namingValidator.isValidInputVariableName(inputName)) {
-                    issues.add(createIssue("NAMING_001", ValidationResult.ValidationSeverity.WARNING,
-                            "Invalid input variable name", 
-                            "Input variable '" + inputName + "' should use camelCase (e.g., creditScore)",
-                            "input." + inputName, "Use camelCase naming"));
+                    issues.add(createIssue("NAMING_001", ValidationResult.ValidationSeverity.ERROR,
+                            "Invalid input variable name",
+                            "Input variable '" + inputName + "' must use camelCase (e.g., creditScore)",
+                            "input." + inputName, "Rename to camelCase"));
                 }
             }
         }
@@ -215,10 +215,10 @@ public class YamlDslValidator {
         if (rulesDSL.getConstants() != null) {
             for (var constant : rulesDSL.getConstants()) {
                 if (constant.getCode() != null && !namingValidator.isValidConstantName(constant.getCode())) {
-                    issues.add(createIssue("NAMING_002", ValidationResult.ValidationSeverity.WARNING,
+                    issues.add(createIssue("NAMING_002", ValidationResult.ValidationSeverity.ERROR,
                             "Invalid constant name",
-                            "Constant '" + constant.getCode() + "' should use UPPER_CASE_WITH_UNDERSCORES",
-                            "constants." + constant.getCode(), "Use UPPER_CASE naming"));
+                            "Constant '" + constant.getCode() + "' must use UPPER_CASE_WITH_UNDERSCORES",
+                            "constants." + constant.getCode(), "Rename to UPPER_CASE"));
                 }
             }
         }

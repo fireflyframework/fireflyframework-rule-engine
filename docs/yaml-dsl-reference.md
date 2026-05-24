@@ -113,7 +113,40 @@ metadata:                           # Optional: Additional metadata
 constants:                          # Optional: Constants with defaults
   - code: CONSTANT_NAME
     defaultValue: value
+
+timeout: 5s                         # Optional: per-rule wall-clock budget
+                                    # Accepts "5s", "500ms", or raw milliseconds.
+                                    # Exceeding it fails the rule with a clean message.
 ```
+
+### Input Declarations with Defaults
+
+`inputs:` accepts three shapes:
+
+```yaml
+# 1. Flat list -- type defaults to Object
+inputs: [creditScore, annualIncome, age]
+
+# 2. Name -> type
+inputs:
+  creditScore: number
+  annualIncome: number
+  age: number
+
+# 3. Name -> {type, default} -- default is injected when caller omits the variable
+inputs:
+  creditScore:
+    type: number
+    default: 0
+  annualIncome:
+    type: number
+    default: 0
+  region:
+    type: string
+    default: "UNKNOWN"
+```
+
+Caller-supplied values always override declared defaults. This makes rules safer to evaluate from partial inputs without sprinkling `coalesce(...)` calls through every action.
 
 > Note: early versions accepted a top-level `circuit_breaker:` configuration block
 > (`enabled`, `failure_threshold`, `timeout_duration`, `recovery_timeout`). It was parsed
@@ -145,9 +178,32 @@ conditions:                         # Structured condition blocks
 ```yaml
 rules:                             # Array of sub-rules
   - name: "Sub-rule 1"
+    priority: 10                   # Optional: higher salience runs first (default 0)
+    when: [conditions]
+    then: [actions]
+  - name: "Sub-rule 2"
+    priority: 1                    # Lower priority -- evaluates after Sub-rule 1
     when: [conditions]
     then: [actions]
 ```
+
+Sub-rule priority is drools-style salience: higher `priority:` evaluates first; ties preserve YAML declaration order via a stable sort. Omitted priorities default to 0.
+
+**Decision Table (DMN-style):**
+<!-- doc-test:skip (schema sketch; placeholder values, not parseable on its own) -->
+```yaml
+decision_table:
+  inputs: [col1, col2]              # Optional: input column names (for documentation)
+  outputs: [col_a, col_b]           # Optional: output column names
+  hit_policy: FIRST                  # FIRST | COLLECT | ANY | UNIQUE (default FIRST)
+  rules:
+    - when: [predicate, predicate]   # Each row is a list of `when:` predicates
+      then: { col_a: value, col_b: value }
+    - otherwise: true                # Fallback row -- matches when no others did
+      then: { col_a: default_value, col_b: default_value }
+```
+
+See the [Decision Tables](#decision-tables-dmn-style) section below for the full syntax, hit-policy semantics, and the `=` prefix for expression outputs.
 
 ---
 
@@ -1230,6 +1286,19 @@ conditions:
 - run power as pow(base, exponent)
 - run square_root as sqrt(16)
 
+# Advanced math (added 26.05.08)
+- run e_value as exp(1)              # e^x
+- run ln_value as ln(2.718)          # natural log
+- run log10_value as log10(1000)     # base-10 log
+- run sin_value as sin(0)            # radians
+- run cos_value as cos(0)
+- run tan_value as tan(0)
+- run angle as atan2(1, 1)           # two-argument arc tangent
+
+# Hashing (cryptographic digests)
+- run sig as hash("payload")                # SHA-256, hex-encoded
+- run md5 as hash("payload", "MD5")         # also SHA-1, SHA-512
+
 # Statistical functions
 - run average as avg(score1, score2, score3)  # Also: average
 - run sum as sum(amount1, amount2, amount3)
@@ -1364,6 +1433,7 @@ identically.
 - run mid as median(values)                   # numeric median (mean of middle two on even length)
 - run spread as stddev(values)                # sample standard deviation (n-1 denominator)
 - run var as variance(values)                 # sample variance
+- run p95 as percentile(values, 95)           # linear-interpolation percentile (p in [0,100])
 ```
 
 ### Type Conversion Functions
@@ -1447,7 +1517,38 @@ identically.
 - call audit with ["Decision made", "AUDIT"]
 - call audit_log with ["Rule executed", "TRACE"]
 - call send_notification with ["recipient", "message"]
+
+# First-class logging action -- routes through SLF4J at the named level
+- run echoed as log("Rule fired for applicant " + applicantId, "INFO")
+- call log with ["debug snapshot", "DEBUG"]   # action-context invocation
 ```
+
+Supported levels (case-insensitive): `TRACE`, `DEBUG`, `INFO` (default), `WARN`, `ERROR`. The function returns its message so it can be chained inside expressions.
+
+### Rule Composition -- the `invoke_rule` Function
+
+`invoke_rule(code, ...)` evaluates another stored rule by code and returns its output map. Inputs are passed as **alternating "key", value pairs** trailing the rule code -- this avoids the YAML/JSON `{}` flow-mapping ambiguity that bites authors who try to write inline maps in action lines.
+
+```yaml
+then:
+  # No inputs
+  - run health as invoke_rule("system_health_check")
+
+  # Two-argument form (only when the second argument is already a Map in context)
+  - run score as invoke_rule("scoring_rule", existing_input_map)
+
+  # Alternating-pairs form (recommended for inline literals)
+  - run underwriting as invoke_rule("composite_underwriting",
+        "creditScore", creditScore,
+        "annualIncome", annualIncome,
+        "existingDebt", existingDebt)
+  - set tier to underwriting.tier
+  - set approved to underwriting.approved
+```
+
+The nested rule evaluation is synchronous (blocking on the engine's `boundedElastic` worker). If the invoked rule fails to parse, the rule code does not exist, or the nested evaluation reports `success=false`, `invoke_rule` raises an error that propagates as a failed result of the outer rule -- consistent with the fail-loud contract.
+
+> ⚠️ `invoke_rule` requires a `RuleInvoker` bean. The default Spring auto-configuration wires `RuleInvokerImpl` (backed by `RuleDefinitionService`) automatically; outside Spring you can supply your own implementation.
 
 ### Custom Functions (Extension Point)
 
@@ -1501,6 +1602,90 @@ then:
 When the action fires, the engine stops the rule cleanly. The result reports
 `success=true` with `circuitBreakerTriggered=true` and the message above; any
 already-set variables remain in the output, but no subsequent actions run.
+
+### Decision Tables (DMN-style)
+
+A `decision_table:` block expresses a multi-row decision as a table of input
+predicates and output assignments. This is the most concise way to encode rules
+that boil down to "look at columns X, Y, Z; return outputs A, B" -- the same shape
+that drools/DMN solve.
+
+<!-- doc-test:skip (full DMN example documented at length below) -->
+```yaml
+name: "Auto Insurance Premium Table"
+description: "Tier and rate by credit and age"
+
+inputs:
+  creditScore: number
+  age: number
+
+decision_table:
+  inputs: [creditScore, age]
+  outputs: [tier, rate]
+  hit_policy: FIRST
+  rules:
+    - when:
+        - creditScore at_least 750
+        - age between 25 and 65
+      then:
+        tier: "PRIME"
+        rate: 3.0
+    - when:
+        - creditScore at_least 650
+      then:
+        tier: "PREFERRED"
+        rate: 5.0
+    - otherwise: true
+      then:
+        tier: "STANDARD"
+        rate: 9.0
+
+output:
+  tier: tier
+  rate: rate
+```
+
+**Hit policies** -- how the engine picks which rows contribute:
+
+| Policy   | Behavior                                                                            |
+|----------|-------------------------------------------------------------------------------------|
+| `FIRST`  | First matching row wins. Default.                                                   |
+| `ANY`    | Any matching row's outputs apply; the engine uses the first match.                  |
+| `UNIQUE` | Exactly one row must match. Multiple matches -> rule fails with a clean diagnostic. |
+| `COLLECT`| Each output column is collected into a list of values from every matching row.      |
+
+**Output values**: numbers, booleans, lists, and maps pass through unchanged. Strings are taken as literals by default. Prefix a string with `=` to mark it as a DSL expression evaluated against the current context:
+
+<!-- doc-test:skip -->
+```yaml
+then:
+  tier: "PRIME"                        # literal string
+  rate: 3.0                            # literal number
+  computed_premium: "= basePremium * 1.5"   # expression -- result of basePremium * 1.5
+  band: "= if_else(score at_least 700, \"HIGH\", \"LOW\")"
+```
+
+This rule shape is mutually exclusive with `when:/then:`, `conditions:`, and `rules:` at the same level. If `decision_table:` is present it takes precedence.
+
+### Per-Rule Timeout
+
+Declare an upper bound on a rule's wall-clock runtime to protect callers from
+runaway loops, slow REST calls, or pathological data:
+
+<!-- doc-test:skip -->
+```yaml
+name: "Risk Assessment"
+timeout: 5s              # also accepts "500ms" or a raw number of milliseconds
+when:
+  - creditScore at_least 600
+then:
+  - run report as rest_get("https://slow.example.com/risk")
+  - set assessed to true
+```
+
+Exceeding the timeout fails the rule cleanly: `success=false` with an error like
+`Rule 'Risk Assessment' exceeded its declared timeout of 5000ms`. No partial outputs
+escape; the engine relies on Reactor's `Mono.timeout()` to cancel the work.
 
 ### Metadata and Versioning
 

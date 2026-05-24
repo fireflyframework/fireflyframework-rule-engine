@@ -25,11 +25,11 @@
 
 ## Overview
 
-Firefly Framework Rule Engine provides a business rule evaluation system based on a custom YAML DSL. Rules are defined in YAML and parsed into an Abstract Syntax Tree (AST) for efficient evaluation. The engine supports rich conditions, arithmetic, loop constructs, function calls, REST API calls, JsonPath expressions, and a pluggable function-registry extension point.
+Firefly Framework Rule Engine provides a business rule evaluation system based on a custom YAML DSL. Rules are defined in YAML and parsed into an Abstract Syntax Tree (AST) for efficient evaluation. The engine supports rich conditions, arithmetic, loop constructs, function calls, REST API calls, JsonPath expressions, **decision tables (DMN-style)**, **rule composition (`invoke_rule`)**, and a pluggable function-registry extension point.
 
 The project is structured as a multi-module Maven build with five sub-modules: `interfaces` (DTOs and validation), `models` (R2DBC entities and repositories), `core` (DSL parser, evaluator, services, function registry), `web` (Spring WebFlux REST controllers), and `sdk` (generated client). The engine provides batch evaluation, audit-trail tracking, and a dedicated cache layer.
 
-The YAML DSL supports input/computed/constant variable tiers, 30+ comparison operators, logical composition (and/or/not), loops (`forEach`, `while`, `do-while`), inline conditionals (`if/then/else`), 70+ built-in functions (financial, date, string, list, validation, REST, JSON, type-conversion), and circuit-breaker actions for early termination.
+The YAML DSL supports input/computed/constant variable tiers (with declared **input defaults**), 30+ comparison operators, logical composition (and/or/not), loops (`forEach`, `while`, `do-while`), inline conditionals (`if/then/else`), 80+ built-in functions (math, finance, date, string, list, validation, REST, JSON, type-conversion, statistics, advanced math, hashing, logging), **per-rule timeout**, **drools-style sub-rule priority**, and circuit-breaker actions for early termination.
 
 ## Features
 
@@ -37,7 +37,14 @@ The YAML DSL supports input/computed/constant variable tiers, 30+ comparison ope
 - 30+ comparison operators including `between`, `in_list`, `matches`, `is_email`, `is_credit_score`, etc.
 - Logical composition (`and`, `or`, `not`) with short-circuit evaluation
 - Action types: `set`, `calculate`, `run`, `call`, arithmetic (`add`/`subtract`/`multiply`/`divide`), list ops (`append`/`prepend`/`remove`), `forEach`, `while`, `do-while`, `if/then/else`, `circuit_breaker`
-- 70+ built-in functions covering math, string, date, list, financial, validation, REST, JSON path, and type conversion
+- 80+ built-in functions covering math, advanced math (`exp`, `ln`, `sin`, `cos`, `tan`, `atan2`), hashing (`hash`), string, date, list, statistical (`median`, `stddev`, `variance`, `percentile`), financial, validation, REST, JSON path, type conversion, and structured logging
+- **Decision Tables (DMN-style)**: tabular `decision_table:` block with `FIRST`, `COLLECT`, `ANY`, and `UNIQUE` hit policies; `=` prefix marks expression outputs
+- **Rule Composition**: `invoke_rule(code, "key1", v1, "key2", v2, ...)` calls a stored rule by code and returns its outputs as a Map for chaining
+- **Sub-rule Priority (drools-style salience)**: `priority: N` on each sub-rule; higher priority evaluates first, stable on ties
+- **Input Defaults**: declare `default:` per input in the `inputs:` block; caller-omitted variables are filled in automatically
+- **Per-Rule Timeout**: declare `timeout: 5s` (or `500ms`/raw ms) to bound wall-clock runtime via Reactor `Mono.timeout()`
+- Pre-parse YAML lint catches the most common authoring trap (unquoted `:` inside action lines) before SnakeYAML throws a confusing error
+- Strict naming validation: input variables (`camelCase`), constants (`UPPER_CASE`), and computed variables (`snake_case`) are validation errors when violated
 - Pluggable function registry (`CustomFunctionRegistry`) — register your own `RuleFunction` beans and call them from rules
 - Constants tier loaded from the database with TTL caching; auto-detection of `UPPER_CASE` references in the AST
 - Reactive evaluation API on Project Reactor; synchronous visitor scheduled on `Schedulers.boundedElastic()` so it never blocks the Netty event loop
@@ -46,7 +53,7 @@ The YAML DSL supports input/computed/constant variable tiers, 30+ comparison ope
 - Audit-trail tracking for every evaluation (correlated, PII-masked)
 - YAML DSL validation: syntax, naming-convention, dependency, function-existence
 - RFC 7807 problem-detail error responses; correlation IDs propagated across the chain
-- Fail-fast error contract: malformed rules, unknown functions, type-coercion errors, and bad regexes surface as `success=false` with precise diagnostics rather than silently flipping to the else branch
+- Fail-loud error contract: malformed rules, unknown functions, type-coercion errors, and bad regexes surface as `success=false` with precise diagnostics rather than silently flipping to the else branch
 - Spring WebFlux controllers; OpenAPI 3 / Swagger UI
 
 ## Requirements
@@ -127,6 +134,64 @@ else:
 output:
   eligible: eligible
   tier: tier
+```
+
+### Decision Table example (DMN-style)
+
+```yaml
+name: "Auto Insurance Premium Table"
+
+inputs:
+  creditScore: number
+  age: number
+
+decision_table:
+  inputs: [creditScore, age]
+  outputs: [tier, rate]
+  hit_policy: FIRST
+  rules:
+    - when:
+        - creditScore at_least 750
+        - age between 25 and 65
+      then:
+        tier: "PRIME"
+        rate: 3.0
+    - when:
+        - creditScore at_least 650
+      then:
+        tier: "PREFERRED"
+        rate: 5.0
+    - otherwise: true
+      then:
+        tier: "STANDARD"
+        rate: 9.0
+
+output:
+  tier: tier
+  rate: rate
+```
+
+### Rule Composition example (`invoke_rule`)
+
+```yaml
+name: "Underwriting Orchestrator"
+
+inputs:
+  creditScore: number
+  annualIncome: number
+  existingDebt: number
+
+then:
+  - run scoring as invoke_rule("composite_underwriting",
+        "creditScore", creditScore,
+        "annualIncome", annualIncome,
+        "existingDebt", existingDebt)
+  - set tier to scoring.tier
+  - set approved to scoring.approved
+
+output:
+  tier: tier
+  approved: approved
 ```
 
 ### Calling the engine from Java
@@ -221,7 +286,6 @@ Additional documentation is available in the [docs/](docs/) directory:
 - [Architecture](docs/architecture.md)
 - [Yaml Dsl Reference](docs/yaml-dsl-reference.md)
 - [Migration Guide](docs/migration-guide.md) -- mapping from Drools / Easy Rules / hand-rolled if/else services
-- [DSL Design Review](docs/dsl-design-review.md) -- philosophy, design tensions, future direction
 - [Api Documentation](docs/api-documentation.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Configuration Examples](docs/configuration-examples.md)

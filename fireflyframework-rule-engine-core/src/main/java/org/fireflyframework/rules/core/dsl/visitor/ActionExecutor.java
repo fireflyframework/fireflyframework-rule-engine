@@ -38,19 +38,27 @@ public class ActionExecutor implements ASTVisitor<Void> {
     private final ExpressionEvaluator expressionEvaluator;
 
     public ActionExecutor(EvaluationContext context) {
-        this(context, null, null, null);
+        this(context, null, null, null, null);
     }
 
     public ActionExecutor(EvaluationContext context, RestCallService restCallService, JsonPathService jsonPathService) {
-        this(context, restCallService, jsonPathService, null);
+        this(context, restCallService, jsonPathService, null, null);
     }
 
     public ActionExecutor(EvaluationContext context,
                           RestCallService restCallService,
                           JsonPathService jsonPathService,
                           CustomFunctionRegistry customFunctions) {
+        this(context, restCallService, jsonPathService, customFunctions, null);
+    }
+
+    public ActionExecutor(EvaluationContext context,
+                          RestCallService restCallService,
+                          JsonPathService jsonPathService,
+                          CustomFunctionRegistry customFunctions,
+                          org.fireflyframework.rules.core.dsl.function.RuleInvoker ruleInvoker) {
         this.context = context;
-        this.expressionEvaluator = new ExpressionEvaluator(context, restCallService, jsonPathService, customFunctions);
+        this.expressionEvaluator = new ExpressionEvaluator(context, restCallService, jsonPathService, customFunctions, ruleInvoker);
     }
     
     // Action visitors
@@ -226,8 +234,14 @@ public class ActionExecutor implements ASTVisitor<Void> {
         return switch (functionName.toLowerCase()) {
             case "log", "print" -> {
                 String message = args.length > 0 ? args[0].toString() : "";
-                String level = args.length > 1 ? args[1].toString() : "INFO";
-                log.info("[{}] {}", level, message);
+                String level = args.length > 1 ? args[1].toString().toUpperCase() : "INFO";
+                switch (level) {
+                    case "TRACE" -> log.trace("[rule-log] {}", message);
+                    case "DEBUG" -> log.debug("[rule-log] {}", message);
+                    case "WARN", "WARNING" -> log.warn("[rule-log] {}", message);
+                    case "ERROR" -> log.error("[rule-log] {}", message);
+                    default -> log.info("[rule-log] {}", message);
+                }
                 yield null;
             }
             case "validate", "check" -> {

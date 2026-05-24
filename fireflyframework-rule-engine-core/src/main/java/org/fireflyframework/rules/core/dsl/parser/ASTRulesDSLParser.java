@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ASTRulesDSLParser {
 
+    @lombok.Getter
     private final DSLParser dslParser;
     private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     private final ComplexConditionsParser complexConditionsParser;
@@ -121,12 +122,73 @@ public class ASTRulesDSLParser {
      * Internal method to parse rules definition without caching logic
      */
     private ASTRulesDSL parseRulesInternal(String rulesDefinition) throws Exception {
-        // Parse YAML to Map first
+        // Pre-flight lint: catch the most common authoring trap (unquoted colon in action
+        // strings) and surface a clean error pointing to the offending line, instead of
+        // letting SnakeYAML throw a confusing parse error about an unexpected map.
+        lintYaml(rulesDefinition);
+
         @SuppressWarnings("unchecked")
         Map<String, Object> yamlMap = yamlMapper.readValue(rulesDefinition, Map.class);
 
         // Convert to AST model
         return convertToASTModel(yamlMap);
+    }
+
+    /**
+     * Pre-parse lint pass. Scans for action-list entries containing an unquoted ':'
+     * (a string with a colon must be YAML-quoted, otherwise SnakeYAML interprets it as
+     * a sub-map). Throws ASTException with a precise line number when found.
+     */
+    private static final java.util.regex.Pattern ACTION_VERB_LINE = java.util.regex.Pattern.compile(
+            "^\\s*-\\s+(set|calculate|run|call|add|subtract|multiply|divide|append|prepend|remove|log|print|invoke_rule|stop)\\b.*");
+
+    private void lintYaml(String yaml) {
+        String[] lines = yaml.split("\\r?\\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String raw = lines[i];
+            String body = raw;
+            // ignore comments
+            int hash = body.indexOf('#');
+            if (hash >= 0) body = body.substring(0, hash);
+            if (!ACTION_VERB_LINE.matcher(body).matches()) continue;
+            // Strip enclosing single or double quotes on the value (lazy detection: look for
+            // matching quote starting after the verb)
+            String trimmed = body.trim();
+            // Strip "- " prefix
+            String afterDash = trimmed.startsWith("- ") ? trimmed.substring(2).trim() : trimmed;
+            if (afterDash.startsWith("'") || afterDash.startsWith("\"")) continue;
+            // Look for an unquoted ': ' (colon followed by space) which YAML will interpret as map syntax
+            if (containsUnquotedColonSpace(afterDash)) {
+                throw new ASTException(
+                        "YAML lint: line " + (i + 1) + " contains an unquoted ': ' inside an action -- "
+                                + "wrap the action in single quotes. Offending line: '" + raw.trim() + "'");
+            }
+        }
+    }
+
+    private boolean containsUnquotedColonSpace(String s) {
+        boolean inSingle = false, inDouble = false;
+        int parenDepth = 0, braceDepth = 0, bracketDepth = 0;
+        for (int i = 0; i < s.length() - 1; i++) {
+            char c = s.charAt(i);
+            if (c == '\'' && !inDouble) inSingle = !inSingle;
+            else if (c == '"' && !inSingle) inDouble = !inDouble;
+            else if (!inSingle && !inDouble) {
+                switch (c) {
+                    case '(' -> parenDepth++;
+                    case ')' -> parenDepth = Math.max(0, parenDepth - 1);
+                    case '{' -> braceDepth++;
+                    case '}' -> braceDepth = Math.max(0, braceDepth - 1);
+                    case '[' -> bracketDepth++;
+                    case ']' -> bracketDepth = Math.max(0, bracketDepth - 1);
+                    case ':' -> {
+                        if (parenDepth == 0 && braceDepth == 0 && bracketDepth == 0
+                                && s.charAt(i + 1) == ' ') return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -171,26 +233,33 @@ public class ASTRulesDSLParser {
             builder.metadata(metadata);
         }
         
-        // Input/Output definitions
-        // Handle both 'input' and 'inputs' (both can be map format)
-        if (yamlMap.containsKey("input")) {
-            builder.input((Map<String, String>) yamlMap.get("input"));
-        } else if (yamlMap.containsKey("inputs")) {
-            Object inputsObj = yamlMap.get("inputs");
-            if (inputsObj instanceof Map) {
-                // inputs is a map format: inputs: {income: "number", debt: "number"}
-                builder.input((Map<String, String>) inputsObj);
-            } else {
-                // inputs is a list format: inputs: [income, debt, age]
-                List<String> inputsList = convertToStringList(inputsObj);
-                Map<String, String> inputsMap = inputsList.stream()
-                        .collect(Collectors.toMap(
-                                inputName -> inputName,
-                                inputName -> "Object" // Default type since inputs list doesn't specify types
-                        ));
-                builder.input(inputsMap);
+        // Input definitions. Accepts three shapes:
+        //   inputs: [creditScore, age]                          -- list of names (type = Object)
+        //   inputs: {creditScore: "number", age: "number"}      -- name -> type
+        //   inputs: {creditScore: {type: "number", default: 0}} -- name -> {type, default}
+        // The richer form lets callers omit the variable; the declared default is then injected.
+        Map<String, String> resolvedInputs = new java.util.LinkedHashMap<>();
+        Map<String, Object> resolvedDefaults = new java.util.LinkedHashMap<>();
+        Object inputsObj = yamlMap.containsKey("input") ? yamlMap.get("input") : yamlMap.get("inputs");
+        if (inputsObj instanceof Map<?, ?> rawMap) {
+            for (Map.Entry<?, ?> e : rawMap.entrySet()) {
+                String name = String.valueOf(e.getKey());
+                Object value = e.getValue();
+                if (value instanceof Map<?, ?> spec) {
+                    Object type = spec.get("type");
+                    resolvedInputs.put(name, type == null ? "Object" : type.toString());
+                    if (spec.containsKey("default")) {
+                        resolvedDefaults.put(name, spec.get("default"));
+                    }
+                } else {
+                    resolvedInputs.put(name, value == null ? "Object" : value.toString());
+                }
             }
+        } else if (inputsObj instanceof List<?> rawList) {
+            for (Object item : rawList) resolvedInputs.put(String.valueOf(item), "Object");
         }
+        if (!resolvedInputs.isEmpty()) builder.input(resolvedInputs);
+        if (!resolvedDefaults.isEmpty()) builder.inputDefaults(resolvedDefaults);
 
         // Handle both 'output' and 'outputs' (both can be map format)
         if (yamlMap.containsKey("output")) {
@@ -240,15 +309,18 @@ public class ASTRulesDSLParser {
             builder.elseActions(elseActions);
         }
         
-        // Multiple rules syntax
+        // Multiple rules syntax. Sub-rules are sorted by descending priority so a
+        // higher-`priority:` sub-rule evaluates first (DRL-style salience). Ties preserve
+        // YAML declaration order via a stable sort.
         if (yamlMap.containsKey("rules")) {
             List<Map<String, Object>> rulesList = (List<Map<String, Object>>) yamlMap.get("rules");
             List<ASTRulesDSL.ASTSubRule> rules = rulesList.stream()
                     .map(this::convertToSubRule)
                     .collect(Collectors.toList());
+            rules.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
             builder.rules(rules);
         }
-        
+
         // Complex conditions syntax
         if (yamlMap.containsKey("conditions")) {
             Map<String, Object> conditionsMap = (Map<String, Object>) yamlMap.get("conditions");
@@ -256,7 +328,73 @@ public class ASTRulesDSLParser {
             builder.conditions(conditions);
         }
 
+        // Decision-table (DMN-style) syntax. Mutually exclusive with the other top-level
+        // syntaxes; if both are present the explicit table takes precedence and the others
+        // are ignored.
+        if (yamlMap.containsKey("decision_table") || yamlMap.containsKey("decisionTable")) {
+            Object dt = yamlMap.containsKey("decision_table") ? yamlMap.get("decision_table") : yamlMap.get("decisionTable");
+            if (dt instanceof Map<?, ?> dtMap) {
+                builder.decisionTable(convertToDecisionTable((Map<String, Object>) dtMap));
+            }
+        }
+
+        // Per-rule wall-clock timeout: accepts "5s", "500ms", or a raw number of milliseconds.
+        if (yamlMap.containsKey("timeout")) {
+            Long ms = parseTimeoutMs(yamlMap.get("timeout"));
+            if (ms != null && ms > 0) builder.timeoutMs(ms);
+        }
+
         return builder.build();
+    }
+
+    private Long parseTimeoutMs(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof Number n) return n.longValue();
+        String s = raw.toString().trim().toLowerCase();
+        try {
+            if (s.endsWith("ms")) return Long.parseLong(s.substring(0, s.length() - 2).trim());
+            if (s.endsWith("s")) return (long) (Double.parseDouble(s.substring(0, s.length() - 1).trim()) * 1000L);
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            throw new ASTException("Invalid timeout value '" + raw + "'. Expected number, '5s', or '500ms'.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private ASTRulesDSL.ASTDecisionTable convertToDecisionTable(Map<String, Object> dtMap) {
+        ASTRulesDSL.ASTDecisionTable.ASTDecisionTableBuilder b = ASTRulesDSL.ASTDecisionTable.builder();
+        if (dtMap.containsKey("inputs")) b.inputs(convertToStringList(dtMap.get("inputs")));
+        if (dtMap.containsKey("outputs")) b.outputs(convertToStringList(dtMap.get("outputs")));
+        if (dtMap.containsKey("hit_policy") || dtMap.containsKey("hitPolicy")) {
+            String hp = String.valueOf(dtMap.containsKey("hit_policy") ? dtMap.get("hit_policy") : dtMap.get("hitPolicy"));
+            b.hitPolicy(ASTRulesDSL.HitPolicy.valueOf(hp.toUpperCase()));
+        }
+        List<ASTRulesDSL.ASTDecisionRow> rows = new java.util.ArrayList<>();
+        Object rawRows = dtMap.get("rules");
+        if (rawRows == null) rawRows = dtMap.get("rows");
+        if (rawRows instanceof List<?> list) {
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?> rowMap)) continue;
+                ASTRulesDSL.ASTDecisionRow.ASTDecisionRowBuilder rb = ASTRulesDSL.ASTDecisionRow.builder();
+                if (rowMap.get("name") instanceof String s) rb.name(s);
+                if (rowMap.get("otherwise") instanceof Boolean ow) rb.otherwise(ow);
+                Object whenObj = rowMap.get("when");
+                if (whenObj != null) {
+                    List<String> whenStrings = convertToStringList(whenObj);
+                    rb.when(whenStrings.stream().map(dslParser::parseCondition).collect(Collectors.toList()));
+                }
+                Object outObj = rowMap.get("then");
+                if (outObj == null) outObj = rowMap.get("outputs");
+                if (outObj instanceof Map<?, ?> outMap) {
+                    Map<String, Object> outs = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : outMap.entrySet()) outs.put(String.valueOf(e.getKey()), e.getValue());
+                    rb.outputs(outs);
+                }
+                rows.add(rb.build());
+            }
+        }
+        b.rows(rows);
+        return b.build();
     }
     
     /**
@@ -280,7 +418,8 @@ public class ASTRulesDSLParser {
         
         builder.name((String) ruleMap.get("name"));
         builder.description((String) ruleMap.get("description"));
-        
+        if (ruleMap.get("priority") instanceof Number n) builder.priority(n.intValue());
+
         // Simple syntax
         if (ruleMap.containsKey("when")) {
             List<String> whenStrings = convertToStringList(ruleMap.get("when"));
