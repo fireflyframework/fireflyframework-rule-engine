@@ -24,9 +24,12 @@ This is intentionally a smaller, more focused model than full-blown rule engines
 | ------------------------------------ | ---------------------- | -------------------------- | --------------------- |
 | Rule format                          | YAML DSL               | DRL (Java-like)            | Java annotations / MVEL |
 | State model                          | Stateless per eval     | Stateful KieSession + Working Memory | Stateless `Facts` |
-| Rule chaining                        | Sub-rules within one eval, sharing state | Full forward-chaining inference | Priority-ordered list |
+| Rule chaining                        | Sub-rules within one eval + `invoke_rule` for cross-rule composition | Full forward-chaining inference | Priority-ordered list |
+| Rule priority / salience             | Per sub-rule `priority: N` (drools-style)        | `salience N`              | `@Priority(N)` |
 | Multi-fact joins                     | Not supported          | Native (LHS pattern matching) | Not directly |
-| Decision tables                      | Not supported          | Native (DRT, spreadsheets) | Not directly |
+| Decision tables                      | DMN-style `decision_table:` block with FIRST / COLLECT / ANY / UNIQUE | Native (DRT, spreadsheets) | Not directly |
+| Per-rule timeout                     | Declarative `timeout: 5s` (Reactor `Mono.timeout()`) | KieSession-wide          | Not directly |
+| Input defaults                       | Declared in `inputs:` block            | Not directly              | Not directly |
 | Persistent fact base                 | Not supported          | KIE working memory         | Not supported         |
 | External calls (REST/JSON) in rules  | Built-in (`rest_get`, `json_get`, etc.) | Plugin-based         | Custom actions        |
 | Custom function extensions           | Spring `@Bean` registration | Imports + globals     | `RuleListener`        |

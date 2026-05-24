@@ -70,7 +70,12 @@ changes. Each evaluation is an independent function call.
 | Constants from DB (auto-detected by `UPPER_CASE`) | ✅                                                            |
 | `forEach` / `while` / `do-while` loops  | ✅                                                                     |
 | Sub-rules (`rules:` block) with shared state across rules in one eval | ✅                            |
+| **Sub-rule priority** (drools-style salience via `priority: N`) | ✅                                          |
 | Inline conditional expression (`if_else(cond, then, else)`) | ✅                                          |
+| **Decision tables (DMN-style)** -- `decision_table:` block with FIRST / COLLECT / ANY / UNIQUE hit policies | ✅ |
+| **Rule composition** -- `invoke_rule(code, ...)` evaluates a stored rule and returns its outputs | ✅ |
+| **Per-rule timeout** -- `timeout: 5s` declarative budget enforced via Reactor `Mono.timeout()` | ✅ |
+| **Input defaults** -- declare `default:` per input; caller-omitted values are filled in | ✅ |
 | Custom function registry (Spring `@Component`)             | ✅                                          |
 | REST / JSON path built-ins              | ✅                                                                     |
 | Circuit breaker action (early termination) | ✅                                                                  |
@@ -80,7 +85,6 @@ changes. Each evaluation is an independent function call.
 | **Backward chaining** (goal-driven reasoning)                                                  | ❌                              |
 | **Cross-input joins** -- finding pairs/groups of inputs that satisfy a constraint | ❌                          |
 | **Short-circuit evaluation in function calls** -- `if_else(cond, X, Y)` evaluates *both* branches | ❌  |
-| **Decision tables** (Excel-style)        | ❌ -- represent as `if/then/else` chains or sub-rules                 |
 | **Truth maintenance** / retraction       | ❌ -- variables are write-once-per-eval and never retracted          |
 
 If you need any of the "❌" capabilities, this engine is the wrong tool. For those
@@ -367,6 +371,9 @@ inside a rule for readability:
 | | `ends_with` | - | String suffix | `email ends_with ".com"` |
 | | `matches` | - | Regex match | `ssn matches "^\\d{3}-\\d{2}-\\d{4}$"` |
 | | `not_matches` | - | Regex not match | `phone not_matches "^\\+1"` |
+| **Length** | `length_equals` | - | Length-of-string equality | `code length_equals 4` |
+| | `length_greater_than` | - | Length-of-string `>` | `password length_greater_than 7` |
+| | `length_less_than` | - | Length-of-string `<` | `nickname length_less_than 20` |
 | **List** | `in_list` | `in` | List membership | `status in_list ["ACTIVE", "PENDING"]` |
 | | `not_in_list` | `not_in` | List non-membership | `type not_in_list ["SUSPENDED", "CLOSED"]` |
 | **Existence** | `exists` | - | Variable existence | `exists guarantorInfo` |
