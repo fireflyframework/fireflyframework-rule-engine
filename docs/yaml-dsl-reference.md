@@ -1017,18 +1017,34 @@ conditions:
 - run uppercase as upper(name)
 - run lowercase as lower(email)
 - run trimmed as trim(input_text)
-- calculate length as length(description)
+- run name_length as length(description)
 
 # Date/time functions
-- calculate current_date as now()
-- calculate formatted_date as format_date(date_value, "yyyy-MM-dd")
-- calculate age_years as calculate_age(birth_date)
+- run current_date as now()
+- run today_date as today()
+- run formatted_date as format_date(date_value, "yyyy-MM-dd")
+- run pretty_date as format_date(date_value, "dd MMM yyyy")
+- run age_years as calculate_age(birth_date)              # from today
+- run age_at_event as calculate_age(birth_date, event_date)
+- run plus_thirty as dateadd(today_date, 30, "days")
+- run days_between as datediff(start_date, end_date, "days")
 
-# Validation functions
-- calculate is_valid_email as validate_email(email_address)
-- calculate is_valid_phone as validate_phone(phone_number)
-- calculate is_business_day as is_business_day(date_value)
+# Validation functions (function-call form complements the `is_email`/`is_phone` operators)
+- run email_ok as validate_email(email_address)
+- run phone_ok as validate_phone(phone_number)
+- run is_business_day_today as is_business_day(today_date)
+- run any_check as is_valid(value, "email")               # 12 known types; unknown -> error
+
+# Null-handling & conditional helpers (DSL primitives)
+- run preferred_name as coalesce(nickname, full_name, "Anonymous")  # first non-null wins
+- run tier as if_else(creditScore at_least 750, "PRIME", "STANDARD")  # inline ternary
+- run within_window as is_in_range(score, 600, 850)       # function form of `between`
 ```
+
+> **Important:** Function calls and REST/JSON expressions are only legal in `run` actions and in
+> expression contexts (function arguments, conditions, output mappings). The `calculate` action
+> is restricted to pure mathematical expressions (`+ - * / % **`) on numeric inputs --
+> attempting to use a function call inside `calculate` raises a clean validation error.
 
 ### REST Call Expressions
 
@@ -1042,11 +1058,17 @@ conditions:
 - run validation_result as rest_post("https://validator.com/check", {"email": email, "phone": phone})
 
 # PUT requests with headers
-- calculate update_result as rest_put("https://api.example.com/users/123", user_data, {"Authorization": "Bearer " + token})
+- run update_result as rest_put("https://api.example.com/users/123", user_data, {"Authorization": "Bearer " + token})
 
 # DELETE requests
-- calculate delete_result as rest_delete("https://api.example.com/records/" + record_id)
+- run delete_result as rest_delete("https://api.example.com/records/" + record_id)
 ```
+
+> **REST error contract:** On HTTP failure (non-2xx, network error, DNS, timeout), the REST
+> functions return a structured map: `{success: false, error: true, message: "<details>"}`.
+> Rules can branch on `response.success` to handle errors gracefully. This is intentional
+> "chain-friendly" behaviour and is the only place in the engine where a failure does not
+> raise an exception; everywhere else, errors propagate as `success=false` on the rule result.
 
 ### JSON Path Expressions
 
@@ -1219,15 +1241,29 @@ conditions:
 
 ```yaml
 # Distance and location
-- calculate distance as distance_between(lat1, lon1, lat2, lon2)
+- run distance as distance_between(lat1, lon1, lat2, lon2)
 
 # Data security
-- calculate encrypted as encrypt(data, key)
-- calculate decrypted as decrypt(encrypted_data, key)
-- calculate masked as mask_data(sensitive_data, mask_pattern)
+- run encrypted as encrypt(data, key)
+- run decrypted as decrypt(encrypted_data, key)
+- run masked as mask_data(sensitive_data, mask_pattern)
 
 # Advanced financial calculations
-- calculate payment_schedule as calculate_payment_schedule(principal, rate, term)
+- run payment_schedule as calculate_payment_schedule(principal, rate, term)
+```
+
+### Null-handling, Conditional, and Range Helpers
+
+```yaml
+# coalesce: first non-null wins (NULL-coalescing default)
+- run preferred_name as coalesce(nickname, full_name, "Anonymous")
+
+# if_else: inline ternary expression (avoids a full `if/then/else` action block)
+- run tier as if_else(creditScore at_least 750, "PRIME", "STANDARD")
+- run discount as if_else(membership equals "GOLD", 0.20, 0.05)
+
+# is_in_range: function form of the `between` operator (inclusive both ends)
+- run score_band_ok as is_in_range(score, 600, 850)
 ```
 
 ### Logging and Audit Functions
@@ -1238,6 +1274,39 @@ conditions:
 - call audit_log with ["Rule executed", "TRACE"]
 - call send_notification with ["recipient", "message"]
 ```
+
+### Custom Functions (Extension Point)
+
+Register your own functions in a Spring `@Bean` and call them from any rule:
+
+```java
+@Configuration
+class MyRulesConfig {
+    @Bean
+    CommandLineRunner registerCustomFunctions(CustomFunctionRegistry registry) {
+        return args -> {
+            registry.register("regional_risk", a ->
+                    Set.of("CA", "NY").contains(a[0]) ? 10 : 0);
+            registry.register("fraud_score", a ->
+                    fraudService.score(String.valueOf(a[0])));
+        };
+    }
+}
+```
+
+```yaml
+# Then use them like any built-in function:
+when:
+  - fraud_score(applicantId) at_most MAX_FRAUD_SCORE
+then:
+  - run risk_bump as regional_risk(region)
+  - run is_clean as fraud_score(applicantId) less_than 50
+```
+
+**Resolution order:** Custom functions are checked **before** the built-in catalog -- if you
+register a function with the same name as a built-in (e.g., `max`), your function wins.
+Names are matched case-insensitively. The same registered function is reachable from both
+expression contexts (`run` / `calculate` arg / condition) and action contexts (`call`).
 
 ---
 
@@ -1432,12 +1501,12 @@ then:
   - if has_address equals true then run zip_code as json_get(customer_data, "addressInfo.zipCode")
 
   # Validation if required
-  - if requiresValidation equals true then calculate email_valid as validate_email(customer_email)
-  - if requiresValidation equals true then calculate phone_valid as validate_phone(customer_phone)
+  - if requiresValidation equals true then run email_valid as validate_email(customer_email)
+  - if requiresValidation equals true then run phone_valid as validate_phone(customer_phone)
 
   # Set processing status
   - set data_enrichment_complete to true
-  - calculate processing_timestamp as now()
+  - run processing_timestamp as now()
 
 else:
   - set data_enrichment_complete to false
@@ -1681,6 +1750,30 @@ output:
 - Multi-line expressions with proper parentheses grouping
 - Validation operators in conditional expressions
 - Mixed validation and comparison operators in complex conditions
+
+### Version 26.05 - Fail-Loud Error Contract & New Primitives
+
+- **New primitives:** `coalesce(...)`, `if_else(cond, then, else)`, `is_in_range(value, low, high)`.
+- **New built-ins:** `calculate_age(birth[, asOf])`, `format_date(date[, pattern])`, `validate_email(value)`, `validate_phone(value)` (function-call form complements existing `is_email`/`is_phone` operators).
+- **Extension point:** `CustomFunctionRegistry` Spring bean lets applications register their own `RuleFunction` implementations callable from rules.
+- **Error contract:** the engine now fails loud by design rather than silently swallowing errors. See the table below.
+- **Sub-rule action parity:** sub-rules under `rules:` now accept the same map-shaped actions as the top level (e.g., YAML-collapsed `- forEach x in xs: ...`).
+
+#### Error Behavior Reference
+
+| Situation                                    | Old (pre-26.05)                | New                                                                  |
+| -------------------------------------------- | ------------------------------ | -------------------------------------------------------------------- |
+| Unknown function name                        | `log.warn` + null              | `IllegalArgumentException` -> rule reports `success=false`           |
+| Non-numeric string in arithmetic             | silently coerced to ZERO       | `IllegalArgumentException` naming the operand                        |
+| Bad regex pattern in `matches`               | `false`                        | `IllegalArgumentException` naming the pattern                        |
+| Missing bean property                        | `log.warn` + null              | `IllegalArgumentException` naming class + property (maps still get null on missing key) |
+| Unknown `is_valid(value, type)` type         | `false`                        | `IllegalArgumentException` listing supported types                   |
+| Unknown `dateadd`/`datediff` unit            | `log.warn` + null              | `IllegalArgumentException` listing supported units                   |
+| Action throws during execution               | logged + next action runs      | Rule reports `success=false` with action index + cause               |
+| Condition throws during evaluation           | silently flips to else branch  | Rule reports `success=false` with the real cause                     |
+| `circuit_breaker` action triggered           | (unchanged)                    | Rule reports `success=true` with `circuitBreakerTriggered=true`      |
+| REST function HTTP failure                   | structured error map (unchanged) | Structured error map (unchanged -- intentional chain-friendly form) |
+| `set var to null` (e.g., `json_get` missing) | NPE caught silently            | Variable stored as null; rule succeeds                               |
 
 ---
 
