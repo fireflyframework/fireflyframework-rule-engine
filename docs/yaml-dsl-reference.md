@@ -49,9 +49,44 @@ The Firefly Framework Rule Engine uses a powerful YAML-based Domain Specific Lan
 ### How to Use This Reference
 
 - **🔍 Find Specific Syntax**: Use the table of contents or search for keywords
-- **📋 Copy Examples**: All code examples are tested and ready to use
+- **📋 Copy Examples**: All complete-rule code examples in this file are parsed by the `DocExamplesValidationTest` at every build -- if you see one fail in your fork, the doc is out of sync with the implementation.
 - **🎯 Choose Complexity**: See [Governance Guidelines](governance-guidelines.md) for feature selection advice
 - **🚀 Get Started**: Try examples from [Quick Start Guide](quick-start-guide.md) first
+
+### Mental Model -- What This Engine Is (and Isn't)
+
+**What it is.** A stateless **expression-evaluation engine** over a single input map.
+You hand it a parsed YAML rule and a `Map<String, Object>` of inputs; it returns a
+result with computed outputs, a condition outcome, and timing/audit metadata.
+
+**What it is NOT.** This is not Drools-style rule-based reasoning. There is no
+working memory, no fact base, no inference, no rule-chaining triggered by data
+changes. Each evaluation is an independent function call.
+
+| Capability                              | Supported by Firefly Rule Engine                                       |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| Rule definitions in YAML                | ✅                                                                     |
+| 30+ comparison and validation operators | ✅                                                                     |
+| Constants from DB (auto-detected by `UPPER_CASE`) | ✅                                                            |
+| `forEach` / `while` / `do-while` loops  | ✅                                                                     |
+| Sub-rules (`rules:` block) with shared state across rules in one eval | ✅                            |
+| Inline conditional expression (`if_else(cond, then, else)`) | ✅                                          |
+| Custom function registry (Spring `@Component`)             | ✅                                          |
+| REST / JSON path / Python compilation   | ✅                                                                     |
+| Circuit breaker action (early termination) | ✅                                                                  |
+| **Rule chaining across separate evaluations** -- output of one eval automatically firing another | ❌ |
+| **Persistent working memory / fact base** like Drools `KIE` | ❌                                              |
+| **Inference / forward-chaining** -- deriving new facts that fire more rules | ❌                              |
+| **Backward chaining** (goal-driven reasoning)                                                  | ❌                              |
+| **Cross-input joins** -- finding pairs/groups of inputs that satisfy a constraint | ❌                          |
+| **Short-circuit evaluation in function calls** -- `if_else(cond, X, Y)` evaluates *both* branches | ❌  |
+| **Decision tables** (Excel-style)        | ❌ -- represent as `if/then/else` chains or sub-rules                 |
+| **Truth maintenance** / retraction       | ❌ -- variables are write-once-per-eval and never retracted          |
+
+If you need any of the "❌" capabilities, this engine is the wrong tool. For those
+use cases consider Drools / OpenL Tablets / DMN engines. For everything else --
+deterministic rule evaluation over an input payload -- this engine is purpose-built
+to be smaller, faster to onramp, and clearer to reason about.
 
 ---
 
@@ -119,6 +154,78 @@ rules:                             # Array of sub-rules
 ## Reserved Keywords
 
 The DSL uses specific reserved keywords that have special meaning in the parser. These are organized by category for easy reference:
+
+### Synonyms and Canonical Forms
+
+Several keywords have multiple accepted spellings -- a deliberate flexibility so the
+DSL reads naturally in different contexts. The **canonical** form is the one we
+recommend in new code; aliases remain accepted for compatibility. All synonyms below
+are matched case-insensitively where indicated.
+
+#### Comparison operators
+
+| Canonical | Aliases (also accepted)        | Notes                                                      |
+| --------- | ------------------------------- | ---------------------------------------------------------- |
+| `equals`  | `==`                            | Prefer `equals` in prose-style conditions, `==` in expressions |
+| `not_equals` | `!=`                         | Same convention                                            |
+| `greater_than` | `>`                       | Use the symbol in expressions, the keyword in conditions   |
+| `less_than` | `<`                          | Same                                                       |
+| `at_least` | `greater_than_or_equal`, `>=`  | `at_least` reads most naturally in financial rules         |
+| `at_most`  | `less_than_or_equal`, `<=`     | Same                                                       |
+| `in_list`  | `in`                           | `in_list` makes membership intent explicit                 |
+| `not_in_list` | `not_in`                    | Same                                                       |
+| `is_not_null` | (no alias)                  | Use this rather than `not is_null` -- the negated form is one operator |
+| `not_contains` | (no alias)                 | Same -- one operator, not `not contains`                   |
+
+#### Logical operators
+
+| Canonical | Aliases             | Notes                                                                |
+| --------- | -------------------- | -------------------------------------------------------------------- |
+| `and`     | `AND`, `&&`         | Lower-case in YAML by convention; upper-case is also matched         |
+| `or`      | `OR`, `\|\|`        | Same                                                                 |
+| `not`     | `NOT`, `!`          | Unary; prefer `not x is_email` over `not_email`                      |
+
+#### Action verbs
+
+| Canonical | Aliases | Notes                                                                       |
+| --------- | -------- | --------------------------------------------------------------------------- |
+| `forEach` | `for`   | Both reach the same parser path; `forEach` reads better in mixed-case YAML  |
+
+#### Built-in function aliases
+
+These are exact synonyms within the function-call layer -- pick one and stick with it
+inside a rule for readability:
+
+| Canonical    | Aliases                  | What it does                                |
+| ------------ | ------------------------- | ------------------------------------------- |
+| `length`     | `len`                     | String / list length                        |
+| `count`      | `size`                    | Collection size                             |
+| `avg`        | `average`                 | Mean of a list                              |
+| `uppercase`  | `upper`                   | String → uppercase                          |
+| `lowercase`  | `lower`                   | String → lowercase                          |
+| `substring`  | `substr`                  | Extract substring                           |
+| `tonumber`   | `number`                  | Coerce to number                            |
+| `tostring`   | `string`                  | Coerce to string                            |
+| `toboolean`  | `boolean`                 | Coerce to boolean                           |
+| `json_get`   | `json_path`               | Extract value from JSON via path            |
+| `is_in_range` | `in_range`               | Inclusive bounded check                     |
+| `if_else`    | `ifelse`                  | Inline conditional value                    |
+
+#### YAML top-level keys (parser accepts both, but use the canonical form)
+
+| Canonical | Also accepted | Notes                                                                  |
+| --------- | -------------- | ---------------------------------------------------------------------- |
+| `inputs`  | `input`        | The parser merges both into the same model field; prefer `inputs`     |
+| `outputs` | `output`       | Same                                                                   |
+
+> **Removed in 26.05.08:** the top-level `circuit_breaker:` *configuration block* (with
+> `enabled`, `failure_threshold`, `timeout_duration`, `recovery_timeout` sub-keys) was
+> parsed but never enforced at runtime. The action-form `circuit_breaker "MESSAGE"`
+> (described in [Action Syntax](#action-syntax)) is the only circuit-breaker surface
+> and is unchanged.
+
+---
+
 
 <details>
 <summary><strong>🏗️ Structural Keywords</strong> - Define the rule structure and metadata</summary>
@@ -1617,12 +1724,18 @@ output:
   rejection_reason: text
 ```
 
-### Example 4: Advanced Validation with Complex Boolean Expressions (NEW)
+### Example 4: Advanced Validation with Complex Boolean Expressions
 
-<!-- doc-test:skip (TODO: this legacy example uses C-style ternary `? :` and unquoted strings with colons; rewrite to use the `if_else()` function and YAML-quote action strings containing colons before re-enabling the guard) -->
+This example exercises:
+
+- **Validation operators in `set ... to (...)` expressions** (`is_email`, `is_phone`, `is_credit_score`, `is_positive`, `is_not_null`, `is_not_empty`)
+- **Multi-line boolean composition** with `and`/`or` (lower-case keywords are canonical; `AND`/`OR` are accepted as case-insensitive aliases)
+- **`if_else(condition, then, else)`** as the inline-ternary replacement -- the DSL does **not** support C-style `? :`
+- **Sub-rules with shared state** -- variables set in earlier rules are visible to later ones
+
 ```yaml
 name: "B2B Credit Scoring with Enhanced Validation"
-description: "Demonstrates new validation operators in complex expressions"
+description: "Demonstrates validation operators in complex expressions"
 version: "2.1.0"
 
 inputs:
@@ -1649,42 +1762,18 @@ rules:
       - exists monthlyRevenue
       - exists creditScore
     then:
-      # Complex boolean expressions with validation operators
-      - set has_complete_financial_data to (
-          monthlyRevenue is_positive AND
-          monthlyExpenses is_positive AND
-          existingDebt is_not_null AND
-          monthlyDebtPayments is_positive AND
-          verifiedAnnualRevenue is_positive
-        )
-
-      - set has_valid_contact_info to (
-          customerName is_not_empty AND
-          email is_email AND
-          phone is_phone AND
-          ssn is_ssn
-        )
-
-      - set has_valid_credit_data to (
-          creditScore is_credit_score AND
-          creditScore >= MIN_BUSINESS_CREDIT_SCORE
-        )
+      - set has_complete_financial_data to (monthlyRevenue is_positive and monthlyExpenses is_positive and existingDebt is_not_null and monthlyDebtPayments is_positive and verifiedAnnualRevenue is_positive)
+      - set has_valid_contact_info to (customerName is_not_empty and email is_email and phone is_phone and ssn is_ssn)
+      - set has_valid_credit_data to (creditScore is_credit_score and creditScore >= MIN_BUSINESS_CREDIT_SCORE)
 
   - name: "Financial Analysis"
     when:
       - has_complete_financial_data equals true
       - has_valid_credit_data equals true
     then:
-      # Multi-line validation expressions
-      - set meets_credit_requirements to (
-          creditScore is_credit_score AND
-          creditScore >= MIN_BUSINESS_CREDIT_SCORE AND
-          (creditScore >= EXCELLENT_CREDIT_THRESHOLD OR verifiedAnnualRevenue >= 500000)
-        )
-
+      - set meets_credit_requirements to (creditScore is_credit_score and creditScore >= MIN_BUSINESS_CREDIT_SCORE and (creditScore >= EXCELLENT_CREDIT_THRESHOLD or verifiedAnnualRevenue >= 500000))
       - calculate debt_to_income_ratio as existingDebt / verifiedAnnualRevenue
       - calculate monthly_cash_flow as monthlyRevenue - monthlyExpenses - monthlyDebtPayments
-
       - set has_positive_cash_flow to (monthly_cash_flow is_positive)
 
   - name: "Final Decision"
@@ -1694,11 +1783,11 @@ rules:
       - has_positive_cash_flow equals true
     then:
       - set final_decision to "APPROVED"
-      - calculate approval_score as (
-          (creditScore >= EXCELLENT_CREDIT_THRESHOLD ? 40 : 20) +
-          (monthly_cash_flow >= 10000 ? 30 : 15) +
-          (debt_to_income_ratio <= 0.3 ? 30 : 10)
-        )
+      # Score each factor with if_else() (no C-style ternary), then sum.
+      - run credit_score_pts as if_else(creditScore >= EXCELLENT_CREDIT_THRESHOLD, 40, 20)
+      - run cash_flow_pts as if_else(monthly_cash_flow >= 10000, 30, 15)
+      - run dti_pts as if_else(debt_to_income_ratio <= 0.3, 30, 10)
+      - calculate approval_score as credit_score_pts + cash_flow_pts + dti_pts
     else:
       - set final_decision to "DECLINED"
       - set decline_reasons to []
