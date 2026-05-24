@@ -221,6 +221,7 @@ Additional documentation is available in the [docs/](docs/) directory:
 - [Architecture](docs/architecture.md)
 - [Yaml Dsl Reference](docs/yaml-dsl-reference.md)
 - [Migration Guide](docs/migration-guide.md) -- mapping from Drools / Easy Rules / hand-rolled if/else services
+- [DSL Design Review](docs/dsl-design-review.md) -- philosophy, design tensions, future direction
 - [Api Documentation](docs/api-documentation.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Configuration Examples](docs/configuration-examples.md)
