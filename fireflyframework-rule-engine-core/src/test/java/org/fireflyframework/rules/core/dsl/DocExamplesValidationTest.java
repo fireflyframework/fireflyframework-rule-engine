@@ -78,6 +78,7 @@ class DocExamplesValidationTest {
             "docs/quick-start-guide.md",
             "docs/common-patterns-guide.md",
             "docs/b2b-credit-scoring-tutorial.md",
+            "docs/migration-guide.md",
             "README.md"
     );
 
