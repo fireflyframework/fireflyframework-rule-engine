@@ -17,7 +17,7 @@
     <packaging>pom</packaging>
 
     <name>Firefly Framework - Rule Engine Library</name>
-    <description>YAML DSL-based rule engine with AST processing, Python compilation, audit trails, and reactive APIs for dynamic business rule evaluation</description>
+    <description>YAML DSL-based rule engine with AST processing, audit trails, and reactive APIs for dynamic business rule evaluation</description>
 
     <modules>
         <module>fireflyframework-rule-engine-core</module>

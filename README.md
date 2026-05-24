@@ -5,7 +5,7 @@
 [![Java](https://img.shields.io/badge/Java-21%2B-orange.svg)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 
-> YAML DSL-based rule engine with AST processing, Python compilation, audit trails, and reactive APIs for dynamic business rule evaluation.
+> YAML DSL-based rule engine with AST processing, audit trails, and reactive APIs for dynamic business rule evaluation.
 
 ---
 
@@ -27,7 +27,7 @@
 
 Firefly Framework Rule Engine provides a business rule evaluation system based on a custom YAML DSL. Rules are defined in YAML and parsed into an Abstract Syntax Tree (AST) for efficient evaluation. The engine supports rich conditions, arithmetic, loop constructs, function calls, REST API calls, JsonPath expressions, and a pluggable function-registry extension point.
 
-The project is structured as a multi-module Maven build with five sub-modules: `interfaces` (DTOs and validation), `models` (R2DBC entities and repositories), `core` (DSL parser, evaluator, services, function registry), `web` (Spring WebFlux REST controllers), and `sdk` (generated client). The engine ships with Python code generation for offline rule execution, batch evaluation, audit-trail tracking, and a dedicated cache layer.
+The project is structured as a multi-module Maven build with five sub-modules: `interfaces` (DTOs and validation), `models` (R2DBC entities and repositories), `core` (DSL parser, evaluator, services, function registry), `web` (Spring WebFlux REST controllers), and `sdk` (generated client). The engine provides batch evaluation, audit-trail tracking, and a dedicated cache layer.
 
 The YAML DSL supports input/computed/constant variable tiers, 30+ comparison operators, logical composition (and/or/not), loops (`forEach`, `while`, `do-while`), inline conditionals (`if/then/else`), 70+ built-in functions (financial, date, string, list, validation, REST, JSON, type-conversion), and circuit-breaker actions for early termination.
 
@@ -41,7 +41,6 @@ The YAML DSL supports input/computed/constant variable tiers, 30+ comparison ope
 - Pluggable function registry (`CustomFunctionRegistry`) — register your own `RuleFunction` beans and call them from rules
 - Constants tier loaded from the database with TTL caching; auto-detection of `UPPER_CASE` references in the AST
 - Reactive evaluation API on Project Reactor; synchronous visitor scheduled on `Schedulers.boundedElastic()` so it never blocks the Netty event loop
-- Python code generation for offline rule execution
 - Batch evaluation with bounded concurrency and per-request timeouts
 - Rule-definition CRUD with R2DBC persistence and a cached AST
 - Audit-trail tracking for every evaluation (correlated, PII-masked)
@@ -208,8 +207,6 @@ firefly:
       ttl: 10m
     audit:
       enabled: true
-    python-compilation:
-      enabled: false
 
 spring:
   r2dbc:
@@ -229,7 +226,6 @@ Additional documentation is available in the [docs/](docs/) directory:
 - [Configuration Examples](docs/configuration-examples.md)
 - [Common Patterns Guide](docs/common-patterns-guide.md)
 - [Inputs Section Guide](docs/inputs-section-guide.md)
-- [Python Compilation Complete Guide](docs/python-compilation-complete-guide.md)
 - [Performance Optimization](docs/performance-optimization.md)
 - [Governance Guidelines](docs/governance-guidelines.md)
 - [B2B Credit Scoring Tutorial](docs/b2b-credit-scoring-tutorial.md)

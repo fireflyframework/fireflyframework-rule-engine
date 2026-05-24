@@ -1141,7 +1141,6 @@ GET /api/v1/audit/trails/entity/{entityId}?limit=10
 - YAML DSL validation during parsing
 - DTO validation with Bean Validation
 - SQL injection prevention with parameterized queries
-- Variable name and comment sanitization in Python code generation to prevent code injection
 - Regex pattern caching with LRU eviction (64 entries) to prevent ReDoS via unbounded compilation
 
 ### 2. SSRF Protection
@@ -1151,19 +1150,12 @@ The `RestCallServiceImpl` includes comprehensive URL validation before executing
 - **Cloud metadata blocking**: Requests to `169.254.169.254` (cloud metadata endpoint) are blocked
 - **Host validation**: URLs without a valid host are rejected
 
-### 3. Cryptographic Security (Python Runtime)
-- **No hardcoded keys**: Encryption functions require explicit key configuration; no fallback to default keys
-- **Strong key derivation**: PBKDF2 with random salt (`os.urandom(16)`) and 480,000 iterations
-- **No weak algorithms**: MD5 hashing is explicitly rejected; only SHA-256 and SHA-512 are supported
-- **Timing-safe comparison**: Hash verification uses `hmac.compare_digest()` to prevent timing attacks
-
-### 4. Safe Code Evaluation
+### 3. Safe Code Evaluation
 - **No unsafe reflection**: `ExpressionEvaluator.getPropertyValue()` uses public getter methods only (`getX` / `isX`); `field.setAccessible(true)` is never called. A missing getter throws `IllegalArgumentException` with the class + property name rather than silently returning null.
 - **Division/modulo by zero**: `ExpressionEvaluator` and `ActionExecutor` throw `ArithmeticException` rather than returning null or silently failing.
 - **Short-circuit evaluation**: AND/OR operators use lazy evaluation to prevent unnecessary side effects.
-- **Thread-safe code generation**: `PythonCodeGenerator` uses `ThreadLocal` for mutable state to ensure safe concurrent compilation.
 
-### 5. Error Handling (Fail-Loud Contract)
+### 4. Error Handling (Fail-Loud Contract)
 
 The engine is intentionally non-silent. Errors propagate to the rule's `success=false`
 result with a precise diagnostic message rather than being swallowed and producing a
@@ -1190,16 +1182,16 @@ Surrounding mechanisms:
 - Comprehensive audit trail (every evaluation logged with correlation ID).
 - Null-safe audit context extraction (defaults to "system" when no web exchange is available).
 
-### 6. Cache Integrity
+### 5. Cache Integrity
 - Cache invalidation on all CRUD operations (create, update, delete) for rule definitions
 - Reactive cache access uses `subscribeOn(Schedulers.boundedElastic())` to prevent blocking the Netty event loop
 
-### 7. Database Security
+### 6. Database Security
 - R2DBC with prepared statements
 - Connection encryption with SSL
 - Database user with minimal privileges
 
-### 8. API Security (Future)
+### 7. API Security (Future)
 - JWT token authentication
 - Rate limiting per client
 - Request/response encryption

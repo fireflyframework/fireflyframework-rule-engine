@@ -72,7 +72,7 @@ changes. Each evaluation is an independent function call.
 | Sub-rules (`rules:` block) with shared state across rules in one eval | ✅                            |
 | Inline conditional expression (`if_else(cond, then, else)`) | ✅                                          |
 | Custom function registry (Spring `@Component`)             | ✅                                          |
-| REST / JSON path / Python compilation   | ✅                                                                     |
+| REST / JSON path built-ins              | ✅                                                                     |
 | Circuit breaker action (early termination) | ✅                                                                  |
 | **Rule chaining across separate evaluations** -- output of one eval automatically firing another | ❌ |
 | **Persistent working memory / fact base** like Drools `KIE` | ❌                                              |
