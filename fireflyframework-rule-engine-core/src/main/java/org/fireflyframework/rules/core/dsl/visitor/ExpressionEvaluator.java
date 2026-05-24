@@ -244,6 +244,11 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "datediff" -> evaluateDateDiff(args);
             case "calculate_age" -> evaluateCalculateAge(args);
             case "format_date" -> evaluateFormatDate(args);
+            case "current_iso", "now_iso" -> java.time.OffsetDateTime.now().toString();
+            case "year_of" -> evaluateDatePart(args, "year_of", java.time.LocalDate::getYear);
+            case "month_of" -> evaluateDatePart(args, "month_of", d -> d.getMonthValue());
+            case "day_of_month" -> evaluateDatePart(args, "day_of_month", java.time.LocalDate::getDayOfMonth);
+            case "day_of_week" -> evaluateDatePart(args, "day_of_week", d -> d.getDayOfWeek().getValue());
 
             // Validation functions (function-call form complements the `is_email`/`is_phone` operators)
             case "validate_email" -> isEmail(args.length > 0 ? args[0] : null);
@@ -255,6 +260,22 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
             case "avg", "average" -> evaluateAverage(args);
             case "first" -> evaluateFirst(args);
             case "last" -> evaluateLast(args);
+            case "filter" -> evaluateFilter(args);
+            case "map" -> evaluateMap(args);
+            case "reduce" -> evaluateReduce(args);
+            case "find" -> evaluateFind(args);
+            case "sort" -> evaluateSort(args);
+            case "reverse" -> evaluateReverse(args);
+            case "distinct" -> evaluateDistinct(args);
+
+            // Statistical functions
+            case "median" -> evaluateMedian(args);
+            case "stddev" -> evaluateStddev(args);
+            case "variance" -> evaluateVariance(args);
+
+            // String formatting
+            case "format" -> evaluateStringFormat(args);
+            case "concat" -> evaluateConcat(args);
 
             // Type conversion functions
             case "tonumber", "number" -> evaluateToNumber(args);
@@ -1032,6 +1053,234 @@ public class ExpressionEvaluator implements ASTVisitor<Object> {
                     "if_else(condition, then, else) requires exactly 3 arguments; got " + args.length);
         }
         return toBoolean(args[0]) ? args[1] : args[2];
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Date field extractors
+    // ---------------------------------------------------------------------------------
+
+    /**
+     * Generic date-field extractor: parses arg[0] as a date and runs the given accessor.
+     * Used for {@code year_of}, {@code month_of}, {@code day_of_month}, {@code day_of_week}.
+     */
+    private Object evaluateDatePart(Object[] args, String fnName, java.util.function.ToIntFunction<java.time.LocalDate> accessor) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException(fnName + "(date) requires exactly 1 argument; got " + args.length);
+        }
+        java.time.LocalDate date = parseDate(args[0]);
+        if (date == null) {
+            throw new IllegalArgumentException(fnName + ": unparseable date '" + args[0] + "'");
+        }
+        return java.math.BigDecimal.valueOf(accessor.applyAsInt(date));
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Functional list operations -- filter/map/reduce/find by named function
+    //
+    // The DSL doesn't (yet) have an inline-lambda syntax, so these higher-order helpers
+    // take the predicate / transformer as a STRING function name. The named function is
+    // resolved through the same lookup ExpressionEvaluator uses for any other function
+    // call -- {@link CustomFunctionRegistry} first, then the built-in catalog -- so
+    // user-registered Spring beans and engine built-ins work identically.
+    // ---------------------------------------------------------------------------------
+
+    private Object callFunctionByName(String name, Object[] args) {
+        java.util.List<Expression> argExprs = new java.util.ArrayList<>(args.length);
+        for (Object a : args) argExprs.add(new LiteralExpression(null, a));
+        FunctionCallExpression call = new FunctionCallExpression(null, name, argExprs);
+        return visitFunctionCallExpression(call);
+    }
+
+    private static List<?> requireList(String fnName, Object value) {
+        if (!(value instanceof List<?>)) {
+            throw new IllegalArgumentException(fnName + ": first argument must be a list, got "
+                    + (value == null ? "null" : value.getClass().getSimpleName()));
+        }
+        return (List<?>) value;
+    }
+
+    private static String requireFunctionName(String fnName, Object value) {
+        if (!(value instanceof String)) {
+            throw new IllegalArgumentException(fnName + ": function name must be a string, got "
+                    + (value == null ? "null" : value.getClass().getSimpleName()));
+        }
+        return (String) value;
+    }
+
+    private Object evaluateFilter(Object[] args) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException("filter(list, function_name) requires 2 arguments; got " + args.length);
+        }
+        List<?> input = requireList("filter", args[0]);
+        String fn = requireFunctionName("filter", args[1]);
+        List<Object> result = new java.util.ArrayList<>();
+        for (Object item : input) {
+            if (toBoolean(callFunctionByName(fn, new Object[]{item}))) {
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
+    private Object evaluateMap(Object[] args) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException("map(list, function_name) requires 2 arguments; got " + args.length);
+        }
+        List<?> input = requireList("map", args[0]);
+        String fn = requireFunctionName("map", args[1]);
+        List<Object> result = new java.util.ArrayList<>(input.size());
+        for (Object item : input) {
+            result.add(callFunctionByName(fn, new Object[]{item}));
+        }
+        return result;
+    }
+
+    private Object evaluateReduce(Object[] args) {
+        if (args.length != 3) {
+            throw new IllegalArgumentException("reduce(list, initial, function_name) requires 3 arguments; got " + args.length);
+        }
+        List<?> input = requireList("reduce", args[0]);
+        Object acc = args[1];
+        String fn = requireFunctionName("reduce", args[2]);
+        for (Object item : input) {
+            acc = callFunctionByName(fn, new Object[]{acc, item});
+        }
+        return acc;
+    }
+
+    private Object evaluateFind(Object[] args) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException("find(list, function_name) requires 2 arguments; got " + args.length);
+        }
+        List<?> input = requireList("find", args[0]);
+        String fn = requireFunctionName("find", args[1]);
+        for (Object item : input) {
+            if (toBoolean(callFunctionByName(fn, new Object[]{item}))) return item;
+        }
+        return null;
+    }
+
+    private Object evaluateSort(Object[] args) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException("sort(list) requires exactly 1 argument; got " + args.length);
+        }
+        List<?> input = requireList("sort", args[0]);
+        List<Object> copy = new java.util.ArrayList<>(input);
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        java.util.Comparator<Object> cmp = (a, b) -> {
+            if (a instanceof Number && b instanceof Number) {
+                return toNumberSafe(a).compareTo(toNumberSafe(b));
+            }
+            return ((Comparable) a).compareTo(b);
+        };
+        copy.sort(cmp);
+        return copy;
+    }
+
+    private Object evaluateReverse(Object[] args) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException("reverse(list) requires exactly 1 argument; got " + args.length);
+        }
+        List<?> input = requireList("reverse", args[0]);
+        List<Object> copy = new java.util.ArrayList<>(input);
+        java.util.Collections.reverse(copy);
+        return copy;
+    }
+
+    private Object evaluateDistinct(Object[] args) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException("distinct(list) requires exactly 1 argument; got " + args.length);
+        }
+        List<?> input = requireList("distinct", args[0]);
+        // LinkedHashSet preserves insertion order while deduplicating.
+        return new java.util.ArrayList<>(new java.util.LinkedHashSet<>(input));
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Statistical aggregates -- median, stddev, variance
+    // ---------------------------------------------------------------------------------
+
+    private List<java.math.BigDecimal> asNumericList(String fnName, Object[] args) {
+        if (args.length != 1) {
+            throw new IllegalArgumentException(fnName + "(list) requires exactly 1 argument; got " + args.length);
+        }
+        List<?> input = requireList(fnName, args[0]);
+        List<java.math.BigDecimal> nums = new java.util.ArrayList<>(input.size());
+        for (Object o : input) nums.add(toNumberSafe(o));
+        return nums;
+    }
+
+    private Object evaluateMedian(Object[] args) {
+        List<java.math.BigDecimal> nums = asNumericList("median", args);
+        if (nums.isEmpty()) return java.math.BigDecimal.ZERO;
+        nums.sort(java.math.BigDecimal::compareTo);
+        int mid = nums.size() / 2;
+        if (nums.size() % 2 == 1) return nums.get(mid);
+        return nums.get(mid - 1).add(nums.get(mid))
+                .divide(java.math.BigDecimal.valueOf(2), 10, java.math.RoundingMode.HALF_UP);
+    }
+
+    private Object evaluateVariance(Object[] args) {
+        List<java.math.BigDecimal> nums = asNumericList("variance", args);
+        if (nums.size() < 2) return java.math.BigDecimal.ZERO;
+        // Sample variance: sum((x - mean)^2) / (n - 1)
+        java.math.BigDecimal mean = nums.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                .divide(java.math.BigDecimal.valueOf(nums.size()), 10, java.math.RoundingMode.HALF_UP);
+        java.math.BigDecimal sqSum = nums.stream()
+                .map(x -> x.subtract(mean).pow(2))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        return sqSum.divide(java.math.BigDecimal.valueOf(nums.size() - 1L), 10, java.math.RoundingMode.HALF_UP);
+    }
+
+    private Object evaluateStddev(Object[] args) {
+        java.math.BigDecimal variance = (java.math.BigDecimal) evaluateVariance(args);
+        return java.math.BigDecimal.valueOf(Math.sqrt(variance.doubleValue()));
+    }
+
+    // ---------------------------------------------------------------------------------
+    // String formatting -- format(template, args...) + concat(...)
+    // ---------------------------------------------------------------------------------
+
+    private Object evaluateStringFormat(Object[] args) {
+        if (args.length < 1) {
+            throw new IllegalArgumentException("format(template, args...) requires a template argument");
+        }
+        if (!(args[0] instanceof String)) {
+            throw new IllegalArgumentException("format: first argument must be a template string");
+        }
+        String template = (String) args[0];
+        StringBuilder out = new StringBuilder(template.length());
+        for (int i = 0; i < template.length(); i++) {
+            char c = template.charAt(i);
+            if (c == '{' && i + 1 < template.length()) {
+                // Find closing brace
+                int end = template.indexOf('}', i + 1);
+                if (end > i) {
+                    String indexStr = template.substring(i + 1, end);
+                    try {
+                        int idx = Integer.parseInt(indexStr);
+                        if (idx + 1 < args.length) {
+                            out.append(args[idx + 1]);
+                        } else {
+                            throw new IllegalArgumentException("format: template references {" + idx
+                                    + "} but only " + (args.length - 1) + " arguments were supplied");
+                        }
+                        i = end;
+                        continue;
+                    } catch (NumberFormatException nfe) {
+                        // not a numeric placeholder; emit verbatim
+                    }
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
+    }
+
+    private Object evaluateConcat(Object[] args) {
+        StringBuilder out = new StringBuilder();
+        for (Object a : args) out.append(a == null ? "" : a.toString());
+        return out.toString();
     }
 
     // Property access implementation

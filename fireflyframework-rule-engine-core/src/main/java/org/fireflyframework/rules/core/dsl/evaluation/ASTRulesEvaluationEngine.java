@@ -29,6 +29,7 @@ import org.fireflyframework.rules.core.dsl.parser.ASTRulesDSLParser;
 import org.fireflyframework.rules.core.dsl.visitor.ActionExecutor;
 import org.fireflyframework.rules.core.dsl.visitor.EvaluationContext;
 import org.fireflyframework.rules.core.dsl.visitor.ExpressionEvaluator;
+import org.fireflyframework.rules.core.observability.RuleEngineMetrics;
 import org.fireflyframework.rules.core.services.ConstantService;
 import org.fireflyframework.rules.core.services.JsonPathService;
 import org.fireflyframework.rules.core.services.RestCallService;
@@ -58,25 +59,29 @@ public class ASTRulesEvaluationEngine {
     private final RestCallService restCallService;
     private final JsonPathService jsonPathService;
     private final CustomFunctionRegistry customFunctions;
+    private final RuleEngineMetrics metrics;
 
     /**
      * Primary constructor for Spring dependency injection.
      * <p>
-     * {@code restCallService}, {@code jsonPathService}, and {@code customFunctions} are
-     * optional. When absent, REST/JSON built-ins fall back to internal default implementations
-     * and no user-registered functions are available.
+     * {@code restCallService}, {@code jsonPathService}, {@code customFunctions}, and
+     * {@code metrics} are optional. When absent, REST/JSON built-ins fall back to internal
+     * default implementations, no user-registered functions are available, and no metrics
+     * are recorded.
      */
     @Autowired
     public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
                                    ConstantService constantService,
                                    @Autowired(required = false) RestCallService restCallService,
                                    @Autowired(required = false) JsonPathService jsonPathService,
-                                   @Autowired(required = false) CustomFunctionRegistry customFunctions) {
+                                   @Autowired(required = false) CustomFunctionRegistry customFunctions,
+                                   @Autowired(required = false) RuleEngineMetrics metrics) {
         this.parser = Objects.requireNonNull(parser, "ASTRulesDSLParser cannot be null");
         this.constantService = Objects.requireNonNull(constantService, "ConstantService cannot be null");
         this.restCallService = restCallService != null ? restCallService : new RestCallServiceImpl();
         this.jsonPathService = jsonPathService != null ? jsonPathService : new JsonPathServiceImpl();
         this.customFunctions = customFunctions;
+        this.metrics = metrics;
     }
 
     /**
@@ -88,6 +93,7 @@ public class ASTRulesEvaluationEngine {
         this.restCallService = new RestCallServiceImpl();
         this.jsonPathService = new JsonPathServiceImpl();
         this.customFunctions = null;
+        this.metrics = null;
     }
 
     /**
@@ -99,7 +105,20 @@ public class ASTRulesEvaluationEngine {
                                     ConstantService constantService,
                                     RestCallService restCallService,
                                     JsonPathService jsonPathService) {
-        this(parser, constantService, restCallService, jsonPathService, null);
+        this(parser, constantService, restCallService, jsonPathService, null, null);
+    }
+
+    /**
+     * Test-friendly 5-arg constructor (parser, constantService, restCallService, jsonPathService,
+     * customFunctions) preserved for backward compatibility with existing tests. Delegates to the
+     * 6-arg form with a {@code null} metrics recorder.
+     */
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
+                                    ConstantService constantService,
+                                    RestCallService restCallService,
+                                    JsonPathService jsonPathService,
+                                    CustomFunctionRegistry customFunctions) {
+        this(parser, constantService, restCallService, jsonPathService, customFunctions, null);
     }
     
     /**
@@ -111,10 +130,13 @@ public class ASTRulesEvaluationEngine {
      */
     public Mono<ASTRulesEvaluationResult> evaluateRulesReactive(String rulesDefinition, Map<String, Object> inputData) {
         long startTime = System.currentTimeMillis();
-        return parser.parseRulesReactive(rulesDefinition)
+        Mono<ASTRulesEvaluationResult> pipeline = parser.parseRulesReactive(rulesDefinition)
+                .doOnSuccess(dsl -> { if (metrics != null) metrics.recordCompilation(true); })
+                .doOnError(e   -> { if (metrics != null) metrics.recordCompilation(false); })
                 .flatMap(rulesDSL -> createEvaluationContextReactive(rulesDSL, inputData)
                         .flatMap(context -> Mono.fromCallable(() -> evaluateRules(rulesDSL, context))
-                                .subscribeOn(Schedulers.boundedElastic())))
+                                .subscribeOn(Schedulers.boundedElastic()))
+                        .doOnSuccess(result -> recordEvaluationOutcome(rulesDSL, result)))
                 .onErrorResume(error -> {
                     long executionTime = System.currentTimeMillis() - startTime;
                     JsonLogger.error(log, "Rules evaluation failed", error);
@@ -129,6 +151,28 @@ public class ASTRulesEvaluationEngine {
                             .executionTimeMs(executionTime)
                             .build());
                 });
+        return pipeline;
+    }
+
+    /**
+     * Record per-rule metrics for a completed evaluation. The rule id is taken from the
+     * rule's {@code name} (or {@code "anonymous"} if not declared). No-op if no
+     * {@link RuleEngineMetrics} bean is wired in.
+     */
+    private void recordEvaluationOutcome(ASTRulesDSL rulesDSL, ASTRulesEvaluationResult result) {
+        if (metrics == null) return;
+        String ruleId = rulesDSL.getName() != null && !rulesDSL.getName().isBlank()
+                ? rulesDSL.getName() : "anonymous";
+        if (!result.isSuccess()) {
+            metrics.recordUnmatched(ruleId);
+        } else if (result.isCircuitBreakerTriggered()) {
+            metrics.recordUnmatched(ruleId);
+        } else if (!result.isConditionResult()) {
+            metrics.recordUnmatched(ruleId);
+        }
+        // Note: matched/error metrics for the success path are recorded by the timer wrapper
+        // when the engine is invoked via timedEvaluation. For direct evaluateRulesReactive
+        // callers we record only the unmatched case here to avoid double-counting.
     }
     
     /**

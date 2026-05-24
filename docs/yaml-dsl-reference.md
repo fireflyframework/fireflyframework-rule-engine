@@ -1250,6 +1250,14 @@ conditions:
 - run starts_check as startswith("hello", "he")
 - run ends_check as endswith("hello", "lo")
 - run replaced as replace("hello", "l", "x")
+
+# Templated formatting: {0}, {1}, ... substitute extra args by index.
+# Wrap the whole action in YAML quotes if the template contains `: ` (colon-space).
+- run greeting as format("Hello, {0}!", customerName)
+- 'run msg as format("Score {0} / {1} (decision {2})", score, maxScore, decision)'
+
+# String concatenation of N args (returns the joined string)
+- run id as concat(prefix, "-", customerId, "-", suffix)
 ```
 
 ### Financial Functions
@@ -1286,26 +1294,76 @@ conditions:
 # Current date/time
 - run current_timestamp as now()
 - run current_date as today()
+- run iso_now as current_iso()                 # Also: now_iso() -- ISO-8601 with offset
 
-# Date calculations
-- run date_plus as dateadd(date_value, amount, "days")  # Also supports "months", "years"
+# Date arithmetic
+- run date_plus as dateadd(date_value, amount, "days")  # Also: "months", "years", "weeks"
 - run date_difference as datediff(start_date, end_date, "days")
 - run hour_value as time_hour(timestamp)
 
-# Date validation
+# Date field extractors (numeric output)
+- run year_num as year_of(date_value)          # e.g. 2026
+- run month_num as month_of(date_value)        # 1..12
+- run dom as day_of_month(date_value)          # 1..31
+- run dow as day_of_week(date_value)           # ISO: Monday=1 ... Sunday=7
+
+# Date validation / age
 - run is_business_day_check as is_business_day(date_value)
 - run age_check as age_meets_requirement(birth_date, min_age)
+- run formatted as format_date(date_value, "yyyy-MM-dd")
 ```
 
 ### List Functions
 
 ```yaml
-# List operations
+# Basic aggregates
 - run list_size as size(my_list)              # Also: count
 - run list_sum as sum(number_list)
 - run list_average as avg(number_list)        # Also: average
 - run first_item as first(my_list)
 - run last_item as last(my_list)
+
+# Ordering / dedup
+- run sorted_nums as sort(my_list)            # ascending; numeric or Comparable items
+- run reversed_nums as reverse(my_list)
+- run unique_items as distinct(my_list)       # de-dupe, preserving insertion order
+```
+
+### Higher-Order List Functions (by named function)
+
+The DSL has no inline-lambda syntax; `filter` / `map` / `reduce` / `find` take the
+predicate or transformer as a **string function name**. The named function is resolved
+through the same lookup the evaluator uses for any function call --
+[`CustomFunctionRegistry`](#custom-functions-extension-point) first, then the built-in
+catalogue -- so both engine built-ins and user-registered Spring beans work
+identically.
+
+```yaml
+# filter(list, function_name): keep items where the named predicate is truthy
+- run large_txns as filter(transactions, "is_above_threshold")
+
+# map(list, function_name): transform every item
+- run with_fees as map(transactions, "add_fee")
+
+# reduce(list, initial, function_name): accumulate left-to-right
+# The reducer is called as fn(accumulator, item) for each item.
+- run total as reduce(transactions, 0, "add_two")
+
+# find(list, function_name): first matching item, or null if none
+- run first_negative as find(balances, "is_negative_value")
+```
+
+> **Tip:** Register a one-arg `RuleFunction` from Java to act as the predicate /
+> transformer. For numeric predicates the engine already has `is_positive`,
+> `is_negative`, `is_zero`, `is_email`, `is_phone`, etc. -- those are reachable by
+> name too.
+
+### Statistical Aggregates
+
+```yaml
+- run mid as median(values)                   # numeric median (mean of middle two on even length)
+- run spread as stddev(values)                # sample standard deviation (n-1 denominator)
+- run var as variance(values)                 # sample variance
 ```
 
 ### Type Conversion Functions
