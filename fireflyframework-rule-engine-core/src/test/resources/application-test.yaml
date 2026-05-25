@@ -4,7 +4,7 @@ spring:
     version: 1.0.0-TEST
     description: Rule Engine Test Configuration
     team:
-      name: Firefly Software Solutions Inc
+      name: Firefly Software Foundation
       email: dev@getfirefly.io
 
   # Disable database for tests

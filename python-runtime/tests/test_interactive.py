@@ -129,7 +129,7 @@ class TestInteractiveFunctions(unittest.TestCase):
         self.assertIn("Test Rule", output)
         self.assertIn("Test Description", output)
         self.assertIn("1.0", output)
-        self.assertIn("Firefly Software Solutions Inc", output)
+        self.assertIn("Firefly Software Foundation", output)
 
     @patch('sys.stdout', new_callable=StringIO)
     def test_print_execution_results(self, mock_stdout):

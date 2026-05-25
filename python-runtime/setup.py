@@ -25,7 +25,7 @@ def read_requirements():
 setup(
     name="firefly-runtime",
     version="1.0.0",
-    author="Firefly Software Solutions Inc",
+    author="Firefly Software Foundation",
     author_email="support@firefly-solutions.com",
     description="Python runtime library for the Firefly Rule Engine",
     long_description=read_readme(),
