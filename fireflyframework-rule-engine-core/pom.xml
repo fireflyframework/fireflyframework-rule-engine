@@ -63,12 +63,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Geolocation and Mathematical Libraries -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
-        </dependency>
-
         <!-- Date/Time Operations -->
         <dependency>
             <groupId>org.threeten</groupId>

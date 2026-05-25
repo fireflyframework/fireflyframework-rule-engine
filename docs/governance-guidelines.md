@@ -243,12 +243,14 @@ else:
 ```
 
 **For Intermediate and Advanced:**
+
+Use the `circuit_breaker` *action* inside `then:` to short-circuit a rule when a
+downstream dependency or risk signal trips:
+
+<!-- doc-test:skip (illustrative fragment, not a complete rule) -->
 ```yaml
-# Add circuit breakers for external dependencies
-circuit_breaker:
-  enabled: true
-  failure_threshold: 3
-  timeout_duration: "10s"
+then:
+  - if downstream_failure_count at_least 3 then circuit_breaker "DOWNSTREAM_UNAVAILABLE"
 ```
 
 ---

@@ -33,8 +33,6 @@ import java.util.ArrayList;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +44,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ASTRulesDSLParser {
 
+    @lombok.Getter
     private final DSLParser dslParser;
     private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     private final ComplexConditionsParser complexConditionsParser;
@@ -110,12 +109,11 @@ public class ASTRulesDSLParser {
     }
 
     /**
-     * Parse rules definition from YAML string to AST model (synchronous)
-     * Uses caching to avoid re-parsing identical YAML content.
-     *
-     * @deprecated Use parseRulesReactive() instead for reactive contexts
+     * Parse rules definition from YAML to AST -- synchronous convenience wrapper around
+     * {@link #parseRulesReactive(String)}. Intended for non-reactive callers (tests,
+     * code generation, validation tools); reactive callers should subscribe to the Mono
+     * directly. Internally blocks; safe to call from non-event-loop threads.
      */
-    @Deprecated
     public ASTRulesDSL parseRules(String rulesDefinition) {
         return parseRulesReactive(rulesDefinition).block();
     }
@@ -124,12 +122,73 @@ public class ASTRulesDSLParser {
      * Internal method to parse rules definition without caching logic
      */
     private ASTRulesDSL parseRulesInternal(String rulesDefinition) throws Exception {
-        // Parse YAML to Map first
+        // Pre-flight lint: catch the most common authoring trap (unquoted colon in action
+        // strings) and surface a clean error pointing to the offending line, instead of
+        // letting SnakeYAML throw a confusing parse error about an unexpected map.
+        lintYaml(rulesDefinition);
+
         @SuppressWarnings("unchecked")
         Map<String, Object> yamlMap = yamlMapper.readValue(rulesDefinition, Map.class);
 
         // Convert to AST model
         return convertToASTModel(yamlMap);
+    }
+
+    /**
+     * Pre-parse lint pass. Scans for action-list entries containing an unquoted ':'
+     * (a string with a colon must be YAML-quoted, otherwise SnakeYAML interprets it as
+     * a sub-map). Throws ASTException with a precise line number when found.
+     */
+    private static final java.util.regex.Pattern ACTION_VERB_LINE = java.util.regex.Pattern.compile(
+            "^\\s*-\\s+(set|calculate|run|call|add|subtract|multiply|divide|append|prepend|remove|log|print|invoke_rule|stop)\\b.*");
+
+    private void lintYaml(String yaml) {
+        String[] lines = yaml.split("\\r?\\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String raw = lines[i];
+            String body = raw;
+            // ignore comments
+            int hash = body.indexOf('#');
+            if (hash >= 0) body = body.substring(0, hash);
+            if (!ACTION_VERB_LINE.matcher(body).matches()) continue;
+            // Strip enclosing single or double quotes on the value (lazy detection: look for
+            // matching quote starting after the verb)
+            String trimmed = body.trim();
+            // Strip "- " prefix
+            String afterDash = trimmed.startsWith("- ") ? trimmed.substring(2).trim() : trimmed;
+            if (afterDash.startsWith("'") || afterDash.startsWith("\"")) continue;
+            // Look for an unquoted ': ' (colon followed by space) which YAML will interpret as map syntax
+            if (containsUnquotedColonSpace(afterDash)) {
+                throw new ASTException(
+                        "YAML lint: line " + (i + 1) + " contains an unquoted ': ' inside an action -- "
+                                + "wrap the action in single quotes. Offending line: '" + raw.trim() + "'");
+            }
+        }
+    }
+
+    private boolean containsUnquotedColonSpace(String s) {
+        boolean inSingle = false, inDouble = false;
+        int parenDepth = 0, braceDepth = 0, bracketDepth = 0;
+        for (int i = 0; i < s.length() - 1; i++) {
+            char c = s.charAt(i);
+            if (c == '\'' && !inDouble) inSingle = !inSingle;
+            else if (c == '"' && !inSingle) inDouble = !inDouble;
+            else if (!inSingle && !inDouble) {
+                switch (c) {
+                    case '(' -> parenDepth++;
+                    case ')' -> parenDepth = Math.max(0, parenDepth - 1);
+                    case '{' -> braceDepth++;
+                    case '}' -> braceDepth = Math.max(0, braceDepth - 1);
+                    case '[' -> bracketDepth++;
+                    case ']' -> bracketDepth = Math.max(0, bracketDepth - 1);
+                    case ':' -> {
+                        if (parenDepth == 0 && braceDepth == 0 && bracketDepth == 0
+                                && s.charAt(i + 1) == ' ') return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -174,26 +233,33 @@ public class ASTRulesDSLParser {
             builder.metadata(metadata);
         }
         
-        // Input/Output definitions
-        // Handle both 'input' and 'inputs' (both can be map format)
-        if (yamlMap.containsKey("input")) {
-            builder.input((Map<String, String>) yamlMap.get("input"));
-        } else if (yamlMap.containsKey("inputs")) {
-            Object inputsObj = yamlMap.get("inputs");
-            if (inputsObj instanceof Map) {
-                // inputs is a map format: inputs: {income: "number", debt: "number"}
-                builder.input((Map<String, String>) inputsObj);
-            } else {
-                // inputs is a list format: inputs: [income, debt, age]
-                List<String> inputsList = convertToStringList(inputsObj);
-                Map<String, String> inputsMap = inputsList.stream()
-                        .collect(Collectors.toMap(
-                                inputName -> inputName,
-                                inputName -> "Object" // Default type since inputs list doesn't specify types
-                        ));
-                builder.input(inputsMap);
+        // Input definitions. Accepts three shapes:
+        //   inputs: [creditScore, age]                          -- list of names (type = Object)
+        //   inputs: {creditScore: "number", age: "number"}      -- name -> type
+        //   inputs: {creditScore: {type: "number", default: 0}} -- name -> {type, default}
+        // The richer form lets callers omit the variable; the declared default is then injected.
+        Map<String, String> resolvedInputs = new java.util.LinkedHashMap<>();
+        Map<String, Object> resolvedDefaults = new java.util.LinkedHashMap<>();
+        Object inputsObj = yamlMap.containsKey("input") ? yamlMap.get("input") : yamlMap.get("inputs");
+        if (inputsObj instanceof Map<?, ?> rawMap) {
+            for (Map.Entry<?, ?> e : rawMap.entrySet()) {
+                String name = String.valueOf(e.getKey());
+                Object value = e.getValue();
+                if (value instanceof Map<?, ?> spec) {
+                    Object type = spec.get("type");
+                    resolvedInputs.put(name, type == null ? "Object" : type.toString());
+                    if (spec.containsKey("default")) {
+                        resolvedDefaults.put(name, spec.get("default"));
+                    }
+                } else {
+                    resolvedInputs.put(name, value == null ? "Object" : value.toString());
+                }
             }
+        } else if (inputsObj instanceof List<?> rawList) {
+            for (Object item : rawList) resolvedInputs.put(String.valueOf(item), "Object");
         }
+        if (!resolvedInputs.isEmpty()) builder.input(resolvedInputs);
+        if (!resolvedDefaults.isEmpty()) builder.inputDefaults(resolvedDefaults);
 
         // Handle both 'output' and 'outputs' (both can be map format)
         if (yamlMap.containsKey("output")) {
@@ -243,15 +309,18 @@ public class ASTRulesDSLParser {
             builder.elseActions(elseActions);
         }
         
-        // Multiple rules syntax
+        // Multiple rules syntax. Sub-rules are sorted by descending priority so a
+        // higher-`priority:` sub-rule evaluates first (DRL-style salience). Ties preserve
+        // YAML declaration order via a stable sort.
         if (yamlMap.containsKey("rules")) {
             List<Map<String, Object>> rulesList = (List<Map<String, Object>>) yamlMap.get("rules");
             List<ASTRulesDSL.ASTSubRule> rules = rulesList.stream()
                     .map(this::convertToSubRule)
                     .collect(Collectors.toList());
+            rules.sort((a, b) -> Integer.compare(b.getPriority(), a.getPriority()));
             builder.rules(rules);
         }
-        
+
         // Complex conditions syntax
         if (yamlMap.containsKey("conditions")) {
             Map<String, Object> conditionsMap = (Map<String, Object>) yamlMap.get("conditions");
@@ -259,14 +328,73 @@ public class ASTRulesDSLParser {
             builder.conditions(conditions);
         }
 
-        // Circuit breaker configuration
-        if (yamlMap.containsKey("circuit_breaker")) {
-            Map<String, Object> circuitBreakerMap = (Map<String, Object>) yamlMap.get("circuit_breaker");
-            ASTRulesDSL.ASTCircuitBreakerConfig circuitBreaker = convertToCircuitBreakerConfig(circuitBreakerMap);
-            builder.circuitBreaker(circuitBreaker);
+        // Decision-table (DMN-style) syntax. Mutually exclusive with the other top-level
+        // syntaxes; if both are present the explicit table takes precedence and the others
+        // are ignored.
+        if (yamlMap.containsKey("decision_table") || yamlMap.containsKey("decisionTable")) {
+            Object dt = yamlMap.containsKey("decision_table") ? yamlMap.get("decision_table") : yamlMap.get("decisionTable");
+            if (dt instanceof Map<?, ?> dtMap) {
+                builder.decisionTable(convertToDecisionTable((Map<String, Object>) dtMap));
+            }
+        }
+
+        // Per-rule wall-clock timeout: accepts "5s", "500ms", or a raw number of milliseconds.
+        if (yamlMap.containsKey("timeout")) {
+            Long ms = parseTimeoutMs(yamlMap.get("timeout"));
+            if (ms != null && ms > 0) builder.timeoutMs(ms);
         }
 
         return builder.build();
+    }
+
+    private Long parseTimeoutMs(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof Number n) return n.longValue();
+        String s = raw.toString().trim().toLowerCase();
+        try {
+            if (s.endsWith("ms")) return Long.parseLong(s.substring(0, s.length() - 2).trim());
+            if (s.endsWith("s")) return (long) (Double.parseDouble(s.substring(0, s.length() - 1).trim()) * 1000L);
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            throw new ASTException("Invalid timeout value '" + raw + "'. Expected number, '5s', or '500ms'.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private ASTRulesDSL.ASTDecisionTable convertToDecisionTable(Map<String, Object> dtMap) {
+        ASTRulesDSL.ASTDecisionTable.ASTDecisionTableBuilder b = ASTRulesDSL.ASTDecisionTable.builder();
+        if (dtMap.containsKey("inputs")) b.inputs(convertToStringList(dtMap.get("inputs")));
+        if (dtMap.containsKey("outputs")) b.outputs(convertToStringList(dtMap.get("outputs")));
+        if (dtMap.containsKey("hit_policy") || dtMap.containsKey("hitPolicy")) {
+            String hp = String.valueOf(dtMap.containsKey("hit_policy") ? dtMap.get("hit_policy") : dtMap.get("hitPolicy"));
+            b.hitPolicy(ASTRulesDSL.HitPolicy.valueOf(hp.toUpperCase()));
+        }
+        List<ASTRulesDSL.ASTDecisionRow> rows = new java.util.ArrayList<>();
+        Object rawRows = dtMap.get("rules");
+        if (rawRows == null) rawRows = dtMap.get("rows");
+        if (rawRows instanceof List<?> list) {
+            for (Object item : list) {
+                if (!(item instanceof Map<?, ?> rowMap)) continue;
+                ASTRulesDSL.ASTDecisionRow.ASTDecisionRowBuilder rb = ASTRulesDSL.ASTDecisionRow.builder();
+                if (rowMap.get("name") instanceof String s) rb.name(s);
+                if (rowMap.get("otherwise") instanceof Boolean ow) rb.otherwise(ow);
+                Object whenObj = rowMap.get("when");
+                if (whenObj != null) {
+                    List<String> whenStrings = convertToStringList(whenObj);
+                    rb.when(whenStrings.stream().map(dslParser::parseCondition).collect(Collectors.toList()));
+                }
+                Object outObj = rowMap.get("then");
+                if (outObj == null) outObj = rowMap.get("outputs");
+                if (outObj instanceof Map<?, ?> outMap) {
+                    Map<String, Object> outs = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : outMap.entrySet()) outs.put(String.valueOf(e.getKey()), e.getValue());
+                    rb.outputs(outs);
+                }
+                rows.add(rb.build());
+            }
+        }
+        b.rows(rows);
+        return b.build();
     }
     
     /**
@@ -290,7 +418,8 @@ public class ASTRulesDSLParser {
         
         builder.name((String) ruleMap.get("name"));
         builder.description((String) ruleMap.get("description"));
-        
+        if (ruleMap.get("priority") instanceof Number n) builder.priority(n.intValue());
+
         // Simple syntax
         if (ruleMap.containsKey("when")) {
             List<String> whenStrings = convertToStringList(ruleMap.get("when"));
@@ -300,22 +429,18 @@ public class ASTRulesDSLParser {
             builder.whenConditions(whenConditions);
         }
         
+        // Sub-rules use the same action-parsing path as the top-level when/then/else so
+        // YAML-collapsed map-syntax actions (e.g. `- forEach x in xs: action`) work in
+        // both contexts. Routing through parseActionList preserves Map entries instead of
+        // calling toString() on them.
         if (ruleMap.containsKey("then")) {
-            List<String> thenStrings = convertToStringList(ruleMap.get("then"));
-            List<Action> thenActions = thenStrings.stream()
-                    .map(dslParser::parseAction)
-                    .collect(Collectors.toList());
-            builder.thenActions(thenActions);
+            builder.thenActions(parseActionList(ruleMap.get("then")));
         }
-        
+
         if (ruleMap.containsKey("else")) {
-            List<String> elseStrings = convertToStringList(ruleMap.get("else"));
-            List<Action> elseActions = elseStrings.stream()
-                    .map(dslParser::parseAction)
-                    .collect(Collectors.toList());
-            builder.elseActions(elseActions);
+            builder.elseActions(parseActionList(ruleMap.get("else")));
         }
-        
+
         // Complex syntax
         if (ruleMap.containsKey("conditions")) {
             Map<String, Object> conditionsMap = (Map<String, Object>) ruleMap.get("conditions");
@@ -373,7 +498,6 @@ public class ASTRulesDSLParser {
             builder.actions(actions);
         }
         
-        // Parse nested conditions - this was the TODO that's now implemented!
         if (actionMap.containsKey("conditions")) {
             Map<String, Object> nestedConditionsMap = (Map<String, Object>) actionMap.get("conditions");
             ASTRulesDSL.ASTConditionalBlock nestedConditions = convertToConditionalBlock(nestedConditionsMap);
@@ -384,7 +508,8 @@ public class ASTRulesDSLParser {
     }
     
     /**
-     * Parse actions list that can contain either simple syntax strings or complex syntax maps
+     * Parse actions list that can contain either simple syntax strings or complex syntax maps.
+     * Throws ASTException on any parse failure rather than silently dropping malformed actions.
      */
     @SuppressWarnings("unchecked")
     private List<Action> parseActionsList(Object actionsObj) {
@@ -392,7 +517,6 @@ public class ASTRulesDSLParser {
             List<Object> actionsList = (List<Object>) actionsObj;
             return actionsList.stream()
                     .map(this::parseActionItem)
-                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         } else if (actionsObj instanceof String) {
             return List.of(dslParser.parseAction((String) actionsObj));
@@ -402,43 +526,42 @@ public class ASTRulesDSLParser {
     }
 
     /**
-     * Parse a single action item (either string or map)
+     * Parse a single action item (either string or map).
+     * Throws ASTException on unknown types or malformed action structures so that
+     * malformed rules surface immediately instead of silently losing actions.
      */
     @SuppressWarnings("unchecked")
     private Action parseActionItem(Object actionObj) {
+        if (actionObj == null) {
+            throw new ASTException("Action entry cannot be null");
+        }
         if (actionObj instanceof String) {
             return dslParser.parseAction((String) actionObj);
         } else if (actionObj instanceof Map) {
             Map<String, Object> actionMap = (Map<String, Object>) actionObj;
 
-            // Check if this is a single-entry map that might be a forEach/while/do-while action
-            // YAML interprets "forEach item in items: action" as {"forEach item in items": "action"}
-            // Same for "while condition: action" as {"while condition": "action"}
-            // Same for "do: action while condition" as {"do": "action while condition"}
+            // Single-entry maps like {"forEach item in items": "action"} originate from YAML
+            // collapsing simple loop syntax. Try the literal reconstruction first; if that
+            // does not match the lexer expectations, fall through to the structured-map path.
             if (actionMap.size() == 1) {
                 Map.Entry<String, Object> entry = actionMap.entrySet().iterator().next();
                 String key = entry.getKey();
                 Object value = entry.getValue();
 
-                // Check if key starts with forEach, while, or do
                 if (key.startsWith("forEach ") || key.startsWith("while ") || key.equals("do")) {
-                    // Reconstruct the action string
                     String actionString = key + ": " + formatActionValue(value);
                     try {
-                        Action action = dslParser.parseAction(actionString);
-                        return action;
+                        return dslParser.parseAction(actionString);
                     } catch (Exception e) {
-                        log.warn("Failed to parse reconstructed loop action: {}", actionString, e);
-                        // Fall through to complex action parsing
+                        log.debug("Reconstructed loop parse failed for '{}', retrying as structured map", actionString);
+                        // Fall through to complex action parsing.
                     }
                 }
             }
 
-            // Complex syntax: { set: { variable: "name", value: "value" } }
             return parseComplexAction(actionMap);
         } else {
-            log.warn("Unexpected action object type: {}", actionObj.getClass());
-            return null;
+            throw new ASTException("Unsupported action entry type: " + actionObj.getClass().getName());
         }
     }
 
@@ -460,191 +583,115 @@ public class ASTRulesDSLParser {
     }
 
     /**
-     * Parse complex syntax action from map
+     * Parse complex map-shaped action and re-emit as the simple-syntax string the lexer expects.
+     * Throws ASTException on any parse failure so malformed entries never silently disappear.
      */
     @SuppressWarnings("unchecked")
     private Action parseComplexAction(Map<String, Object> actionMap) {
-        // Handle different action types
         if (actionMap.containsKey("set")) {
             Map<String, Object> setMap = (Map<String, Object>) actionMap.get("set");
             String variable = (String) setMap.get("variable");
             Object value = setMap.get("value");
-
-            // Convert to simple syntax and parse
-            String simpleSyntax = "set " + variable + " to " + formatValue(value);
-            try {
-                return dslParser.parseAction(simpleSyntax);
-            } catch (Exception e) {
-                log.warn("Failed to parse complex set action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("calculate")) {
+            return parseReconstructed("set " + variable + " to " + formatValue(value), "set", actionMap);
+        }
+        if (actionMap.containsKey("calculate")) {
             Map<String, Object> calcMap = (Map<String, Object>) actionMap.get("calculate");
             String variable = (String) calcMap.get("variable");
             String expression = (String) calcMap.get("expression");
-
-            // Convert to simple syntax and parse
-            String simpleSyntax = "calculate " + variable + " as " + expression;
-            try {
-                return dslParser.parseAction(simpleSyntax);
-            } catch (Exception e) {
-                log.warn("Failed to parse complex calculate action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("run")) {
+            return parseReconstructed("calculate " + variable + " as " + expression, "calculate", actionMap);
+        }
+        if (actionMap.containsKey("run")) {
             Map<String, Object> runMap = (Map<String, Object>) actionMap.get("run");
             String variable = (String) runMap.get("variable");
             String expression = (String) runMap.get("expression");
-
-            // Convert to simple syntax and parse
-            String simpleSyntax = "run " + variable + " as " + expression;
-            try {
-                return dslParser.parseAction(simpleSyntax);
-            } catch (Exception e) {
-                log.warn("Failed to parse complex run action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("call")) {
+            return parseReconstructed("run " + variable + " as " + expression, "run", actionMap);
+        }
+        if (actionMap.containsKey("call")) {
             Map<String, Object> callMap = (Map<String, Object>) actionMap.get("call");
             String function = (String) callMap.get("function");
             List<Object> parameters = (List<Object>) callMap.get("parameters");
-
-            // Convert to simple syntax and parse
             String paramStr = parameters.stream()
                     .map(this::formatValue)
                     .collect(Collectors.joining(", "));
-            String simpleSyntax = "call " + function + " with [" + paramStr + "]";
-            try {
-                return dslParser.parseAction(simpleSyntax);
-            } catch (Exception e) {
-                log.warn("Failed to parse complex call action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("forEach")) {
+            return parseReconstructed("call " + function + " with [" + paramStr + "]", "call", actionMap);
+        }
+        if (actionMap.containsKey("forEach")) {
             Map<String, Object> forEachMap = (Map<String, Object>) actionMap.get("forEach");
             String variable = (String) forEachMap.get("variable");
-            String index = (String) forEachMap.get("index");  // optional
+            String index = (String) forEachMap.get("index");
             Object inValue = forEachMap.get("in");
             Object doValue = forEachMap.get("do");
 
-            // Build simple syntax
-            StringBuilder simpleSyntax = new StringBuilder("forEach ");
-            simpleSyntax.append(variable);
-
+            StringBuilder simpleSyntax = new StringBuilder("forEach ").append(variable);
             if (index != null && !index.trim().isEmpty()) {
                 simpleSyntax.append(", ").append(index);
             }
-
-            simpleSyntax.append(" in ").append(formatValue(inValue));
-            simpleSyntax.append(": ");
-
-            // Parse body actions
-            if (doValue instanceof List) {
-                List<Object> doList = (List<Object>) doValue;
-                List<String> bodyActionStrings = new ArrayList<>();
-
-                for (Object actionObj : doList) {
-                    if (actionObj instanceof String) {
-                        bodyActionStrings.add((String) actionObj);
-                    } else if (actionObj instanceof Map) {
-                        // Recursively parse complex action and convert to string
-                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
-                        if (bodyAction != null) {
-                            bodyActionStrings.add(bodyAction.toDebugString());
-                        }
-                    }
-                }
-
-                simpleSyntax.append(String.join("; ", bodyActionStrings));
-            } else if (doValue instanceof String) {
-                simpleSyntax.append((String) doValue);
-            }
-
-            try {
-                return dslParser.parseAction(simpleSyntax.toString());
-            } catch (Exception e) {
-                log.warn("Failed to parse complex forEach action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("while")) {
+            simpleSyntax.append(" in ").append(formatValue(inValue)).append(": ");
+            appendLoopBody(doValue, simpleSyntax);
+            return parseReconstructed(simpleSyntax.toString(), "forEach", actionMap);
+        }
+        if (actionMap.containsKey("while")) {
             Map<String, Object> whileMap = (Map<String, Object>) actionMap.get("while");
             String condition = (String) whileMap.get("condition");
             Object doValue = whileMap.get("do");
 
-            // Build simple syntax
-            StringBuilder simpleSyntax = new StringBuilder("while ");
-            simpleSyntax.append(condition);
-            simpleSyntax.append(": ");
-
-            // Parse body actions
-            if (doValue instanceof List) {
-                List<Object> doList = (List<Object>) doValue;
-                List<String> bodyActionStrings = new ArrayList<>();
-
-                for (Object actionObj : doList) {
-                    if (actionObj instanceof String) {
-                        bodyActionStrings.add((String) actionObj);
-                    } else if (actionObj instanceof Map) {
-                        // Recursively parse complex action and convert to string
-                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
-                        if (bodyAction != null) {
-                            bodyActionStrings.add(bodyAction.toDebugString());
-                        }
-                    }
-                }
-
-                simpleSyntax.append(String.join("; ", bodyActionStrings));
-            } else if (doValue instanceof String) {
-                simpleSyntax.append((String) doValue);
-            }
-
-            try {
-                return dslParser.parseAction(simpleSyntax.toString());
-            } catch (Exception e) {
-                log.warn("Failed to parse complex while action: {}", actionMap, e);
-                return null;
-            }
-        } else if (actionMap.containsKey("do")) {
+            StringBuilder simpleSyntax = new StringBuilder("while ").append(condition).append(": ");
+            appendLoopBody(doValue, simpleSyntax);
+            return parseReconstructed(simpleSyntax.toString(), "while", actionMap);
+        }
+        if (actionMap.containsKey("do")) {
             Map<String, Object> doWhileMap = (Map<String, Object>) actionMap.get("do");
             Object doValue = doWhileMap.get("actions");
             String condition = (String) doWhileMap.get("while");
 
-            // Build simple syntax
             StringBuilder simpleSyntax = new StringBuilder("do: ");
-
-            // Parse body actions
-            if (doValue instanceof List) {
-                List<Object> doList = (List<Object>) doValue;
-                List<String> bodyActionStrings = new ArrayList<>();
-
-                for (Object actionObj : doList) {
-                    if (actionObj instanceof String) {
-                        bodyActionStrings.add((String) actionObj);
-                    } else if (actionObj instanceof Map) {
-                        // Recursively parse complex action and convert to string
-                        Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
-                        if (bodyAction != null) {
-                            bodyActionStrings.add(bodyAction.toDebugString());
-                        }
-                    }
-                }
-
-                simpleSyntax.append(String.join("; ", bodyActionStrings));
-            } else if (doValue instanceof String) {
-                simpleSyntax.append((String) doValue);
-            }
-
+            appendLoopBody(doValue, simpleSyntax);
             simpleSyntax.append(" while ").append(condition);
+            return parseReconstructed(simpleSyntax.toString(), "do-while", actionMap);
+        }
+        throw new ASTException("Unknown complex action type. Keys present: " + actionMap.keySet());
+    }
 
-            try {
-                return dslParser.parseAction(simpleSyntax.toString());
-            } catch (Exception e) {
-                log.warn("Failed to parse complex do-while action: {}", actionMap, e);
-                return null;
+    /**
+     * Reconstruct a loop body from a List of action entries or a single String into the
+     * semicolon-joined form the ActionParser consumes.
+     */
+    @SuppressWarnings("unchecked")
+    private void appendLoopBody(Object doValue, StringBuilder out) {
+        if (doValue instanceof List) {
+            List<Object> doList = (List<Object>) doValue;
+            List<String> bodyActionStrings = new ArrayList<>();
+            for (Object actionObj : doList) {
+                if (actionObj instanceof String) {
+                    bodyActionStrings.add((String) actionObj);
+                } else if (actionObj instanceof Map) {
+                    Action bodyAction = parseComplexAction((Map<String, Object>) actionObj);
+                    bodyActionStrings.add(bodyAction.toDebugString());
+                } else {
+                    throw new ASTException("Unsupported loop body entry type: "
+                            + (actionObj == null ? "null" : actionObj.getClass().getName()));
+                }
             }
-        } else {
-            log.warn("Unknown complex action type: {}", actionMap.keySet());
-            return null;
+            out.append(String.join("; ", bodyActionStrings));
+        } else if (doValue instanceof String) {
+            out.append((String) doValue);
+        } else if (doValue != null) {
+            throw new ASTException("Unsupported loop body type: " + doValue.getClass().getName());
+        }
+    }
+
+    /**
+     * Parse a reconstructed simple-syntax string, wrapping any lexer/parser failure in an
+     * ASTException tagged with the original complex-form context for easier diagnostics.
+     */
+    private Action parseReconstructed(String simpleSyntax, String actionKind, Map<String, Object> originalMap) {
+        try {
+            return dslParser.parseAction(simpleSyntax);
+        } catch (Exception e) {
+            throw new ASTException(
+                    "Failed to parse complex " + actionKind + " action " + originalMap
+                            + " (reconstructed: " + simpleSyntax + "): " + e.getMessage(),
+                    e);
         }
     }
 
@@ -703,7 +750,6 @@ public class ASTRulesDSLParser {
                             throw e;
                         }
                     })
-                    .filter(action -> action != null)
                     .collect(Collectors.toList());
         } else if (obj instanceof String) {
             return List.of(dslParser.parseAction((String) obj));
@@ -728,33 +774,4 @@ public class ASTRulesDSLParser {
         }
     }
 
-    /**
-     * Convert to circuit breaker configuration
-     */
-    @SuppressWarnings("unchecked")
-    private ASTRulesDSL.ASTCircuitBreakerConfig convertToCircuitBreakerConfig(Map<String, Object> circuitBreakerMap) {
-        ASTRulesDSL.ASTCircuitBreakerConfig.ASTCircuitBreakerConfigBuilder builder =
-                ASTRulesDSL.ASTCircuitBreakerConfig.builder();
-
-        if (circuitBreakerMap.containsKey("enabled")) {
-            builder.enabled((Boolean) circuitBreakerMap.get("enabled"));
-        }
-
-        if (circuitBreakerMap.containsKey("failure_threshold")) {
-            Object threshold = circuitBreakerMap.get("failure_threshold");
-            if (threshold instanceof Number) {
-                builder.failureThreshold(((Number) threshold).intValue());
-            }
-        }
-
-        if (circuitBreakerMap.containsKey("timeout_duration")) {
-            builder.timeoutDuration((String) circuitBreakerMap.get("timeout_duration"));
-        }
-
-        if (circuitBreakerMap.containsKey("recovery_timeout")) {
-            builder.recoveryTimeout((String) circuitBreakerMap.get("recovery_timeout"));
-        }
-
-        return builder.build();
-    }
 }

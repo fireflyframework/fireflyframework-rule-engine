@@ -35,6 +35,7 @@ By the end of this tutorial, you'll understand:
 
 Every Firefly rule follows a consistent structure. Let's start with the basic template:
 
+<!-- doc-test:skip (structural template; placeholder values, not a complete parseable rule) -->
 ```yaml
 # Required metadata
 name: "Rule Name"
@@ -236,6 +237,7 @@ constants:
 
 Our B2B credit scoring will use multiple sequential rules to build a comprehensive assessment. This approach mirrors real-world credit evaluation processes where different aspects are analyzed in stages.
 
+<!-- doc-test:skip (Long multi-stage walkthrough demonstrating tutorial concepts; references many constants that would need to be wired up via ConstantService in a runnable demo. Kept as illustrative reading material. The complete runnable equivalent is exercised by the EndToEndScenarioTest in the test suite.) -->
 ```yaml
 # Multi-stage evaluation using sequential rules
 rules:
@@ -276,8 +278,8 @@ rules:
         )
 
       # Calculate data quality indicators
-      - calculate revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
-      - calculate deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
+      - run revenue_variance as abs(annualRevenue - verifiedAnnualRevenue) / verifiedAnnualRevenue
+      - run deposit_variance as abs(avgMonthlyDeposits - monthlyRevenue) / monthlyRevenue
 
       # Overall data completeness and quality check
       - set data_validation_complete to (
@@ -451,8 +453,11 @@ rules:
       - if NOT meets_financial_requirements then set rejection_reason to "Debt service capacity insufficient"
       - if NOT meets_business_requirements then set rejection_reason to "Business does not meet minimum operating requirements"
 
-      # Generate recommendation summary
-      - calculate recommendation_summary as "Credit Score: " + final_credit_score + ", Risk Level: " + risk_level + ", DTI: " + (debt_to_income_ratio * 100) + "%"
+      # Generate recommendation summary. Uses `run` because the expression mixes strings
+      # with numbers (string concatenation via `+`). Wrap in YAML single-quotes because
+      # the message contains `:` followed by a space, which YAML would otherwise treat
+      # as a key/value separator.
+      - 'run recommendation_summary as "Credit Score - " + tostring(final_credit_score) + ", Risk - " + risk_level + ", DTI - " + tostring(debt_to_income_ratio * 100) + "%"'
 
       - set final_decision_complete to true
 

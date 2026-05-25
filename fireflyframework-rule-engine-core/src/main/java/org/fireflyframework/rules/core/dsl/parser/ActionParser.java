@@ -19,6 +19,7 @@ package org.fireflyframework.rules.core.dsl.parser;
 import org.fireflyframework.rules.core.dsl.action.*;
 import org.fireflyframework.rules.core.dsl.condition.Condition;
 import org.fireflyframework.rules.core.dsl.expression.Expression;
+import org.fireflyframework.rules.core.dsl.expression.VariableExpression;
 import org.fireflyframework.rules.core.dsl.lexer.Token;
 import org.fireflyframework.rules.core.dsl.lexer.TokenType;
 import lombok.extern.slf4j.Slf4j;
@@ -289,17 +290,27 @@ public class ActionParser extends BaseParser {
     }
 
     /**
-     * Parse arithmetic action: "add value to variable", "subtract value from variable", etc.
+     * Parse an arithmetic action.
+     *
+     * <p>{@code add} and {@code subtract} use English-natural order:
+     * <pre>add VALUE to TARGET</pre>
+     * <pre>subtract VALUE from TARGET</pre>
+     *
+     * <p>{@code multiply} and {@code divide} accept <em>both</em> orderings -- the parser
+     * disambiguates by which operand is a bare identifier (the target must be a writable
+     * variable name):
+     * <pre>multiply 1.5 by risk_factor   -- value then target (canonical)</pre>
+     * <pre>multiply risk_factor by 1.5   -- target then value (English-natural)</pre>
+     * Both produce the same {@code ArithmeticAction(MULTIPLY, "risk_factor", LiteralExpression(1.5))}.
      */
     private Action parseArithmeticAction(ArithmeticAction.ArithmeticOperationType operation) {
         Token operationToken = previous();
 
-        // Parse the value expression
+        // Parse the first expression after the action keyword.
         this.expressionParser.setCurrentPosition(this.current);
-        Expression value = this.expressionParser.parseExpression();
+        Expression first = this.expressionParser.parseExpression();
         this.current = this.expressionParser.getCurrentPosition();
 
-        // Expect the preposition (to/from/by)
         String expectedPreposition = operation.getPreposition();
         if (!check(TokenType.TO) && !check(TokenType.FROM) && !check(TokenType.BY)) {
             throw error(
@@ -308,20 +319,34 @@ public class ActionParser extends BaseParser {
                 List.of("Add '" + expectedPreposition + "' after the value")
             );
         }
-
         advance(); // consume the preposition
 
-        if (!check(TokenType.IDENTIFIER)) {
-            throw error(
-                "Expected variable name after '" + expectedPreposition + "'",
-                "PARSE_007",
-                List.of("Add a variable name after '" + expectedPreposition + "'")
-            );
+        // Two patterns are accepted:
+        //   1) VALUE <prep> IDENTIFIER  -- current canonical order, used by add/subtract/multiply/divide
+        //   2) IDENTIFIER <prep> VALUE  -- English-natural order for multiply/divide
+        // If the next token is a bare IDENTIFIER, fall into pattern 1.
+        // Otherwise (number, paren, etc.) and the first expression was itself a bare variable,
+        // fall into pattern 2.
+        if (check(TokenType.IDENTIFIER)) {
+            Token variable = advance();
+            return new ArithmeticAction(operationToken.getLocation(), operation, variable.getLexeme(), first);
         }
 
-        Token variable = advance();
+        boolean swappedAllowed = operation == ArithmeticAction.ArithmeticOperationType.MULTIPLY
+                || operation == ArithmeticAction.ArithmeticOperationType.DIVIDE;
+        if (swappedAllowed && first instanceof VariableExpression firstVar && firstVar.isSimpleVariable()) {
+            // Pattern 2: first was the target, what follows the preposition is the value expression.
+            this.expressionParser.setCurrentPosition(this.current);
+            Expression valueExpr = this.expressionParser.parseExpression();
+            this.current = this.expressionParser.getCurrentPosition();
+            return new ArithmeticAction(operationToken.getLocation(), operation, firstVar.getVariableName(), valueExpr);
+        }
 
-        return new ArithmeticAction(operationToken.getLocation(), operation, variable.getLexeme(), value);
+        throw error(
+            "Expected variable name after '" + expectedPreposition + "'",
+            "PARSE_007",
+            List.of("Add a variable name after '" + expectedPreposition + "'")
+        );
     }
 
     /**

@@ -23,11 +23,13 @@ import org.fireflyframework.rules.core.dsl.condition.Condition;
 import org.fireflyframework.rules.core.dsl.condition.ExpressionCondition;
 import org.fireflyframework.rules.core.dsl.condition.LogicalCondition;
 import org.fireflyframework.rules.core.dsl.expression.*;
+import org.fireflyframework.rules.core.dsl.function.CustomFunctionRegistry;
 import org.fireflyframework.rules.core.dsl.model.ASTRulesDSL;
 import org.fireflyframework.rules.core.dsl.parser.ASTRulesDSLParser;
 import org.fireflyframework.rules.core.dsl.visitor.ActionExecutor;
 import org.fireflyframework.rules.core.dsl.visitor.EvaluationContext;
 import org.fireflyframework.rules.core.dsl.visitor.ExpressionEvaluator;
+import org.fireflyframework.rules.core.observability.RuleEngineMetrics;
 import org.fireflyframework.rules.core.services.ConstantService;
 import org.fireflyframework.rules.core.services.JsonPathService;
 import org.fireflyframework.rules.core.services.RestCallService;
@@ -39,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -55,40 +58,101 @@ public class ASTRulesEvaluationEngine {
     private final ConstantService constantService;
     private final RestCallService restCallService;
     private final JsonPathService jsonPathService;
+    private final CustomFunctionRegistry customFunctions;
+    private final RuleEngineMetrics metrics;
+    private final org.fireflyframework.rules.core.dsl.function.RuleInvoker ruleInvoker;
 
     /**
-     * Primary constructor for Spring dependency injection
-     * RestCallService and JsonPathService are optional and will use defaults if not provided
+     * Primary constructor for Spring dependency injection.
+     * <p>
+     * {@code restCallService}, {@code jsonPathService}, {@code customFunctions}, and
+     * {@code metrics} are optional. When absent, REST/JSON built-ins fall back to internal
+     * default implementations, no user-registered functions are available, and no metrics
+     * are recorded.
      */
     @Autowired
     public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
                                    ConstantService constantService,
                                    @Autowired(required = false) RestCallService restCallService,
-                                   @Autowired(required = false) JsonPathService jsonPathService) {
+                                   @Autowired(required = false) JsonPathService jsonPathService,
+                                   @Autowired(required = false) CustomFunctionRegistry customFunctions,
+                                   @Autowired(required = false) RuleEngineMetrics metrics,
+                                   @Autowired(required = false) org.fireflyframework.rules.core.dsl.function.RuleInvoker ruleInvoker) {
         this.parser = Objects.requireNonNull(parser, "ASTRulesDSLParser cannot be null");
         this.constantService = Objects.requireNonNull(constantService, "ConstantService cannot be null");
         this.restCallService = restCallService != null ? restCallService : new RestCallServiceImpl();
         this.jsonPathService = jsonPathService != null ? jsonPathService : new JsonPathServiceImpl();
+        this.customFunctions = customFunctions;
+        this.metrics = metrics;
+        this.ruleInvoker = ruleInvoker;
     }
 
     /**
-     * Constructor with default REST and JSON services (for testing)
+     * Test-friendly constructor with default REST/JSON services and no custom function registry.
      */
     public ASTRulesEvaluationEngine(ASTRulesDSLParser parser, ConstantService constantService) {
         this.parser = Objects.requireNonNull(parser, "ASTRulesDSLParser cannot be null");
         this.constantService = Objects.requireNonNull(constantService, "ConstantService cannot be null");
         this.restCallService = new RestCallServiceImpl();
         this.jsonPathService = new JsonPathServiceImpl();
+        this.customFunctions = null;
+        this.metrics = null;
+        this.ruleInvoker = null;
+    }
+
+    /**
+     * Test-friendly 4-arg constructor (parser, constantService, restCallService, jsonPathService)
+     * preserved for backward compatibility with existing tests. Delegates to the wider form with
+     * {@code null} for the optional collaborators.
+     */
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
+                                    ConstantService constantService,
+                                    RestCallService restCallService,
+                                    JsonPathService jsonPathService) {
+        this(parser, constantService, restCallService, jsonPathService, null, null, null);
+    }
+
+    /**
+     * Test-friendly 5-arg constructor (parser, constantService, restCallService, jsonPathService,
+     * customFunctions) preserved for backward compatibility with existing tests.
+     */
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
+                                    ConstantService constantService,
+                                    RestCallService restCallService,
+                                    JsonPathService jsonPathService,
+                                    CustomFunctionRegistry customFunctions) {
+        this(parser, constantService, restCallService, jsonPathService, customFunctions, null, null);
+    }
+
+    /**
+     * Test-friendly 6-arg constructor preserved for backward compatibility.
+     */
+    public ASTRulesEvaluationEngine(ASTRulesDSLParser parser,
+                                    ConstantService constantService,
+                                    RestCallService restCallService,
+                                    JsonPathService jsonPathService,
+                                    CustomFunctionRegistry customFunctions,
+                                    RuleEngineMetrics metrics) {
+        this(parser, constantService, restCallService, jsonPathService, customFunctions, metrics, null);
     }
     
     /**
-     * Evaluate rules against the provided input data
+     * Evaluate rules against the provided input data.
+     * <p>
+     * The visitor-based evaluator is synchronous and may transitively block (e.g., built-in
+     * REST/JSON functions). To avoid stalling the Netty event loop, the evaluation step is
+     * scheduled on {@code Schedulers.boundedElastic()} which is designed for blocking work.
      */
     public Mono<ASTRulesEvaluationResult> evaluateRulesReactive(String rulesDefinition, Map<String, Object> inputData) {
         long startTime = System.currentTimeMillis();
-        return parser.parseRulesReactive(rulesDefinition)
+        Mono<ASTRulesEvaluationResult> pipeline = parser.parseRulesReactive(rulesDefinition)
+                .doOnSuccess(dsl -> { if (metrics != null) metrics.recordCompilation(true); })
+                .doOnError(e   -> { if (metrics != null) metrics.recordCompilation(false); })
                 .flatMap(rulesDSL -> createEvaluationContextReactive(rulesDSL, inputData)
-                        .map(context -> evaluateRules(rulesDSL, context)))
+                        .flatMap(context -> applyTimeout(rulesDSL,
+                                        Mono.fromCallable(() -> evaluateRules(rulesDSL, context))
+                                                .subscribeOn(Schedulers.boundedElastic())))
+                        .doOnSuccess(result -> recordEvaluationOutcome(rulesDSL, result)))
                 .onErrorResume(error -> {
                     long executionTime = System.currentTimeMillis() - startTime;
                     JsonLogger.error(log, "Rules evaluation failed", error);
@@ -103,6 +167,42 @@ public class ASTRulesEvaluationEngine {
                             .executionTimeMs(executionTime)
                             .build());
                 });
+        return pipeline;
+    }
+
+    /**
+     * Wrap evaluation in a Reactor timeout if the rule declared one. Timeout failures map
+     * to a clean fail-loud result rather than an uncaught TimeoutException.
+     */
+    private Mono<ASTRulesEvaluationResult> applyTimeout(ASTRulesDSL rulesDSL, Mono<ASTRulesEvaluationResult> mono) {
+        if (rulesDSL.getTimeoutMs() == null || rulesDSL.getTimeoutMs() <= 0) return mono;
+        java.time.Duration limit = java.time.Duration.ofMillis(rulesDSL.getTimeoutMs());
+        return mono.timeout(limit, Mono.just(ASTRulesEvaluationResult.builder()
+                .success(false)
+                .error("Rule '" + (rulesDSL.getName() != null ? rulesDSL.getName() : "anonymous")
+                        + "' exceeded its declared timeout of " + rulesDSL.getTimeoutMs() + "ms")
+                .build()));
+    }
+
+    /**
+     * Record per-rule metrics for a completed evaluation. The rule id is taken from the
+     * rule's {@code name} (or {@code "anonymous"} if not declared). No-op if no
+     * {@link RuleEngineMetrics} bean is wired in.
+     */
+    private void recordEvaluationOutcome(ASTRulesDSL rulesDSL, ASTRulesEvaluationResult result) {
+        if (metrics == null) return;
+        String ruleId = rulesDSL.getName() != null && !rulesDSL.getName().isBlank()
+                ? rulesDSL.getName() : "anonymous";
+        if (!result.isSuccess()) {
+            metrics.recordUnmatched(ruleId);
+        } else if (result.isCircuitBreakerTriggered()) {
+            metrics.recordUnmatched(ruleId);
+        } else if (!result.isConditionResult()) {
+            metrics.recordUnmatched(ruleId);
+        }
+        // Note: matched/error metrics for the success path are recorded by the timer wrapper
+        // when the engine is invoked via timedEvaluation. For direct evaluateRulesReactive
+        // callers we record only the unmatched case here to avoid double-counting.
     }
     
     /**
@@ -113,12 +213,14 @@ public class ASTRulesEvaluationEngine {
     }
     
     /**
-     * Evaluate a parsed ASTRulesDSL against the provided input data
+     * Evaluate a parsed ASTRulesDSL against the provided input data.
+     * Same scheduling guarantees as {@link #evaluateRulesReactive(String, Map)}.
      */
     public Mono<ASTRulesEvaluationResult> evaluateRulesReactive(ASTRulesDSL rulesDSL, Map<String, Object> inputData) {
         long startTime = System.currentTimeMillis();
         return createEvaluationContextReactive(rulesDSL, inputData)
-                .map(context -> evaluateRules(rulesDSL, context))
+                .flatMap(context -> Mono.fromCallable(() -> evaluateRules(rulesDSL, context))
+                        .subscribeOn(Schedulers.boundedElastic()))
                 .onErrorResume(error -> {
                     long executionTime = System.currentTimeMillis() - startTime;
                     JsonLogger.error(log, "Rules evaluation failed", error);
@@ -154,9 +256,13 @@ public class ASTRulesEvaluationEngine {
         boolean conditionResult = false;  // Declare outside try block for circuit breaker catch
 
         try {
-            
+
+            // DMN-style decision table takes precedence when present.
+            if (rulesDSL.isDecisionTable()) {
+                conditionResult = evaluateDecisionTable(rulesDSL.getDecisionTable(), context);
+            }
             // Handle simplified syntax (when/then/else)
-            if (rulesDSL.isSimpleSyntax()) {
+            else if (rulesDSL.isSimpleSyntax()) {
                 conditionResult = evaluateConditions(rulesDSL.getWhenConditions(), context);
 
                 if (conditionResult && rulesDSL.getThenActions() != null) {
@@ -239,21 +345,25 @@ public class ASTRulesEvaluationEngine {
 
         for (int i = 0; i < conditions.size(); i++) {
             Condition condition = conditions.get(i);
+            ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService, customFunctions, ruleInvoker);
+            Object result;
             try {
-                ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService);
-                Object result = condition.accept(evaluator);
-                boolean boolResult = toBoolean(result);
+                result = condition.accept(evaluator);
+            } catch (RuntimeException e) {
+                // Propagate so the outer evaluateRules() handler reports success=false
+                // with the real cause; swallowing here would silently flip rules to the
+                // else branch and mask authoring or data bugs.
+                throw new RuleEvaluationException(
+                        "Failed to evaluate condition " + (i + 1) + " (" + condition.toDebugString() + "): "
+                                + e.getMessage(), e);
+            }
 
-                JsonLogger.info(log, context.getOperationId(),
-                    String.format("Condition %d evaluation: %s = %s", i + 1, condition.toDebugString(), boolResult));
+            boolean boolResult = toBoolean(result);
+            JsonLogger.info(log, context.getOperationId(),
+                String.format("Condition %d evaluation: %s = %s", i + 1, condition.toDebugString(), boolResult));
 
-                if (!boolResult) {
-                    JsonLogger.info(log, context.getOperationId(), "Condition failed - short-circuiting evaluation");
-                    return false;
-                }
-            } catch (Exception e) {
-                String operationId = context.getOperationId();
-                JsonLogger.error(log, operationId, "Error evaluating condition: " + condition.toDebugString(), e);
+            if (!boolResult) {
+                JsonLogger.info(log, context.getOperationId(), "Condition failed - short-circuiting evaluation");
                 return false;
             }
         }
@@ -278,25 +388,100 @@ public class ASTRulesEvaluationEngine {
                 JsonLogger.info(log, context.getOperationId(),
                     String.format("Executing action %d: %s", i + 1, action.toDebugString()));
 
-                ActionExecutor executor = new ActionExecutor(context, restCallService, jsonPathService);
+                ActionExecutor executor = new ActionExecutor(context, restCallService, jsonPathService, customFunctions, ruleInvoker);
                 action.accept(executor);
 
                 JsonLogger.info(log, context.getOperationId(),
                     String.format("Action %d completed successfully", i + 1));
             } catch (org.fireflyframework.rules.core.dsl.exception.CircuitBreakerException e) {
-                // Circuit breaker is a controlled stop, not an error
                 JsonLogger.info(log, context.getOperationId(),
                     "Circuit breaker triggered: " + e.getCircuitBreakerMessage() + " - stopping execution");
-                // Re-throw to stop execution immediately
                 throw e;
-            } catch (Exception e) {
-                String operationId = context.getOperationId();
-                JsonLogger.error(log, operationId, "Error executing action: " + action.toDebugString(), e);
+            } catch (RuntimeException e) {
+                // Fail-fast: the previous swallow-and-continue policy let later actions
+                // read variables that the failing action never set, masking the real cause.
+                // The outer evaluateRules() catch converts this into success=false with the
+                // original message preserved.
+                throw new RuleEvaluationException(
+                        "Failed to execute action " + (i + 1) + " (" + action.toDebugString() + "): "
+                                + e.getMessage(), e);
             }
         }
         JsonLogger.info(log, context.getOperationId(), "All actions completed");
     }
     
+    /**
+     * Evaluate a DMN-style decision table. Walks each row, tests the row's `when` predicates,
+     * and -- depending on the hit policy -- collects, picks first, or enforces uniqueness of
+     * matching rows' outputs. The resulting outputs are written into the context's computed
+     * variables and become part of the rule's output map.
+     */
+    private boolean evaluateDecisionTable(ASTRulesDSL.ASTDecisionTable table, EvaluationContext context) {
+        if (table == null || table.getRows() == null || table.getRows().isEmpty()) {
+            return false;
+        }
+        java.util.List<ASTRulesDSL.ASTDecisionRow> matches = new java.util.ArrayList<>();
+        ASTRulesDSL.ASTDecisionRow fallback = null;
+        for (ASTRulesDSL.ASTDecisionRow row : table.getRows()) {
+            if (row.isOtherwise()) { fallback = row; continue; }
+            boolean ok = row.getWhen() == null || row.getWhen().isEmpty()
+                    || evaluateConditions(row.getWhen(), context);
+            if (ok) matches.add(row);
+        }
+        if (matches.isEmpty() && fallback != null) matches.add(fallback);
+        if (matches.isEmpty()) return false;
+
+        ASTRulesDSL.HitPolicy policy = table.getHitPolicy() != null ? table.getHitPolicy() : ASTRulesDSL.HitPolicy.FIRST;
+        ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService, customFunctions, ruleInvoker);
+        switch (policy) {
+            case FIRST, ANY -> applyDecisionRow(matches.get(0), evaluator, context);
+            case UNIQUE -> {
+                if (matches.size() > 1) {
+                    throw new RuleEvaluationException(
+                            "Decision table hit_policy=UNIQUE expects exactly one matching row but " + matches.size() + " matched");
+                }
+                applyDecisionRow(matches.get(0), evaluator, context);
+            }
+            case COLLECT -> {
+                java.util.Map<String, java.util.List<Object>> grouped = new java.util.LinkedHashMap<>();
+                for (ASTRulesDSL.ASTDecisionRow row : matches) {
+                    if (row.getOutputs() == null) continue;
+                    for (var e : row.getOutputs().entrySet()) {
+                        Object val = evaluateOutputCell(e.getValue(), evaluator);
+                        grouped.computeIfAbsent(e.getKey(), k -> new java.util.ArrayList<>()).add(val);
+                    }
+                }
+                grouped.forEach(context::setComputedVariable);
+            }
+        }
+        return true;
+    }
+
+    private void applyDecisionRow(ASTRulesDSL.ASTDecisionRow row, ExpressionEvaluator evaluator, EvaluationContext context) {
+        if (row.getOutputs() == null) return;
+        for (var e : row.getOutputs().entrySet()) {
+            context.setComputedVariable(e.getKey(), evaluateOutputCell(e.getValue(), evaluator));
+        }
+    }
+
+    private Object evaluateOutputCell(Object raw, ExpressionEvaluator evaluator) {
+        // Numbers, booleans, lists, maps pass through unchanged.
+        // Strings default to literals (DMN-style); prefix with '=' to mark an expression
+        // that should be parsed and evaluated against the current context.
+        if (!(raw instanceof String s)) return raw;
+        String trimmed = s.trim();
+        if (trimmed.startsWith("=")) {
+            String expr = trimmed.substring(1).trim();
+            try {
+                return parser.getDslParser().parseExpression(expr).accept(evaluator);
+            } catch (RuntimeException ex) {
+                throw new RuleEvaluationException(
+                        "Decision table: failed to evaluate expression '" + expr + "': " + ex.getMessage(), ex);
+            }
+        }
+        return s;
+    }
+
     /**
      * Evaluate multiple rules using AST
      */
@@ -354,29 +539,28 @@ public class ASTRulesEvaluationEngine {
         if (conditionalBlock == null || conditionalBlock.getIfCondition() == null) {
             return false;
         }
-        
+
+        ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService, customFunctions, ruleInvoker);
+        Object result;
         try {
-            // Evaluate the condition using AST
-            ExpressionEvaluator evaluator = new ExpressionEvaluator(context, restCallService, jsonPathService);
-            Object result = conditionalBlock.getIfCondition().accept(evaluator);
-            boolean conditionResult = toBoolean(result);
-            
-            // Execute appropriate action block
-            ASTRulesDSL.ASTActionBlock actionBlock = conditionResult ? 
-                    conditionalBlock.getThenBlock() : 
-                    conditionalBlock.getElseBlock();
-            
-            if (actionBlock != null) {
-                executeActionBlock(actionBlock, context);
-            }
-            
-            return conditionResult;
-            
-        } catch (Exception e) {
-            String operationId = context.getOperationId();
-            JsonLogger.error(log, operationId, "Error evaluating conditional block", e);
-            return false;
+            result = conditionalBlock.getIfCondition().accept(evaluator);
+        } catch (RuntimeException e) {
+            // Propagate so the rule reports the real cause instead of silently falling
+            // through to the else branch.
+            throw new RuleEvaluationException(
+                    "Failed to evaluate conditional block 'if' clause: " + e.getMessage(), e);
         }
+        boolean conditionResult = toBoolean(result);
+
+        ASTRulesDSL.ASTActionBlock actionBlock = conditionResult ?
+                conditionalBlock.getThenBlock() :
+                conditionalBlock.getElseBlock();
+
+        if (actionBlock != null) {
+            executeActionBlock(actionBlock, context);
+        }
+
+        return conditionResult;
     }
     
     /**
@@ -395,7 +579,6 @@ public class ASTRulesEvaluationEngine {
             executeActions(actionBlock.getActions(), context);
         }
         
-        // Handle nested conditional blocks - this was the TODO that's now implemented!
         if (actionBlock.getNestedConditions() != null) {
             evaluateConditionalBlock(actionBlock.getNestedConditions(), context);
         }
@@ -407,7 +590,13 @@ public class ASTRulesEvaluationEngine {
     private Mono<EvaluationContext> createEvaluationContextReactive(ASTRulesDSL rulesDSL, Map<String, Object> inputData) {
         JsonLogger.info(log, "createEvaluationContextReactive called for rule: " + rulesDSL.getName());
         String operationId = UUID.randomUUID().toString();
-        EvaluationContext context = new EvaluationContext(operationId, inputData != null ? inputData : new HashMap<>());
+        // Apply declared input defaults for any variable the caller omitted. Caller-provided
+        // values always win; this only fills the gaps so rule authors can rely on the
+        // declared default appearing in the context.
+        Map<String, Object> effectiveInputs = new HashMap<>();
+        if (rulesDSL.getInputDefaults() != null) effectiveInputs.putAll(rulesDSL.getInputDefaults());
+        if (inputData != null) effectiveInputs.putAll(inputData);
+        EvaluationContext context = new EvaluationContext(operationId, effectiveInputs);
 
         // Log the start of rule evaluation early so it appears even if constants loading fails
         JsonLogger.info(log, operationId, "Starting AST-based rule evaluation: " + rulesDSL.getName());
@@ -667,12 +856,6 @@ public class ASTRulesEvaluationEngine {
         }
 
         @Override
-        public Void visitAssignmentAction(AssignmentAction node) {
-            node.getValue().accept(this);
-            return null;
-        }
-
-        @Override
         public Void visitCalculateAction(CalculateAction node) {
             node.getExpression().accept(this);
             return null;
@@ -736,16 +919,6 @@ public class ASTRulesEvaluationEngine {
             }
             return null;
         }
-
-        @Override
-        public Void visitArithmeticExpression(ArithmeticExpression node) {
-            if (node.getOperands() != null) {
-                node.getOperands().forEach(operand -> operand.accept(this));
-            }
-            return null;
-        }
-
-
 
         @Override
         public Void visitArithmeticAction(ArithmeticAction node) {
@@ -817,33 +990,6 @@ public class ASTRulesEvaluationEngine {
                 node.getCondition().accept(this);
             }
 
-            return null;
-        }
-
-        @Override
-        public Void visitJsonPathExpression(JsonPathExpression node) {
-            // Visit the source expression to collect any variable references
-            if (node.getSourceExpression() != null) {
-                node.getSourceExpression().accept(this);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitRestCallExpression(RestCallExpression node) {
-            // Visit all expressions to collect any variable references
-            if (node.getUrlExpression() != null) {
-                node.getUrlExpression().accept(this);
-            }
-            if (node.getBodyExpression() != null) {
-                node.getBodyExpression().accept(this);
-            }
-            if (node.getHeadersExpression() != null) {
-                node.getHeadersExpression().accept(this);
-            }
-            if (node.getTimeoutExpression() != null) {
-                node.getTimeoutExpression().accept(this);
-            }
             return null;
         }
     }

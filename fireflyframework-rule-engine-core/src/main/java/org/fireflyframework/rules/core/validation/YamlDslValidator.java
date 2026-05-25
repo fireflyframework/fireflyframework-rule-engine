@@ -203,10 +203,10 @@ public class YamlDslValidator {
         if (rulesDSL.getInput() != null) {
             for (String inputName : rulesDSL.getInput().keySet()) {
                 if (!namingValidator.isValidInputVariableName(inputName)) {
-                    issues.add(createIssue("NAMING_001", ValidationResult.ValidationSeverity.WARNING,
-                            "Invalid input variable name", 
-                            "Input variable '" + inputName + "' should use camelCase (e.g., creditScore)",
-                            "input." + inputName, "Use camelCase naming"));
+                    issues.add(createIssue("NAMING_001", ValidationResult.ValidationSeverity.ERROR,
+                            "Invalid input variable name",
+                            "Input variable '" + inputName + "' must use camelCase (e.g., creditScore)",
+                            "input." + inputName, "Rename to camelCase"));
                 }
             }
         }
@@ -215,10 +215,10 @@ public class YamlDslValidator {
         if (rulesDSL.getConstants() != null) {
             for (var constant : rulesDSL.getConstants()) {
                 if (constant.getCode() != null && !namingValidator.isValidConstantName(constant.getCode())) {
-                    issues.add(createIssue("NAMING_002", ValidationResult.ValidationSeverity.WARNING,
+                    issues.add(createIssue("NAMING_002", ValidationResult.ValidationSeverity.ERROR,
                             "Invalid constant name",
-                            "Constant '" + constant.getCode() + "' should use UPPER_CASE_WITH_UNDERSCORES",
-                            "constants." + constant.getCode(), "Use UPPER_CASE naming"));
+                            "Constant '" + constant.getCode() + "' must use UPPER_CASE_WITH_UNDERSCORES",
+                            "constants." + constant.getCode(), "Rename to UPPER_CASE"));
                 }
             }
         }
@@ -659,14 +659,6 @@ public class YamlDslValidator {
         }
 
         @Override
-        public Void visitArithmeticExpression(ArithmeticExpression node) {
-            if (node.getOperands() != null) {
-                node.getOperands().forEach(operand -> operand.accept(this));
-            }
-            return null;
-        }
-
-        @Override
         public Void visitComparisonCondition(ComparisonCondition node) {
             if (node.getLeft() != null) node.getLeft().accept(this);
             if (node.getRight() != null) node.getRight().accept(this);
@@ -684,12 +676,6 @@ public class YamlDslValidator {
         @Override
         public Void visitExpressionCondition(ExpressionCondition node) {
             if (node.getExpression() != null) node.getExpression().accept(this);
-            return null;
-        }
-
-        @Override
-        public Void visitAssignmentAction(AssignmentAction node) {
-            if (node.getValue() != null) node.getValue().accept(this);
             return null;
         }
 
@@ -802,32 +788,6 @@ public class YamlDslValidator {
             return null;
         }
 
-        @Override
-        public Void visitJsonPathExpression(JsonPathExpression node) {
-            // Visit the source expression to collect any variable references
-            if (node.getSourceExpression() != null) {
-                node.getSourceExpression().accept(this);
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitRestCallExpression(RestCallExpression node) {
-            // Visit all expressions to collect any variable references
-            if (node.getUrlExpression() != null) {
-                node.getUrlExpression().accept(this);
-            }
-            if (node.getBodyExpression() != null) {
-                node.getBodyExpression().accept(this);
-            }
-            if (node.getHeadersExpression() != null) {
-                node.getHeadersExpression().accept(this);
-            }
-            if (node.getTimeoutExpression() != null) {
-                node.getTimeoutExpression().accept(this);
-            }
-            return null;
-        }
     }
     
     /**
@@ -1064,11 +1024,6 @@ public class YamlDslValidator {
             issues.addAll(validateMetadataSection(rulesDSL.getMetadata()));
         }
 
-        // Validate circuit breaker configuration if present
-        if (rulesDSL.getCircuitBreaker() != null) {
-            issues.addAll(validateCircuitBreakerConfig(rulesDSL.getCircuitBreaker()));
-        }
-
         // Validate when/then structure
         if (rulesDSL.getWhenConditions() != null && !rulesDSL.getWhenConditions().isEmpty()) {
             if (rulesDSL.getThenActions() == null || rulesDSL.getThenActions().isEmpty()) {
@@ -1183,20 +1138,6 @@ public class YamlDslValidator {
                         "metadata.version", "Use format: version: \"1.0.0\""));
             }
         }
-
-        return issues;
-    }
-
-    /**
-     * Validate circuit breaker configuration
-     */
-    private List<ValidationResult.ValidationIssue> validateCircuitBreakerConfig(ASTRulesDSL.ASTCircuitBreakerConfig circuitBreaker) {
-        List<ValidationResult.ValidationIssue> issues = new ArrayList<>();
-
-        // Note: ASTCircuitBreakerConfig is referenced but may not be fully implemented yet
-        // This is a placeholder for when the circuit breaker configuration is fully implemented
-
-        log.debug("Circuit breaker configuration validation - implementation pending");
 
         return issues;
     }

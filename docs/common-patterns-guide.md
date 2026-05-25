@@ -122,19 +122,21 @@ then:
   - set errors to []
   - set valid to true
 
-  # Individual field validation
+  # Individual field validation (each branch is a separate action so the YAML
+  # never has a colon-followed-by-space inside an unquoted action string).
   - if not email is_email then append "Invalid email format" to errors
   - if not phone is_phone then append "Invalid phone number" to errors
   - if not ssn is_ssn then append "Invalid SSN format" to errors
   - if not birthDate is_date then append "Invalid birth date" to errors
 
-  # Update validity based on errors
-  - calculate error_count as size(errors)
+  # Tally errors. `size()` is a function call, so use `run` (not `calculate`).
+  - run error_count as size(errors)
   - if error_count greater_than 0 then set valid to false
 
 else:
   - set valid to false
-  - set errors to ["Missing required fields: email, phone"]
+  # Wrap the action in YAML single-quotes because the message contains a `:`.
+  - 'set errors to ["Missing required fields - email, phone"]'
 
 output:
   valid: boolean
@@ -435,7 +437,7 @@ then:
   - if annualIncome at_least 60000 and annualIncome less_than 100000 then set incomeComponent to 20
   - if annualIncome at_least 40000 and annualIncome less_than 60000 then set incomeComponent to 15
   - if annualIncome less_than 40000 then set incomeComponent to 5
-  
+
   # Debt ratio component (20% weight)
   - calculate debt_ratio as existingDebt / annualIncome
   - if debt_ratio at_most 0.2 then set debtComponent to 20
@@ -449,7 +451,7 @@ then:
   - if employmentYears at_least 1 and employmentYears less_than 2 then set employmentComponent to 5
   - if employmentYears less_than 1 then set employmentComponent to 2
 
-  # Calculate final score
+  # Aggregate score (pure arithmetic, so `calculate` is fine here)
   - calculate risk_score as creditComponent + incomeComponent + debtComponent + employmentComponent
 
   # Determine risk level
@@ -458,11 +460,12 @@ then:
   - if risk_score at_least 40 and risk_score less_than 60 then set risk_level to "HIGH"
   - if risk_score less_than 40 then set risk_level to "VERY_HIGH"
 
-  # Document contributing factors
-  - calculate credit_factor as "Credit Score: " + tostring(creditScore) + " (Weight: " + tostring(creditComponent) + ")"
-  - calculate income_factor as "Annual Income: " + tostring(annualIncome) + " (Weight: " + tostring(incomeComponent) + ")"
-  - calculate debt_factor as "Debt Ratio: " + tostring(debt_ratio) + " (Weight: " + tostring(debtComponent) + ")"
-  - calculate employment_factor as "Employment Years: " + tostring(employmentYears) + " (Weight: " + tostring(employmentComponent) + ")"
+  # Document contributing factors. These build strings via `tostring()` (a function
+  # call) and contain colons, so they use `run` and are wrapped in YAML quotes.
+  - 'run credit_factor as "Credit Score - " + tostring(creditScore) + " (Weight - " + tostring(creditComponent) + ")"'
+  - 'run income_factor as "Annual Income - " + tostring(annualIncome) + " (Weight - " + tostring(incomeComponent) + ")"'
+  - 'run debt_factor as "Debt Ratio - " + tostring(debt_ratio) + " (Weight - " + tostring(debtComponent) + ")"'
+  - 'run employment_factor as "Employment Years - " + tostring(employmentYears) + " (Weight - " + tostring(employmentComponent) + ")"'
 
   - append credit_factor to factors
   - append income_factor to factors
@@ -550,7 +553,7 @@ rules:
 
       - set stage to "COMPLETED"
       - set final_decision_value to decision
-      - calculate processed_at as now()
+      - run processed_at as now()
       - set processing_complete to true
     else:
       - set decision to "REJECTED"
@@ -630,7 +633,7 @@ then:
   # Store metadata
   - set enrichment_sources to sources
   - set enrichment_quality to data_quality
-  - calculate enrichment_timestamp as now()
+  - run enrichment_timestamp as now()
   - set enrichment_customer_id to customerId
 
 else:
