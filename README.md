@@ -5,19 +5,21 @@
 [![Java](https://img.shields.io/badge/Java-21%2B-orange.svg)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green.svg)](https://spring.io/projects/spring-boot)
 
-> YAML DSL-based rule engine with AST processing, audit trails, and reactive APIs for dynamic business rule evaluation.
+> A reactive, YAML-DSL business rule engine for Spring Boot — author rules as human-readable YAML, compile them to an AST, and evaluate them at runtime with caching, audit trails, and optional Python compilation.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+  - [Modules](#modules)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Custom Functions](#custom-functions)
-- [Error Contract](#error-contract)
+  - [Embedded library usage](#embedded-library-usage)
+  - [Stored rules via the service layer](#stored-rules-via-the-service-layer)
+  - [REST API](#rest-api)
 - [Configuration](#configuration)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
@@ -25,275 +27,265 @@
 
 ## Overview
 
-Firefly Framework Rule Engine provides a business rule evaluation system based on a custom YAML DSL. Rules are defined in YAML and parsed into an Abstract Syntax Tree (AST) for efficient evaluation. The engine supports rich conditions, arithmetic, loop constructs, function calls, REST API calls, JsonPath expressions, **decision tables (DMN-style)**, **rule composition (`invoke_rule`)**, and a pluggable function-registry extension point.
+Firefly Framework Rule Engine is a reactive business-rules platform for the [Firefly Framework](https://github.com/fireflyframework). Rules are authored in a purpose-built **YAML DSL** that reads like plain English (`when: [creditScore >= 650]`, `then: [set status to "APPROVED"]`) and are parsed into an **Abstract Syntax Tree (AST)** for fast, repeatable evaluation. The engine externalizes volatile business logic — credit scoring, eligibility, pricing, fee waivers, risk tiers — out of compiled application code so it can change without a redeploy.
 
-The project is structured as a multi-module Maven build with five sub-modules: `interfaces` (DTOs and validation), `models` (R2DBC entities and repositories), `core` (DSL parser, evaluator, services, function registry), `web` (Spring WebFlux REST controllers), and `sdk` (generated client). The engine provides batch evaluation, audit-trail tracking, and a dedicated cache layer.
+The DSL is not a thin `if/else` wrapper. It ships with its own lexer, recursive-descent parser, and visitor-based evaluator supporting comparison/logical/expression conditions, arithmetic and unary expressions, literals and variables, JsonPath extraction, list operations, loop constructs (`while`, `do-while`, `for-each`), function calls, outbound REST calls, and a circuit-breaker action for resilient evaluation. Every evaluation is fully reactive (Project Reactor `Mono`/`Flux`) and non-blocking end to end.
 
-The YAML DSL supports input/computed/constant variable tiers (with declared **input defaults**), 30+ comparison operators, logical composition (and/or/not), loops (`forEach`, `while`, `do-while`), inline conditionals (`if/then/else`), 80+ built-in functions (math, finance, date, string, list, validation, REST, JSON, type-conversion, statistics, advanced math, hashing, logging), **per-rule timeout**, **drools-style sub-rule priority**, and circuit-breaker actions for early termination.
+Beyond raw evaluation, the engine provides rule-definition CRUD persisted via R2DBC, a shared **constants** store for values referenced across rules, **batch evaluation** for high-throughput scoring, an **audit trail** capturing every evaluation, **YAML validation** (syntax + naming conventions) exposed as its own endpoint, and **Python code generation** that compiles a rule to an equivalent Python function for offline execution or external-runtime portability. Rule definitions, parsed ASTs, constants, and validation results are cached through the Firefly cache abstraction (Caffeine by default, Redis-pluggable for distributed deployments).
+
+Where it sits in the framework: the engine builds on `fireflyframework-kernel`, `fireflyframework-cache` (caching), `fireflyframework-r2dbc` (persistence), `fireflyframework-validators`/`fireflyframework-utils` (interfaces), and `fireflyframework-web` (REST). It is consumed by domain- and experience-tier microservices that need configurable decisioning. The repository is published as a multi-module build so consumers can embed only the layers they need.
+
+### Modules
+
+This is an aggregator (`pom` packaging) over five published submodules:
+
+| Module | Artifact | Purpose |
+| --- | --- | --- |
+| Interfaces | `fireflyframework-rule-engine-interfaces` | Public API surface: request/response DTOs (evaluation, CRUD, audit, validation), enums (`ResultType`, `ValueType`), and bean-validation rules. No business logic. |
+| Models | `fireflyframework-rule-engine-models` | R2DBC entities (`RuleDefinition`, `Constant`, `AuditTrail`), reactive repositories, and Flyway migrations for the PostgreSQL schema. |
+| Core | `fireflyframework-rule-engine-core` | The engine itself: DSL lexer/parser/AST/evaluator, the service layer (evaluation, batch, definitions, constants, audit, JsonPath, REST-call), Python compiler, cache & observability auto-configuration, and MapStruct mappers. |
+| Web | `fireflyframework-rule-engine-web` | Spring WebFlux REST controllers exposing evaluation, definitions, constants, batch, validation, audit, and Python-compilation endpoints, with springdoc OpenAPI, actuator, and Prometheus metrics. Also a runnable Spring Boot application. |
+| SDK | `fireflyframework-rule-engine-sdk` | Generated OpenAPI client SDK for calling a deployed rule-engine service from other JVM applications. |
 
 ## Features
 
-- Custom YAML DSL with dedicated lexer + recursive-descent parser + visitor-based evaluator
-- 30+ comparison operators including `between`, `in_list`, `matches`, `is_email`, `is_credit_score`, etc.
-- Logical composition (`and`, `or`, `not`) with short-circuit evaluation
-- Action types: `set`, `calculate`, `run`, `call`, arithmetic (`add`/`subtract`/`multiply`/`divide`), list ops (`append`/`prepend`/`remove`), `forEach`, `while`, `do-while`, `if/then/else`, `circuit_breaker`
-- 80+ built-in functions covering math, advanced math (`exp`, `ln`, `sin`, `cos`, `tan`, `atan2`), hashing (`hash`), string, date, list, statistical (`median`, `stddev`, `variance`, `percentile`), financial, validation, REST, JSON path, type conversion, and structured logging
-- **Decision Tables (DMN-style)**: tabular `decision_table:` block with `FIRST`, `COLLECT`, `ANY`, and `UNIQUE` hit policies; `=` prefix marks expression outputs
-- **Rule Composition**: `invoke_rule(code, "key1", v1, "key2", v2, ...)` calls a stored rule by code and returns its outputs as a Map for chaining
-- **Sub-rule Priority (drools-style salience)**: `priority: N` on each sub-rule; higher priority evaluates first, stable on ties
-- **Input Defaults**: declare `default:` per input in the `inputs:` block; caller-omitted variables are filled in automatically
-- **Per-Rule Timeout**: declare `timeout: 5s` (or `500ms`/raw ms) to bound wall-clock runtime via Reactor `Mono.timeout()`
-- Pre-parse YAML lint catches the most common authoring trap (unquoted `:` inside action lines) before SnakeYAML throws a confusing error
-- Strict naming validation: input variables (`camelCase`), constants (`UPPER_CASE`), and computed variables (`snake_case`) are validation errors when violated
-- Pluggable function registry (`CustomFunctionRegistry`) — register your own `RuleFunction` beans and call them from rules
-- Constants tier loaded from the database with TTL caching; auto-detection of `UPPER_CASE` references in the AST
-- Reactive evaluation API on Project Reactor; synchronous visitor scheduled on `Schedulers.boundedElastic()` so it never blocks the Netty event loop
-- Batch evaluation with bounded concurrency and per-request timeouts
-- Rule-definition CRUD with R2DBC persistence and a cached AST
-- Audit-trail tracking for every evaluation (correlated, PII-masked)
-- YAML DSL validation: syntax, naming-convention, dependency, function-existence
-- RFC 7807 problem-detail error responses; correlation IDs propagated across the chain
-- Fail-loud error contract: malformed rules, unknown functions, type-coercion errors, and bad regexes surface as `success=false` with precise diagnostics rather than silently flipping to the else branch
-- Spring WebFlux controllers; OpenAPI 3 / Swagger UI
+- **YAML DSL** with a dedicated lexer, recursive-descent parser, and `ASTNode`/`ASTVisitor` model — not a template language.
+- **Condition types**: comparison, logical (AND/OR), and expression-based conditions; simple (`when`/`then`/`else`) and complex (`conditions: {if, then, else}`) syntax, plus multi-rule sequences.
+- **Action types**: `set`, `calculate`, arithmetic, conditional branching, list operations, loops (`while`, `do-while`, `for-each`), function calls, `run`, and a circuit-breaker action.
+- **Expression types**: arithmetic, binary, unary, literals, variables, function-call expressions, JsonPath extraction, and outbound REST calls.
+- **Reactive end to end** via Project Reactor — `ASTRulesEvaluationEngine.evaluateRulesReactive(...)` returns a `Mono`.
+- **Python compilation**: `PythonCodeGenerator` / `PythonCompilationService` emit an equivalent Python function for a rule, with its own caching and REST endpoints.
+- **Batch evaluation** (`BatchRulesEvaluationService`) for scoring many input sets in one call, with statistics and health endpoints.
+- **Rule-definition CRUD** persisted via R2DBC, addressable by id or by stable `code`.
+- **Shared constants** store for values reused across rules, with defaults and CRUD.
+- **Audit trail** of every evaluation, queryable by entity, user, or operation type, with cleanup and statistics.
+- **YAML validation** endpoint reporting syntax errors and camelCase/naming-convention violations before a rule goes live.
+- **Caching** of rule definitions, parsed ASTs, constants, and validation results through the Firefly cache abstraction (Caffeine default; Redis-pluggable).
+- **Observability**: `RuleEngineMetrics` (Micrometer), actuator health/info, and Prometheus scrape endpoint.
+- **OpenAPI / Swagger UI** for the full REST surface and a generated client SDK.
 
 ## Requirements
 
-- Java 21+
+- Java 21+ (Java 25 recommended)
 - Spring Boot 3.x
 - Maven 3.9+
-- PostgreSQL database (for rule and audit persistence)
+- PostgreSQL (for rule-definition, constant, and audit-trail persistence via R2DBC + Flyway)
+- A Redis server only if you switch the cache provider from the default Caffeine to Redis for distributed evaluation
 
 ## Installation
 
-The rule engine is a multi-module project. Include the modules you need:
+All versions are managed by the Firefly parent/BOM — omit `<version>` once the parent is inherited (or the BOM imported), and declare only the modules you actually use.
+
+**Embed the engine (DSL + services) in a service:**
 
 ```xml
-<!-- Core evaluation engine -->
 <dependency>
     <groupId>org.fireflyframework</groupId>
     <artifactId>fireflyframework-rule-engine-core</artifactId>
-    <version>26.05.07</version>
+    <!-- version managed by the Firefly parent / BOM -->
 </dependency>
+```
 
-<!-- DTOs and interfaces -->
-<dependency>
-    <groupId>org.fireflyframework</groupId>
-    <artifactId>fireflyframework-rule-engine-interfaces</artifactId>
-    <version>26.05.07</version>
-</dependency>
+**Call a deployed rule-engine service from another application:**
 
-<!-- SDK for client integration -->
+```xml
 <dependency>
     <groupId>org.fireflyframework</groupId>
     <artifactId>fireflyframework-rule-engine-sdk</artifactId>
-    <version>26.05.07</version>
+    <!-- version managed by the Firefly parent / BOM -->
 </dependency>
 ```
 
+To have versions managed for you, inherit the Firefly parent:
+
+```xml
+<parent>
+    <groupId>org.fireflyframework</groupId>
+    <artifactId>fireflyframework-parent</artifactId>
+    <version>26.05.08</version>
+</parent>
+```
+
+`fireflyframework-rule-engine-core` transitively brings in `fireflyframework-rule-engine-interfaces` and `fireflyframework-rule-engine-models`, so adding it is enough to author and evaluate rules. Add `fireflyframework-rule-engine-web` to expose the REST API.
+
 ## Quick Start
 
-### Naming conventions
-The DSL is strict about variable naming so the engine can resolve names without ambiguity:
+### Embedded library usage
 
-| Tier             | Convention   | Example                              |
-| ---------------- | ------------ | ------------------------------------ |
-| Input variables  | `camelCase`  | `creditScore`, `annualIncome`        |
-| Computed values  | `snake_case` | `debt_to_income`, `risk_tier`        |
-| Database constants | `UPPER_CASE` | `MIN_CREDIT_SCORE`, `MAX_DTI`     |
-
-### Example rule (YAML DSL)
+The fastest path: inject `ASTRulesEvaluationEngine` and evaluate a YAML rule string directly — no database required.
 
 ```yaml
+# credit-check.yaml — a rule authored in the YAML DSL
 name: "Credit Eligibility"
-description: "Two-stage credit and income gate"
-version: "1.0.0"
-
-inputs:
-  creditScore: "number"
-  annualIncome: "number"
+description: "Decide loan eligibility from credit score and income"
+inputs: [creditScore, annualIncome]
+output: {approval_status: text, tier: text}
 
 constants:
-  - code: MIN_CREDIT_SCORE
-    defaultValue: 700
-  - code: MIN_INCOME
-    defaultValue: 50000
+  - code: MIN_SCORE
+    defaultValue: 650
 
 when:
-  - creditScore at_least MIN_CREDIT_SCORE
-  - annualIncome at_least MIN_INCOME
-
+  - creditScore >= MIN_SCORE
+  - annualIncome >= 50000
 then:
-  - calculate debt_to_income as 0     # placeholder; real rules would compute this
-  - set tier to if_else(creditScore at_least 800, "PRIME", "PREFERRED")
-  - set eligible to true
-
+  - set approval_status to "APPROVED"
+  - set tier to "premium"
 else:
-  - set tier to "STANDARD"
-  - set eligible to false
-
-output:
-  eligible: eligible
-  tier: tier
+  - set approval_status to "DECLINED"
+  - set tier to "standard"
 ```
-
-### Decision Table example (DMN-style)
-
-```yaml
-name: "Auto Insurance Premium Table"
-
-inputs:
-  creditScore: number
-  age: number
-
-decision_table:
-  inputs: [creditScore, age]
-  outputs: [tier, rate]
-  hit_policy: FIRST
-  rules:
-    - when:
-        - creditScore at_least 750
-        - age between 25 and 65
-      then:
-        tier: "PRIME"
-        rate: 3.0
-    - when:
-        - creditScore at_least 650
-      then:
-        tier: "PREFERRED"
-        rate: 5.0
-    - otherwise: true
-      then:
-        tier: "STANDARD"
-        rate: 9.0
-
-output:
-  tier: tier
-  rate: rate
-```
-
-### Rule Composition example (`invoke_rule`)
-
-```yaml
-name: "Underwriting Orchestrator"
-
-inputs:
-  creditScore: number
-  annualIncome: number
-  existingDebt: number
-
-then:
-  - run scoring as invoke_rule("composite_underwriting",
-        "creditScore", creditScore,
-        "annualIncome", annualIncome,
-        "existingDebt", existingDebt)
-  - set tier to scoring.tier
-  - set approved to scoring.approved
-
-output:
-  tier: tier
-  approved: approved
-```
-
-### Calling the engine from Java
 
 ```java
 @Service
 public class CreditCheckService {
 
-    private final RulesEvaluationService evaluationService;
+    private final ASTRulesEvaluationEngine engine;
+    private final String ruleYaml; // load from classpath, DB, or config
 
-    public Mono<RulesEvaluationResponseDTO> evaluate(Map<String, Object> inputData) {
-        RuleEvaluationByCodeRequestDTO request = RuleEvaluationByCodeRequestDTO.builder()
-                .ruleDefinitionCode("credit_eligibility_v1")
-                .inputData(inputData)
-                .build();
-        return evaluationService.evaluateRuleByCode(request, exchange);
+    public CreditCheckService(ASTRulesEvaluationEngine engine,
+                              @Value("classpath:credit-check.yaml") Resource rule) throws IOException {
+        this.engine = engine;
+        this.ruleYaml = rule.getContentAsString(StandardCharsets.UTF_8);
+    }
+
+    public Mono<ASTRulesEvaluationResult> evaluate(int creditScore, long annualIncome) {
+        Map<String, Object> inputs = Map.of(
+                "creditScore", creditScore,
+                "annualIncome", annualIncome);
+        return engine.evaluateRulesReactive(ruleYaml, inputs);
+        // result.isSuccess(), result.getOutputData(), result.getExecutionTimeMs()
     }
 }
 ```
 
-The same evaluation is also reachable via REST: `POST /api/v1/rules/evaluate/direct` (Base64-encoded YAML), `/evaluate/plain` (raw YAML), or `/evaluate/by-code` (stored rule code).
+### Stored rules via the service layer
 
-## Custom Functions
-
-You can extend the DSL with your own functions without modifying the engine:
+Persist rule definitions and evaluate them by stable `code` (each evaluation is audited automatically):
 
 ```java
-@Configuration
-class MyRulesConfig {
+@Service
+public class DecisionService {
 
-    @Bean
-    CommandLineRunner registerCustomFunctions(CustomFunctionRegistry registry) {
-        return args -> {
-            registry.register("regional_risk", a ->
-                    Set.of("CA", "NY").contains(a[0]) ? 10 : 0);
-            registry.register("fraud_score", a ->
-                    fraudService.score(String.valueOf(a[0])));
-        };
+    private final RulesEvaluationService evaluationService;
+
+    public DecisionService(RulesEvaluationService evaluationService) {
+        this.evaluationService = evaluationService;
+    }
+
+    public Mono<RulesEvaluationResponseDTO> decide(Map<String, Object> inputData,
+                                                   ServerWebExchange exchange) {
+        RuleEvaluationByCodeRequestDTO request = new RuleEvaluationByCodeRequestDTO();
+        request.setRuleDefinitionCode("credit-eligibility");
+        request.setInputData(inputData);          // camelCase keys
+        request.setIncludeDetails(true);
+        return evaluationService.evaluateRuleByCodeWithAudit(request, exchange);
     }
 }
 ```
 
-Then in a rule:
+### REST API
 
-```yaml
-then:
-  - run risk_bump as regional_risk(region)
-  - run fraud as fraud_score(applicantId)
+Run `fireflyframework-rule-engine-web` and the full surface is available under `/api/v1` (Swagger UI at `/swagger-ui.html`):
+
+| Area | Base path |
+| --- | --- |
+| Evaluate (direct / plain YAML / by-code) | `POST /api/v1/rules/evaluate/{direct,plain,by-code}` |
+| Rule definitions (CRUD + validate) | `/api/v1/rules/definitions` |
+| Batch evaluation | `/api/v1/rules/batch/{evaluate,validate,statistics,health}` |
+| Constants | `/api/v1/constants` |
+| YAML validation | `/api/v1/validation/{yaml,syntax}` |
+| Audit trails | `/api/v1/audit/trails` |
+| Python compilation | `/api/v1/python/compile` |
+
+```bash
+curl -X POST http://localhost:8080/api/v1/rules/evaluate/by-code \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "ruleDefinitionCode": "credit-eligibility",
+        "inputData": { "creditScore": 720, "annualIncome": 84000 },
+        "includeDetails": true
+      }'
 ```
-
-Custom functions are checked **before** the built-in catalog (so they can shadow a built-in if you choose). Names are matched case-insensitively. The same function is callable from both expression contexts (`run`/`calculate`) and `call`-action contexts.
-
-## Error Contract
-
-The engine fails loud by design — errors are never silently swallowed:
-
-| Situation                                    | Result                                                                      |
-| -------------------------------------------- | --------------------------------------------------------------------------- |
-| Unknown function name                        | `IllegalArgumentException` -> rule reports `success=false` with the name    |
-| Non-numeric string in arithmetic             | `IllegalArgumentException` naming the operand                               |
-| Bad regex pattern in `matches`               | `IllegalArgumentException` naming the pattern                               |
-| Missing bean property                        | `IllegalArgumentException` naming the class + property                      |
-| Unknown `is_valid` validation type           | `IllegalArgumentException` listing supported types                          |
-| Action throws during execution               | Rule reports `success=false` with action index + debug string + cause       |
-| Condition throws during evaluation           | Rule reports `success=false` (does not silently flip to the else branch)    |
-| `circuit_breaker` action triggered           | Rule reports `success=true` with `circuitBreakerTriggered=true` + message   |
-| REST function HTTP failure                   | Returns a structured `{success:false, error:true, message}` map (chain-friendly) |
-| `getCachedAST` / cache read failure          | Treated as cache miss (parse path); logged via `doOnError`                  |
-| `set computed_var to null` (e.g., `json_get` missing path) | Variable is stored as null; the rule succeeds                  |
 
 ## Configuration
 
+The rule engine reads cache settings under the `firefly.rules.cache` prefix and uses standard Spring `spring.r2dbc` / `spring.flyway` properties for persistence. Caching defaults to Caffeine; the dedicated rule-engine cache manager (`RuleEngineCacheAutoConfiguration`) keys entries under `firefly:rules:engine`. The defaults below are the real values from the bundled `application.yaml`:
+
 ```yaml
 firefly:
-  rule-engine:
+  rules:
     cache:
-      enabled: true
-      ttl: 10m
-    audit:
-      enabled: true
+      provider: CAFFEINE          # CAFFEINE (default, local) or REDIS (distributed)
+      caffeine:
+        ast-cache:                # parsed AST models
+          maximum-size: 1000
+          expire-after-write: 2h
+          expire-after-access: 30m
+        constants-cache:
+          maximum-size: 500
+          expire-after-write: 15m
+          expire-after-access: 5m
+        rule-definitions-cache:
+          maximum-size: 200
+          expire-after-write: 10m
+          expire-after-access: 3m
+        validation-cache:
+          maximum-size: 100
+          expire-after-write: 5m
+          expire-after-access: 2m
+      # redis:                    # uncomment to use a distributed cache
+      #   host: ${REDIS_HOST:localhost}
+      #   port: ${REDIS_PORT:6379}
+      #   password: ${REDIS_PASSWORD:}
+      #   database: ${REDIS_DATABASE:0}
+      #   timeout: 5s
 
 spring:
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/rules
+    url: r2dbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    pool:
+      initial-size: 10
+      max-size: 50
+      min-idle: 5
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 ```
+
+Key properties:
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `firefly.rules.cache.provider` | `CAFFEINE` | Cache backend for definitions/ASTs/constants/validation. Set to `REDIS` for distributed rule evaluation across instances. |
+| `firefly.rules.cache.caffeine.ast-cache.*` | size 1000, write 2h | Sizing/TTL for the parsed-AST cache (the hottest cache). |
+| `firefly.rules.cache.caffeine.rule-definitions-cache.*` | size 200, write 10m | Cache of stored rule definitions loaded from the database. |
+| `firefly.observability.metrics.enabled` | `true` | Gates registration of `RuleEngineMetrics` (Micrometer). |
+| `spring.r2dbc.*` / `spring.flyway.*` | see above | PostgreSQL connection, pool sizing, and migration of the rule/constant/audit schema. |
+
+The web module ships `dev`, `testing`, and `prod` profiles that tune pool sizing and cache capacity. Cache TTLs and pool settings have no hard-coded annotations — they are plain Spring config and can be overridden per environment or via environment variables.
 
 ## Documentation
 
-Additional documentation is available in the [docs/](docs/) directory:
+The repository ships an extensive `docs/` set:
 
 - [Quick Start Guide](docs/quick-start-guide.md)
 - [Architecture](docs/architecture.md)
-- [Yaml Dsl Reference](docs/yaml-dsl-reference.md)
-- [Migration Guide](docs/migration-guide.md) -- mapping from Drools / Easy Rules / hand-rolled if/else services
-- [Api Documentation](docs/api-documentation.md)
+- [YAML DSL Reference](docs/yaml-dsl-reference.md)
+- [API Documentation](docs/api-documentation.md)
 - [Developer Guide](docs/developer-guide.md)
 - [Configuration Examples](docs/configuration-examples.md)
 - [Common Patterns Guide](docs/common-patterns-guide.md)
 - [Inputs Section Guide](docs/inputs-section-guide.md)
+- [Python Compilation Complete Guide](docs/python-compilation-complete-guide.md)
 - [Performance Optimization](docs/performance-optimization.md)
 - [Governance Guidelines](docs/governance-guidelines.md)
 - [B2B Credit Scoring Tutorial](docs/b2b-credit-scoring-tutorial.md)
+
+For the framework-wide picture, see the [Firefly Framework organization](https://github.com/fireflyframework) and its module catalog.
 
 ## Contributing
 
